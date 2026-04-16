@@ -1,11 +1,9 @@
-import { readFile, writeFile } from 'fs/promises'
 import type { ScanPayload } from '@/lib/types'
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
 import { requireSession } from '@/lib/auth/require-session'
+import { getSnapshot, setSnapshot } from '@/lib/snapshots'
 
 export const dynamic = 'force-dynamic'
-
-const SCAN_FILE = '/tmp/aiedge-scan-latest.json'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -23,32 +21,11 @@ const EMPTY_PAYLOAD: ScanPayload = {
   nextScan: '',
 }
 
-// Module-level cache — persists across warm invocations on the same
-// serverless instance. Scanner POSTs every 5 min which keeps the
-// function warm, so GET from the browser hits the same instance.
-let cachedPayload: ScanPayload | null = null
-
 export async function GET(request: Request) {
   const unauth = await requireSession(request)
   if (unauth) return unauth
-  // 1. Try in-memory cache first (fastest, works on warm instances)
-  if (cachedPayload) {
-    return Response.json(cachedPayload, { headers: CORS_HEADERS })
-  }
-  // 2. Fall back to /tmp file (works within same instance lifecycle)
-  try {
-    const raw = await readFile(SCAN_FILE, 'utf-8')
-    const payload: ScanPayload = JSON.parse(raw)
-    cachedPayload = payload // warm the cache
-    return Response.json(payload, { headers: CORS_HEADERS })
-  } catch (err: unknown) {
-    const code = (err as NodeJS.ErrnoException).code
-    if (code === 'ENOENT') {
-      return Response.json(EMPTY_PAYLOAD, { headers: CORS_HEADERS })
-    }
-    const message = err instanceof Error ? err.message : String(err)
-    return Response.json({ error: message }, { status: 500, headers: CORS_HEADERS })
-  }
+  const payload = await getSnapshot<ScanPayload>('scan', EMPTY_PAYLOAD)
+  return Response.json(payload, { headers: CORS_HEADERS })
 }
 
 export async function POST(request: Request) {
@@ -56,9 +33,7 @@ export async function POST(request: Request) {
   if (unauth) return unauth
   try {
     const payload: ScanPayload = await request.json()
-    // Write to both in-memory cache and file
-    cachedPayload = payload
-    await writeFile(SCAN_FILE, JSON.stringify(payload), 'utf-8')
+    await setSnapshot('scan', payload)
     return Response.json({ ok: true }, { status: 200, headers: CORS_HEADERS })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)

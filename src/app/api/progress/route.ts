@@ -1,4 +1,3 @@
-import { readFile, writeFile } from 'fs/promises'
 import { readFileSync, existsSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -11,10 +10,9 @@ import type {
 } from '@/lib/types'
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
 import { requireSession } from '@/lib/auth/require-session'
+import { getSnapshot, setSnapshot } from '@/lib/snapshots'
 
 export const dynamic = 'force-dynamic'
-
-const PROGRESS_FILE = '/tmp/aiedge-progress-latest.json'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -38,33 +36,24 @@ const EMPTY_PAYLOAD: ProgressPayload = {
   syncedAt: '',
 }
 
-let cachedPayload: ProgressPayload | null = null
-
 export async function GET(request: Request) {
   const unauth = await requireSession(request)
   if (unauth) return unauth
-  if (cachedPayload) {
-    return Response.json(cachedPayload, { headers: CORS_HEADERS })
+
+  const payload = await getSnapshot<ProgressPayload>('progress', EMPTY_PAYLOAD)
+
+  // Dev convenience: if nothing has been synced yet, scrape from local
+  // self-eval directory so the /progress page has something to render.
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    payload.syncedAt === '' &&
+    payload.scoreboard.length === 0
+  ) {
+    const fromDisk = loadFromFilesystem()
+    if (fromDisk) return Response.json(fromDisk, { headers: CORS_HEADERS })
   }
-  try {
-    const raw = await readFile(PROGRESS_FILE, 'utf-8')
-    const payload: ProgressPayload = JSON.parse(raw)
-    cachedPayload = payload
-    return Response.json(payload, { headers: CORS_HEADERS })
-  } catch (err: unknown) {
-    const code = (err as NodeJS.ErrnoException).code
-    if (code === 'ENOENT' && process.env.NODE_ENV !== 'production') {
-      const fromDisk = loadFromFilesystem()
-      if (fromDisk) {
-        return Response.json(fromDisk, { headers: CORS_HEADERS })
-      }
-    }
-    if (code === 'ENOENT') {
-      return Response.json(EMPTY_PAYLOAD, { headers: CORS_HEADERS })
-    }
-    const message = err instanceof Error ? err.message : String(err)
-    return Response.json({ error: message }, { status: 500, headers: CORS_HEADERS })
-  }
+
+  return Response.json(payload, { headers: CORS_HEADERS })
 }
 
 export async function POST(request: Request) {
@@ -72,8 +61,7 @@ export async function POST(request: Request) {
   if (unauth) return unauth
   try {
     const payload: ProgressPayload = await request.json()
-    cachedPayload = payload
-    await writeFile(PROGRESS_FILE, JSON.stringify(payload), 'utf-8')
+    await setSnapshot('progress', payload)
     return Response.json({ ok: true }, { status: 200, headers: CORS_HEADERS })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
@@ -225,4 +213,3 @@ function aggregateCategoryAccuracy(entries: ScoreboardEntry[]): {
   }
   return acc
 }
-

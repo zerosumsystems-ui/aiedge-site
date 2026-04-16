@@ -1,11 +1,9 @@
-import { readFile, writeFile } from 'fs/promises'
 import type { TradeRead, TradesPayload } from '@/lib/types'
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
 import { requireSession } from '@/lib/auth/require-session'
+import { getSnapshot, setSnapshot } from '@/lib/snapshots'
 
 export const dynamic = 'force-dynamic'
-
-const TRADES_FILE = '/tmp/aiedge-trades-latest.json'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -14,8 +12,6 @@ const CORS_HEADERS = {
 }
 
 const EMPTY_PAYLOAD: TradesPayload = { trades: [], syncedAt: '', tradeCount: 0 }
-
-let cachedPayload: TradesPayload | null = null
 
 export async function GET(request: Request) {
   const unauth = await requireSession(request)
@@ -27,7 +23,7 @@ export async function GET(request: Request) {
   const setup = searchParams.get('setup')
   const agreement = searchParams.get('agreement')
 
-  const payload = await getPayload()
+  const payload = await getSnapshot<TradesPayload>('trades', EMPTY_PAYLOAD)
   let trades = payload.trades
 
   if (ticker) trades = trades.filter((t) => t.ticker.toLowerCase() === ticker.toLowerCase())
@@ -55,8 +51,7 @@ export async function POST(request: Request) {
         syncedAt: body.syncedAt || new Date().toISOString(),
         tradeCount: body.trades.length,
       }
-      cachedPayload = payload
-      await writeFile(TRADES_FILE, JSON.stringify(payload), 'utf-8')
+      await setSnapshot('trades', payload)
       return Response.json(
         { ok: true, tradeCount: payload.tradeCount },
         { status: 200, headers: CORS_HEADERS }
@@ -65,7 +60,7 @@ export async function POST(request: Request) {
 
     // Single trade — append or update by id
     const trade: TradeRead = body
-    const payload = await getPayload()
+    const payload = await getSnapshot<TradesPayload>('trades', { ...EMPTY_PAYLOAD })
     const existing = payload.trades.findIndex((t) => t.id === trade.id)
     if (existing >= 0) {
       payload.trades[existing] = trade
@@ -74,8 +69,7 @@ export async function POST(request: Request) {
     }
     payload.syncedAt = new Date().toISOString()
     payload.tradeCount = payload.trades.length
-    cachedPayload = payload
-    await writeFile(TRADES_FILE, JSON.stringify(payload), 'utf-8')
+    await setSnapshot('trades', payload)
     return Response.json(
       { ok: true, id: trade.id, tradeCount: payload.tradeCount },
       { status: 200, headers: CORS_HEADERS }
@@ -88,16 +82,4 @@ export async function POST(request: Request) {
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS })
-}
-
-async function getPayload(): Promise<TradesPayload> {
-  if (cachedPayload) return cachedPayload
-  try {
-    const raw = await readFile(TRADES_FILE, 'utf-8')
-    const payload: TradesPayload = JSON.parse(raw)
-    cachedPayload = payload
-    return payload
-  } catch {
-    return { ...EMPTY_PAYLOAD }
-  }
 }

@@ -1,10 +1,8 @@
-import { readFile, writeFile } from 'fs/promises'
 import type { VaultPayload } from '@/lib/types'
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
+import { getSnapshot, setSnapshot } from '@/lib/snapshots'
 
 export const dynamic = 'force-dynamic'
-
-const VAULT_FILE = '/tmp/aiedge-vault-latest.json'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -18,13 +16,11 @@ const EMPTY_PAYLOAD: VaultPayload = {
   noteCount: 0,
 }
 
-let cachedPayload: VaultPayload | null = null
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const slug = searchParams.get('slug')
 
-  const payload = await getPayload()
+  const payload = await getSnapshot<VaultPayload>('vault', EMPTY_PAYLOAD)
 
   if (slug) {
     const note = payload.notes.find((n) => n.slug === slug)
@@ -42,8 +38,7 @@ export async function POST(request: Request) {
   if (unauth) return unauth
   try {
     const payload: VaultPayload = await request.json()
-    cachedPayload = payload
-    await writeFile(VAULT_FILE, JSON.stringify(payload), 'utf-8')
+    await setSnapshot('vault', payload)
     return Response.json({ ok: true, noteCount: payload.noteCount }, { status: 200, headers: CORS_HEADERS })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
@@ -53,16 +48,4 @@ export async function POST(request: Request) {
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS })
-}
-
-async function getPayload(): Promise<VaultPayload> {
-  if (cachedPayload) return cachedPayload
-  try {
-    const raw = await readFile(VAULT_FILE, 'utf-8')
-    const payload: VaultPayload = JSON.parse(raw)
-    cachedPayload = payload
-    return payload
-  } catch {
-    return EMPTY_PAYLOAD
-  }
 }
