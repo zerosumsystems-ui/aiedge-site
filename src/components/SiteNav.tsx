@@ -7,6 +7,8 @@ const NAV_ITEMS = [
   { href: '/', label: 'Scanner' },
   { href: '/patterns', label: 'Patterns' },
   { href: '/history', label: 'History' },
+  { href: '/trades', label: 'Trades' },
+  { href: '/journal', label: 'Journal' },
   { href: '/knowledge', label: 'Knowledge' },
 ]
 

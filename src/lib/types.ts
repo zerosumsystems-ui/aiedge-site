@@ -138,3 +138,73 @@ export interface PatternLabPayload {
   byTimeOfDay: TimeBucket[]
   recentDetections: RecentDetection[]
 }
+
+/** Trade Catalog types */
+
+export type TradeDecision = "BUY" | "SELL" | "WAIT" | "AVOID"
+export type TradeOutcome = "win" | "loss" | "scratch" | "pending" | "no_trade"
+export type AgreementLevel = "AGREE" | "PARTIAL" | "MINOR" | "MAJOR" | "INVERTED"
+
+export interface TradeRead {
+  id: string                    // "2026-04-15_IONQ"
+  ticker: string
+  date: string                  // "2026-04-15"
+  time: string                  // "12:55 PM ET"
+
+  // Scanner's view
+  rankScanner: number
+  urgScanner: number
+  signalScanner: string
+
+  // Brooks read
+  phaseBrooks: string           // "bear_spike", "trading_range", etc.
+  alwaysInBrooks: string        // "short_moderate", "long_weak"
+  strengthNet: string           // "short_4", "balanced"
+  setupBrooks: string           // "h2", "l2", "none"
+  signalBarIndex: number | null
+  stopPrice: number | null
+  targetPrice: number | null
+  decisionBrooks: TradeDecision
+  probabilityBrooks: number
+  rrBrooks: number
+  qualityScore: number          // 0–10
+
+  // Comparison
+  agreementVsScanner: AgreementLevel
+  agreementReason: string
+
+  // Narrative
+  contextMarkdown: string       // full Brooks read (markdown)
+  annotationNotes: string       // trendline/signal bar notes
+
+  // Outcome (added post-hoc)
+  outcome: TradeOutcome
+  chartBase64?: string
+}
+
+export interface TradesPayload {
+  trades: TradeRead[]
+  syncedAt: string
+  tradeCount: number
+}
+
+/** Journal types */
+
+export type JournalEntryType = "daily_read" | "mistake" | "lesson" | "audit_note"
+
+export interface JournalEntry {
+  id: string                    // "2026-04-15_lesson_L1"
+  date: string
+  type: JournalEntryType
+  title: string
+  content: string               // markdown
+  linkedTickers: string[]
+  linkedVaultNotes: string[]    // vault slugs
+  source: string                // "audit", "self_eval", "manual"
+}
+
+export interface JournalPayload {
+  entries: JournalEntry[]
+  syncedAt: string
+  entryCount: number
+}
