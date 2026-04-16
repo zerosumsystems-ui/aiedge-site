@@ -39,8 +39,15 @@ export default function JournalPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-48px)]">
-        <div className="text-sub text-sm">Loading journal...</div>
+      <div className="max-w-3xl mx-auto p-6">
+        <div className="skeleton h-8 w-32 mb-2" />
+        <div className="skeleton h-4 w-64 mb-6" />
+        <div className="flex gap-2 mb-6">
+          {Array.from({ length: 5 }).map((_, i) => <div key={i} className="skeleton h-8 w-20" />)}
+        </div>
+        <div className="space-y-2">
+          {Array.from({ length: 10 }).map((_, i) => <div key={i} className="skeleton h-12" />)}
+        </div>
       </div>
     )
   }

@@ -4,7 +4,7 @@ Sync trade reads from Brooks audit and lessons from self-eval to aiedge.trade.
 
 Usage:
     python3 scripts/sync_trades.py                     # local dev
-    python3 scripts/sync_trades.py https://aiedge.trade # production
+    python3 scripts/sync_trades.py https://www.aiedge.trade # production
 """
 
 import json

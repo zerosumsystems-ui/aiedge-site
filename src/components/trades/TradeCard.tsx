@@ -46,7 +46,7 @@ export function TradeCard({ trade }: { trade: TradeRead }) {
   } = trade
 
   return (
-    <details className="bg-surface border border-border rounded-lg mb-2 overflow-hidden group">
+    <details className="bg-surface border border-border rounded-lg mb-2 overflow-hidden group hover:border-border-hover hover:bg-surface-hover">
       <summary className="list-none cursor-pointer p-3 flex items-center gap-3 select-none [&::-webkit-details-marker]:hidden">
         {/* Ticker + date */}
         <div className="min-w-[80px]">
@@ -89,7 +89,7 @@ export function TradeCard({ trade }: { trade: TradeRead }) {
       </summary>
 
       {/* Expanded content */}
-      <div className="border-t border-border p-4 space-y-4">
+      <div className="border-t border-border p-4 space-y-4 animate-[fadeIn_0.15s_ease]">
         {/* Key metrics row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MetricBox label="Always-in" value={alwaysInBrooks.replace(/_/g, ' ')} />

@@ -16,7 +16,7 @@ export function SiteNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="h-12 flex items-center px-4 border-b border-border bg-surface shrink-0">
+    <nav className="h-12 flex items-center px-4 border-b border-border bg-surface/80 backdrop-blur-sm shrink-0 sticky top-0 z-40">
       <Link href="/" className="text-sm font-bold text-teal tracking-tight mr-6">
         AI Edge
       </Link>

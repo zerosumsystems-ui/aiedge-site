@@ -17,7 +17,7 @@ export function JournalCard({ entry }: { entry: JournalEntry }) {
   const style = TYPE_STYLES[type] || TYPE_STYLES.audit_note
 
   return (
-    <details className="bg-surface border border-border rounded-lg mb-2 overflow-hidden">
+    <details className="bg-surface border border-border rounded-lg mb-2 overflow-hidden hover:border-border-hover hover:bg-surface-hover">
       <summary className="list-none cursor-pointer p-3 flex items-center gap-3 select-none [&::-webkit-details-marker]:hidden">
         {/* Type badge */}
         <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide border border-current/20 whitespace-nowrap ${style.bg} ${style.text}`}>
@@ -44,7 +44,7 @@ export function JournalCard({ entry }: { entry: JournalEntry }) {
       </summary>
 
       {/* Expanded content */}
-      <div className="border-t border-border p-4">
+      <div className="border-t border-border p-4 animate-[fadeIn_0.15s_ease]">
         <div className="prose-sm max-w-3xl">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}

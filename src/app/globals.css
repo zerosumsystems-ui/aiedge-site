@@ -1,23 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #1a1a1a;
-  --surface: #242424;
-  --border: #333;
-  --text: #e0e0e0;
-  --sub: #888;
+  --bg: #141414;
+  --surface: #1e1e1e;
+  --surface-hover: #262626;
+  --border: #2a2a2a;
+  --border-hover: #3a3a3a;
+  --text: #e8e8e8;
+  --sub: #808080;
   --teal: #00c896;
   --red: #e05555;
   --yellow: #f5c842;
   --orange: #f5a623;
-  --gray: #555;
+  --gray: #4a4a4a;
   --radius: 8px;
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
   --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
   --color-text: var(--text);
   --color-sub: var(--sub);
   --color-teal: var(--teal);
@@ -32,6 +36,38 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-family: var(--font-geist-sans), -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
   font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Smooth transitions on all interactive elements */
+details { transition: all 0.15s ease; }
+details[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+summary { transition: background-color 0.15s ease, border-color 0.15s ease; }
+button, a, select { transition: all 0.15s ease; }
+
+/* Tabular nums everywhere for data consistency */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* Skeleton loader animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease infinite;
+  border-radius: var(--radius);
+}
+
+/* Fade in for expanded content */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scroll behavior */
+html { scroll-behavior: smooth; }
