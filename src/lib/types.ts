@@ -82,3 +82,59 @@ export interface ScanPayload {
   nextScan: string      // "1:00 PM"
   results: ScanResult[]
 }
+
+/** Pattern Lab types */
+
+export interface SetupStats {
+  total: number
+  wins: number
+  losses: number
+  scratches: number
+  incomplete: number
+  win_rate: number | null
+  avg_mfe: number | null
+  avg_mae: number | null
+}
+
+export interface ContextRow {
+  setup_type: string
+  total: number
+  wins: number
+  losses: number
+  win_rate: number | null
+  avg_mfe: number | null
+  avg_mae: number | null
+}
+
+export interface TimeBucket {
+  bucket_start: number
+  total: number
+  wins: number
+  losses: number
+}
+
+export interface RecentDetection {
+  ticker: string
+  setupType: string
+  direction: string
+  detectedAt: string
+  confidence: number
+  result: string | null
+  mfe: number | null
+  mae: number | null
+  cyclePhase: string | null
+  signal: string | null
+  urgency: number | null
+}
+
+export interface PatternLabPayload {
+  summary: {
+    totalDetections: number
+    datesTracked: number
+    dateRange: { from: string; to: string }
+  }
+  bySetup: Record<string, SetupStats>
+  byContext: Record<string, Record<string, ContextRow[]>>
+  byTimeOfDay: TimeBucket[]
+  recentDetections: RecentDetection[]
+}
