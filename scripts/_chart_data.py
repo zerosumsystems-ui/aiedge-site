@@ -11,7 +11,7 @@ import os
 import re
 import sys
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -68,7 +68,12 @@ def _et_to_utc(year: int, month: int, day: int, hour: int, minute: int) -> datet
 
 
 def _session_window(date: str, end_time_et: str) -> tuple[datetime, datetime]:
-    """RTH session window in UTC: 09:30 ET → end_time_et (+5m grace)."""
+    """RTH session window in UTC: 09:30 ET → end_time_et (+5m grace).
+
+    Note: the +5m grace uses timedelta rather than `mm + 5` to handle
+    minute rollover correctly — a scan captured at e.g. 12:55 ET would
+    otherwise produce minute=60 and crash datetime().
+    """
     y, m, d = (int(x) for x in date.split("-"))
     if end_time_et and ":" in end_time_et:
         hh, mm = (int(x) for x in end_time_et.split(":"))
@@ -76,7 +81,7 @@ def _session_window(date: str, end_time_et: str) -> tuple[datetime, datetime]:
         # Default to full RTH close if we don't know the scan time.
         hh, mm = 16, 0
     start = _et_to_utc(y, m, d, 9, 30)
-    end = _et_to_utc(y, m, d, hh, mm + 5)
+    end = _et_to_utc(y, m, d, hh, mm) + timedelta(minutes=5)
     return start, end
 
 

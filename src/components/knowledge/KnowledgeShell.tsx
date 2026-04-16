@@ -41,7 +41,7 @@ export function KnowledgeShell({
             Run the vault sync script to push your Claude Vault content here.
           </p>
           <pre className="bg-surface rounded p-3 text-xs font-mono text-teal text-left">
-            python3 ~/Desktop/tradescope/scripts/sync_vault.py
+            python3 ~/code/aiedge/site/scripts/sync_vault.py https://www.aiedge.trade
           </pre>
         </div>
       </div>
