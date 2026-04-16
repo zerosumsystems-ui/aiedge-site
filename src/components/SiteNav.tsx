@@ -25,7 +25,13 @@ export function SiteNav({ userEmail }: Props) {
   }
 
   return (
-    <nav className="h-12 flex items-center px-4 border-b border-border bg-surface/80 backdrop-blur-sm shrink-0 sticky top-0 z-40">
+    <nav
+      className="flex items-center px-4 border-b border-border bg-surface/80 backdrop-blur-sm shrink-0 sticky top-0 z-40"
+      style={{
+        height: 'var(--nav-h)',
+        paddingTop: 'env(safe-area-inset-top)',
+      }}
+    >
       <Link href="/" className="text-sm font-bold text-teal tracking-tight mr-4 shrink-0">
         AI Edge
       </Link>
@@ -40,7 +46,7 @@ export function SiteNav({ userEmail }: Props) {
             <Link
               key={item.href}
               href={item.href}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+              className={`px-3 py-2 sm:py-1.5 rounded text-xs font-medium transition-colors ${
                 active
                   ? 'bg-teal/10 text-teal'
                   : 'text-sub hover:text-text hover:bg-bg'

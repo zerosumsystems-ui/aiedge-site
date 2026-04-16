@@ -26,7 +26,7 @@ export function KnowledgeShell({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-48px)]">
+      <div className="flex items-center justify-center h-[calc(100dvh-var(--nav-h))]">
         <div className="text-sub text-sm">Loading vault...</div>
       </div>
     )
@@ -34,7 +34,7 @@ export function KnowledgeShell({
 
   if (notes.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-48px)]">
+      <div className="flex items-center justify-center h-[calc(100dvh-var(--nav-h))]">
         <div className="text-center max-w-md">
           <div className="text-2xl mb-3 text-sub">No notes synced</div>
           <p className="text-sm text-sub mb-4">
@@ -49,7 +49,7 @@ export function KnowledgeShell({
   }
 
   return (
-    <div className="flex h-[calc(100vh-48px)]">
+    <div className="flex flex-col md:flex-row md:h-[calc(100dvh-var(--nav-h))]">
       <VaultSidebar notes={notes} activeSlug={activeSlug} />
       {children(notes)}
     </div>

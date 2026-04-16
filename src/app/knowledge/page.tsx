@@ -28,7 +28,7 @@ function KnowledgeLanding({ notes }: { notes: VaultNote[] }) {
   const totalLinks = notes.reduce((sum, n) => sum + n.wikiLinks.length, 0)
 
   return (
-    <article className="flex-1 overflow-y-auto h-[calc(100vh-48px)] p-6">
+    <article className="flex-1 md:overflow-y-auto md:h-[calc(100dvh-var(--nav-h))] p-4 md:p-6">
       <div className="max-w-3xl">
         <h1 className="text-2xl font-bold text-text mb-1">Knowledge Base</h1>
         <p className="text-sm text-sub mb-6">

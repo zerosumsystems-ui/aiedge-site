@@ -44,16 +44,16 @@ export function ScannerDashboard() {
   return (
     <div className="max-w-3xl mx-auto px-3 py-3">
       {/* Header */}
-      <header className="flex justify-between items-baseline mb-3 pb-2 border-b border-border">
+      <header className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-baseline sm:gap-0 mb-3 pb-2 border-b border-border">
         <h1 className="text-[17px] font-bold tracking-tight">Live Scanner</h1>
-        <div className="text-xs text-sub text-right">
+        <div className="text-xs text-sub sm:text-right">
           {data?.timestamp || ""} &middot; {data?.date || ""}
         </div>
       </header>
 
       {/* Stats */}
       {hasData && (
-        <div className="flex gap-4 text-xs text-sub mb-3">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-sub mb-3">
           <span className="whitespace-nowrap">📡 {data.symbolsScanned.toLocaleString()} symbols</span>
           <span className="whitespace-nowrap">✅ {data.passedFilters} passed filters</span>
           <span className="whitespace-nowrap">⏱ {data.scanTime}</span>

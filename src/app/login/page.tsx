@@ -17,7 +17,7 @@ export default async function LoginPage({
       : null
 
   return (
-    <div className="min-h-[calc(100vh-3rem)] flex items-center justify-center px-4">
+    <div className="min-h-[calc(100dvh-var(--nav-h))] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="text-teal font-bold tracking-tight text-lg mb-1">AI Edge</div>

@@ -26,7 +26,7 @@ export function SortBar({ onSort, activeKey }: SortBarProps) {
         <button
           key={key}
           onClick={() => onSort(key)}
-          className={`px-2.5 py-1 rounded border text-sm cursor-pointer transition-colors ${
+          className={`px-2.5 py-1.5 sm:py-1 rounded border text-sm cursor-pointer transition-colors ${
             activeKey === key
               ? "bg-teal/[.18] border-teal text-teal"
               : "bg-surface border-border text-text hover:border-teal"

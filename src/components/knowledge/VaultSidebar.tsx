@@ -57,7 +57,7 @@ function FolderItem({
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-1.5 px-2 py-1 text-left text-sub hover:text-text transition-colors"
+        className="flex w-full items-center gap-1.5 px-2 py-2 md:py-1 text-left text-sub hover:text-text transition-colors"
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
         <span className="text-[10px] opacity-60">{open ? '▾' : '▸'}</span>
@@ -78,7 +78,7 @@ function FolderItem({
               <Link
                 key={note.slug}
                 href={`/knowledge/${note.slug.split('/').map(encodeURIComponent).join('/')}`}
-                className={`block truncate px-2 py-1 text-sm transition-colors ${
+                className={`block truncate px-2 py-2 md:py-1 text-sm transition-colors ${
                   activeSlug === note.slug
                     ? 'bg-teal/10 text-teal border-l-2 border-teal'
                     : 'text-sub hover:text-text hover:bg-surface'
@@ -102,20 +102,46 @@ export function VaultSidebar({
   activeSlug: string
 }) {
   const tree = buildTree(notes)
+  // Mobile: collapsed by default; desktop ignores this and stays open.
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <nav className="w-64 shrink-0 border-r border-border overflow-y-auto h-[calc(100vh-48px)]">
-      <div className="p-3 border-b border-border">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-sub">Knowledge Base</h2>
-        <p className="text-[10px] text-gray mt-0.5">{notes.length} notes</p>
-      </div>
-      <div className="py-1">
-        {tree.children
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map((child) => (
-            <FolderItem key={child.path} node={child} activeSlug={activeSlug} depth={0} />
-          ))}
-      </div>
-    </nav>
+    <>
+      {/* Mobile toggle — shown below md only */}
+      <button
+        onClick={() => setMobileOpen((v) => !v)}
+        className="md:hidden flex items-center justify-between w-full px-4 py-2 border-b border-border bg-surface text-left"
+        aria-expanded={mobileOpen}
+      >
+        <span className="text-xs font-semibold uppercase tracking-widest text-sub">
+          Knowledge Base
+        </span>
+        <span className="text-[11px] text-sub flex items-center gap-1.5">
+          {notes.length} notes
+          <span className="text-[10px] opacity-60">{mobileOpen ? '▾' : '▸'}</span>
+        </span>
+      </button>
+
+      <nav
+        className={`
+          shrink-0 border-border overflow-y-auto
+          md:block md:w-64 md:border-r md:h-[calc(100dvh-var(--nav-h))]
+          ${mobileOpen ? 'block max-h-[50dvh] border-b' : 'hidden'}
+        `}
+      >
+        {/* Desktop header — hidden on mobile since we have the toggle */}
+        <div className="hidden md:block p-3 border-b border-border">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-sub">Knowledge Base</h2>
+          <p className="text-[10px] text-gray mt-0.5">{notes.length} notes</p>
+        </div>
+        <div className="py-1">
+          {tree.children
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((child) => (
+              <FolderItem key={child.path} node={child} activeSlug={activeSlug} depth={0} />
+            ))}
+        </div>
+      </nav>
+    </>
   )
 }

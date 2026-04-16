@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteNav } from "@/components/SiteNav";
 import { createClient } from "@/lib/supabase/server";
@@ -19,6 +19,13 @@ export const metadata: Metadata = {
   description: "Brooks Price Action trading command center",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#141414",
+};
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -34,7 +41,7 @@ export default async function RootLayout({
       lang="en"
       className={`dark ${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className="min-h-screen bg-bg text-text flex flex-col">
+      <body className="min-h-[100dvh] bg-bg text-text flex flex-col">
         <SiteNav userEmail={user?.email ?? null} />
         <main className="flex-1">{children}</main>
       </body>

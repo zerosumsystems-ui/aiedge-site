@@ -34,7 +34,7 @@ export function ScannerCard({ result }: { result: ScanResult }) {
 
   return (
     <details className="bg-surface border border-border rounded-lg mb-2 overflow-hidden group">
-      <summary className="list-none cursor-pointer p-2.5 px-3 grid grid-cols-[28px_minmax(80px,auto)_1fr_70px_auto] items-center gap-3 select-none [-webkit-tap-highlight-color:transparent] [&::-webkit-details-marker]:hidden">
+      <summary className="list-none cursor-pointer p-2 sm:p-2.5 px-2 sm:px-3 grid grid-cols-[24px_minmax(0,1fr)_auto_auto] sm:grid-cols-[28px_minmax(80px,auto)_1fr_70px_auto] items-center gap-2 sm:gap-3 select-none [-webkit-tap-highlight-color:transparent] [&::-webkit-details-marker]:hidden">
         {/* Rank */}
         <div className="text-xs text-sub text-center">
           <span className="text-[13px] font-semibold text-text">{rank}</span>
@@ -58,20 +58,20 @@ export function ScannerCard({ result }: { result: ScanResult }) {
           </div>
         </div>
 
-        {/* ADR block */}
-        <div className="min-w-0 pl-1">
+        {/* ADR block — hidden on mobile, shown in body */}
+        <div className="hidden sm:block min-w-0 pl-1">
           <div className="text-xs text-sub whitespace-nowrap truncate">${adr.toFixed(2)} ADR</div>
           <div className="text-[11px] text-sub opacity-70 whitespace-nowrap">{adrRatio.toFixed(1)}× move</div>
         </div>
 
         {/* ADR multiple pill */}
-        <div className={`text-center py-1.5 px-2 rounded-md tabular-nums whitespace-nowrap min-w-[50px] leading-tight ${ADR_TIER_STYLES[adrTier] || ADR_TIER_STYLES.cold}`}>
-          <div className="text-[15px] font-bold tracking-tight">{adrMult.toFixed(2)}×</div>
+        <div className={`text-center py-1.5 px-2 rounded-md tabular-nums whitespace-nowrap min-w-[48px] sm:min-w-[50px] leading-tight ${ADR_TIER_STYLES[adrTier] || ADR_TIER_STYLES.cold}`}>
+          <div className="text-[14px] sm:text-[15px] font-bold tracking-tight">{adrMult.toFixed(2)}×</div>
           <div className="text-[9px] opacity-65 tracking-widest">ADR</div>
         </div>
 
         {/* Scores */}
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col items-end gap-1.5 sm:gap-2">
           <SignalBadge signal={signal} />
           <ScoreBar label="URG" value={urgency} variant="urgency" />
           <ScoreBar label="UNC" value={uncertainty} variant="uncertainty" />
@@ -80,6 +80,12 @@ export function ScannerCard({ result }: { result: ScanResult }) {
 
       {/* Expanded content */}
       <div className="border-t border-border">
+        {/* ADR block on mobile (moved from summary) */}
+        <div className="sm:hidden px-3 pt-2 flex items-baseline gap-3 text-[11px] text-sub">
+          <span className="tabular-nums">${adr.toFixed(2)} ADR</span>
+          <span className="tabular-nums">{adrRatio.toFixed(1)}× move</span>
+        </div>
+
         {/* Movement */}
         <div className="px-3 py-2 flex items-center gap-2">
           <span className={`text-[11px] ${movementClass}`}>{movement}</span>

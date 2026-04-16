@@ -14,6 +14,8 @@
   --orange: #f5a623;
   --gray: #4a4a4a;
   --radius: 8px;
+  /* Nav height. Grows on notched iPhones so sticky nav clears the safe-area inset. */
+  --nav-h: calc(3rem + env(safe-area-inset-top, 0px));
 }
 
 @theme inline {
@@ -40,6 +42,29 @@ body {
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Respect iPhone notch / home indicator in landscape + PWA standalone */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Prevent iOS auto-zoom when focusing text inputs. iOS zooms when font-size < 16px. */
+@media (hover: none) and (pointer: coarse) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 /* Smooth transitions on all interactive elements */

@@ -27,7 +27,7 @@ export default function HistoryPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-48px)]">
+      <div className="flex items-center justify-center h-[calc(100dvh-var(--nav-h))]">
         <div className="text-sub text-sm">Loading history...</div>
       </div>
     )
@@ -35,7 +35,7 @@ export default function HistoryPage() {
 
   if (dates.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-48px)]">
+      <div className="flex items-center justify-center h-[calc(100dvh-var(--nav-h))]">
         <div className="text-center max-w-md">
           <div className="text-2xl mb-3 text-sub">No history yet</div>
           <p className="text-sm text-sub">

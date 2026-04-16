@@ -31,7 +31,7 @@ export default function HistoryDatePage({ params }: { params: Promise<{ date: st
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-48px)]">
+      <div className="flex items-center justify-center h-[calc(100dvh-var(--nav-h))]">
         <div className="text-sub text-sm">Loading {date}...</div>
       </div>
     )
@@ -39,7 +39,7 @@ export default function HistoryDatePage({ params }: { params: Promise<{ date: st
 
   if (error || !snapshot) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-48px)]">
+      <div className="flex items-center justify-center h-[calc(100dvh-var(--nav-h))]">
         <div className="text-center">
           <div className="text-lg text-sub mb-2">No data for {date}</div>
           <Link href="/history" className="text-sm text-teal hover:text-teal/80">
@@ -65,15 +65,15 @@ export default function HistoryDatePage({ params }: { params: Promise<{ date: st
       </div>
 
       {/* Header */}
-      <header className="flex justify-between items-baseline mb-3 pb-2 border-b border-border">
+      <header className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-baseline sm:gap-0 mb-3 pb-2 border-b border-border">
         <h1 className="text-[17px] font-bold tracking-tight">{formatted}</h1>
-        <div className="text-xs text-sub text-right">
+        <div className="text-xs text-sub sm:text-right">
           Captured {payload.timestamp}
         </div>
       </header>
 
       {/* Stats */}
-      <div className="flex gap-4 text-xs text-sub mb-3">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-sub mb-3">
         <span>{payload.symbolsScanned.toLocaleString()} symbols</span>
         <span>{payload.passedFilters} passed filters</span>
         <span>{payload.results.length} signals</span>

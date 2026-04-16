@@ -93,6 +93,11 @@ export function LightweightChart({ chart, height = 360, compact = false }: Props
         vertLine: { color: '#555', width: 1, style: LineStyle.Dotted },
         horzLine: { color: '#555', width: 1, style: LineStyle.Dotted },
       },
+      // iOS: let vertical touch drags pass through to the page so the user
+      // can scroll past a chart. Horizontal pans still work to move the timescale.
+      handleScroll: {
+        vertTouchDrag: false,
+      },
     })
     chartRef.current = api
 
@@ -233,7 +238,10 @@ export function LightweightChart({ chart, height = 360, compact = false }: Props
 
   return (
     <div className="relative w-full rounded-lg overflow-hidden border border-border bg-[#1A1A1A]">
-      <div ref={containerRef} style={{ height, width: '100%' }} />
+      <div
+        ref={containerRef}
+        style={{ height, width: '100%', touchAction: 'pan-y' }}
+      />
 
       {!compact && a && (a.phaseLabel || a.alwaysIn || a.strength) && (
         <div className="absolute top-2 left-2 z-10 bg-black/75 border border-border rounded px-2 py-1 text-[10px] leading-tight font-mono">

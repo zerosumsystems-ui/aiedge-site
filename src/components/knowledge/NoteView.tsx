@@ -25,8 +25,8 @@ export function NoteView({
     .filter((l) => l.note !== null)
 
   return (
-    <article className="flex-1 overflow-y-auto h-[calc(100vh-48px)]">
-      <div className="p-6 pb-2">
+    <article className="flex-1 md:overflow-y-auto md:h-[calc(100dvh-var(--nav-h))]">
+      <div className="p-4 pb-2 md:p-6 md:pb-2">
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-[11px] text-sub mb-4">
           <Link href="/knowledge" className="hover:text-text transition-colors">Knowledge</Link>
@@ -44,7 +44,7 @@ export function NoteView({
 
       {/* Wiki-link references panel */}
       {resolvedLinks.length > 0 && (
-        <div className="mx-6 mt-6 mb-8 p-4 bg-surface rounded-lg border border-border">
+        <div className="mx-4 md:mx-6 mt-6 mb-8 p-4 bg-surface rounded-lg border border-border">
           <h3 className="text-xs font-semibold uppercase tracking-widest text-sub mb-3">
             Linked Notes ({resolvedLinks.length})
           </h3>
