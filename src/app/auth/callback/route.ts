@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
   const next = nextParam.startsWith('/') ? nextParam : '/'
 
   if (!code) {
+    console.warn('[auth/callback] no code in query string')
     return NextResponse.redirect(`${origin}/login?error=callback_failed`)
   }
 
@@ -23,13 +24,23 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error || !data.session) {
+    console.warn('[auth/callback] exchangeCodeForSession failed:', {
+      errorName: error?.name,
+      errorMessage: error?.message,
+      errorCode: (error as unknown as { code?: string })?.code,
+      hasSession: Boolean(data?.session),
+      codePrefix: code.slice(0, 10),
+    })
     return NextResponse.redirect(`${origin}/login?error=callback_failed`)
   }
 
-  if (!isAllowed(data.session.user.email)) {
+  const email = data.session.user.email
+  if (!isAllowed(email)) {
+    console.warn('[auth/callback] email not on allowlist:', { email })
     await supabase.auth.signOut()
     return NextResponse.redirect(`${origin}/login?error=not_invited`)
   }
 
+  console.log('[auth/callback] success', { email, next })
   return NextResponse.redirect(`${origin}${next}`)
 }
