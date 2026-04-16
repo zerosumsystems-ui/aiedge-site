@@ -16,6 +16,7 @@ const AGREEMENT_STYLES: Record<AgreementLevel, string> = {
   PARTIAL: 'bg-yellow/[.15] text-yellow border-yellow/30',
   MINOR: 'bg-orange/[.13] text-orange border-orange/[.28]',
   MAJOR: 'bg-red/[.15] text-red border-red/30',
+  DISAGREE: 'bg-red/[.18] text-red border-red/35',
   INVERTED: 'bg-red/[.25] text-red border-red/45',
 }
 

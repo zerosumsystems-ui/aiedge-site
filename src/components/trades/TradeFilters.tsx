@@ -31,6 +31,7 @@ const AGREEMENT_COLORS: Record<AgreementLevel, string> = {
   PARTIAL: 'border-yellow/40 text-yellow bg-yellow/10',
   MINOR: 'border-orange/40 text-orange bg-orange/10',
   MAJOR: 'border-red/40 text-red bg-red/10',
+  DISAGREE: 'border-red/45 text-red bg-red/12',
   INVERTED: 'border-red/50 text-red bg-red/15',
 }
 
@@ -59,7 +60,7 @@ export function TradeFilters({ trades, filters, onFilterChange, resultCount }: T
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-[10px] uppercase tracking-wider text-sub mr-1 font-semibold">Agreement</span>
         <Chip label="All" active={!filters.agreement} onClick={() => onFilterChange('agreement', '')} />
-        {(['AGREE', 'PARTIAL', 'MINOR', 'MAJOR', 'INVERTED'] as AgreementLevel[]).map((a) => (
+        {(['AGREE', 'PARTIAL', 'MINOR', 'MAJOR', 'DISAGREE', 'INVERTED'] as AgreementLevel[]).map((a) => (
           <Chip
             key={a}
             label={a}

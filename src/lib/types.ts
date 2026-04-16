@@ -143,7 +143,7 @@ export interface PatternLabPayload {
 
 export type TradeDecision = "BUY" | "SELL" | "WAIT" | "AVOID"
 export type TradeOutcome = "win" | "loss" | "scratch" | "pending" | "no_trade"
-export type AgreementLevel = "AGREE" | "PARTIAL" | "MINOR" | "MAJOR" | "INVERTED"
+export type AgreementLevel = "AGREE" | "PARTIAL" | "MINOR" | "MAJOR" | "DISAGREE" | "INVERTED"
 
 export interface TradeRead {
   id: string                    // "2026-04-15_IONQ"
