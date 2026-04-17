@@ -121,6 +121,8 @@ export interface ScanResult {
   warning?: string
   summary: string
   chart?: ChartData    // interactive OHLC + key levels (Phase 6)
+  bpaActiveSetups?: string[]   // BPA setups currently active — e.g. ["H2", "spike_channel"]
+  phase?: string               // market phase — e.g. "trend_from_open", "trading_range"
 }
 
 export interface ScanPayload {
