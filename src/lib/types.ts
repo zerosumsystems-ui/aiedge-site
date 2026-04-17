@@ -162,6 +162,7 @@ export interface TimeBucket {
 }
 
 export interface RecentDetection {
+  id?: number
   ticker: string
   setupType: string
   direction: string
@@ -173,6 +174,31 @@ export interface RecentDetection {
   cyclePhase: string | null
   signal: string | null
   urgency: number | null
+  // "stop" | "limit" | "market" — Brooks canonical entry method per setup.
+  // Added 2026-04-17 alongside bpa_detector.py rewrite.
+  entryMode?: string | null
+  chart?: ChartData | null
+}
+
+export interface BacktestDayRow {
+  detection_date: string
+  total: number
+  wins: number
+  losses: number
+  scratches: number
+  avg_mfe: number | null
+  avg_mae: number | null
+}
+
+export interface BacktestRunMeta {
+  run_id: string
+  created_at: string
+  symbols: string              // JSON-encoded array
+  date_from: string
+  date_to: string
+  setup_filter: string | null
+  total_detections: number
+  args_json: string
 }
 
 export interface PatternLabPayload {
@@ -185,6 +211,10 @@ export interface PatternLabPayload {
   byContext: Record<string, Record<string, ContextRow[]>>
   byTimeOfDay: TimeBucket[]
   recentDetections: RecentDetection[]
+  /** Present only on backtest-run payloads (GET /api/patterns/run/[runId]) */
+  run?: BacktestRunMeta | null
+  /** Present only on backtest-run payloads */
+  byDay?: BacktestDayRow[]
 }
 
 /** Trade Catalog types */
