@@ -22,6 +22,7 @@ export type SnapshotKey =
   | 'review'
   | 'scan'
   | 'scan-history'
+  | `patterns:run:${string}`   // one key per backtest run_id
 
 export async function getSnapshot<T>(key: SnapshotKey, empty: T): Promise<T> {
   const supabase = createAdminClient()
