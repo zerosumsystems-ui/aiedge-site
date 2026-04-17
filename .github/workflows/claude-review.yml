@@ -12,6 +12,10 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  # Required so anthropics/claude-code-action@v1 can fetch an OIDC token
+  # for posting inline review comments. Without this the action exits with
+  # "Could not fetch an OIDC token" during setup.
+  id-token: write
 
 jobs:
   review:
