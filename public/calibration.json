@@ -1,0 +1,86 @@
+{
+  "generated": "2026-04-17T21:51:04.351051+00:00",
+  "pattern_lab_path": "db/pattern_lab.sqlite",
+  "train_frac": 0.6,
+  "min_samples": 30,
+  "n_train": 1293,
+  "n_test": 862,
+  "n_test_scored": 858,
+  "n_test_unresolved": 4,
+  "train_date_range": [
+    "2026-01-22",
+    "2026-04-15"
+  ],
+  "test_date_range": [
+    "2026-04-15",
+    "2026-04-17"
+  ],
+  "coverage": {
+    "exact": 32,
+    "regime_plus_align": 255,
+    "regime": 247,
+    "setup": 298,
+    "default": 26
+  },
+  "bins": [
+    {
+      "bin_mid": 0.15,
+      "bin_lo": 0.1,
+      "bin_hi": 0.2,
+      "predicted": 0.1208,
+      "empirical": 0.1495,
+      "count": 214
+    },
+    {
+      "bin_mid": 0.25,
+      "bin_lo": 0.2,
+      "bin_hi": 0.30000000000000004,
+      "predicted": 0.2365,
+      "empirical": 0.0769,
+      "count": 65
+    },
+    {
+      "bin_mid": 0.35,
+      "bin_lo": 0.30000000000000004,
+      "bin_hi": 0.4,
+      "predicted": 0.3527,
+      "empirical": 0.2199,
+      "count": 191
+    },
+    {
+      "bin_mid": 0.45,
+      "bin_lo": 0.4,
+      "bin_hi": 0.5,
+      "predicted": 0.4362,
+      "empirical": 0.1455,
+      "count": 55
+    },
+    {
+      "bin_mid": 0.55,
+      "bin_lo": 0.5,
+      "bin_hi": 0.6000000000000001,
+      "predicted": 0.5,
+      "empirical": 0.6923,
+      "count": 26
+    },
+    {
+      "bin_mid": 0.65,
+      "bin_lo": 0.6000000000000001,
+      "bin_hi": 0.7000000000000001,
+      "predicted": 0.6299,
+      "empirical": 0.68,
+      "count": 175
+    },
+    {
+      "bin_mid": 0.75,
+      "bin_lo": 0.7000000000000001,
+      "bin_hi": 0.8,
+      "predicted": 0.7543,
+      "empirical": 0.6667,
+      "count": 132
+    }
+  ],
+  "brier": 0.1835,
+  "ece": 0.097,
+  "overall_hit_rate": 0.3636
+}

@@ -9,6 +9,7 @@ import { BrooksTop5, ScannerTop5 } from '@/components/review/Top5Panel'
 import { FailureModeCard } from '@/components/review/FailureModeCard'
 import { SymbolTable } from '@/components/review/SymbolTable'
 import { AuditHistoryDrawer } from '@/components/review/AuditHistoryDrawer'
+import { CalibrationDiagram } from '@/components/review/CalibrationDiagram'
 
 export default function ReviewPage() {
   const [data, setData] = useState<AuditPayload | null>(null)
@@ -150,6 +151,9 @@ export default function ReviewPage() {
           </div>
         </section>
       )}
+
+      {/* Calibration diagram */}
+      <CalibrationDiagram />
 
       {/* Distributions */}
       <section className="bg-surface border border-border rounded-lg p-4 space-y-4">
