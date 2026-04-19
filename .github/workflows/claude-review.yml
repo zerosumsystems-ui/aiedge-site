@@ -20,11 +20,16 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
-    # Skip draft PRs and the auto-merge claude/** branches to avoid reviewing Claude's own output
+    # Skip:
+    #  - bot-authored triggers (Vercel preview-URL comments, Dependabot syncs)
+    #    — the action rejects non-human actors and burns a red check per event
+    #  - draft PRs
+    #  - the auto-merge claude/** branches (avoid reviewing Claude's own output)
     if: |
-      github.event_name != 'pull_request' ||
-      (github.event.pull_request.draft == false &&
-       !startsWith(github.event.pull_request.head.ref, 'claude/'))
+      !endsWith(github.actor, '[bot]') &&
+      (github.event_name != 'pull_request' ||
+       (github.event.pull_request.draft == false &&
+        !startsWith(github.event.pull_request.head.ref, 'claude/')))
     steps:
       - uses: actions/checkout@v4
         with:
