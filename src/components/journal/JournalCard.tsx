@@ -27,11 +27,18 @@ export function JournalCard({ entry }: { entry: JournalEntry }) {
         {/* Title */}
         <span className="text-sm text-text font-medium flex-1 truncate">{title}</span>
 
-        {/* Linked tickers */}
+        {/* Linked tickers — click to open symbol page with chart + related material */}
         {linkedTickers.length > 0 && (
-          <div className="flex gap-1">
+          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
             {linkedTickers.slice(0, 3).map((t) => (
-              <span key={t} className="text-[10px] text-sub bg-bg rounded px-1.5 py-0.5">{t}</span>
+              <Link
+                key={t}
+                href={`/symbol/${encodeURIComponent(t)}`}
+                className="text-[10px] text-sub bg-bg rounded px-1.5 py-0.5 hover:bg-teal/10 hover:text-teal border border-transparent hover:border-teal/30 transition-colors"
+                title={`Open ${t} — scanner + trades + journal`}
+              >
+                {t}
+              </Link>
             ))}
             {linkedTickers.length > 3 && (
               <span className="text-[10px] text-gray">+{linkedTickers.length - 3}</span>
