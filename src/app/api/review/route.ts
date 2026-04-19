@@ -17,6 +17,7 @@ import type {
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
 import { requireSession } from '@/lib/auth/require-session'
 import { getSnapshot, setSnapshot } from '@/lib/snapshots'
+import { loadBacktestCorpus } from '@/lib/backtests'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,10 +47,17 @@ export async function GET(request: Request) {
     payload.symbols.length === 0
   ) {
     const fromDisk = loadFromFilesystem()
-    if (fromDisk) return Response.json(fromDisk, { headers: CORS_HEADERS })
+    if (fromDisk) {
+      const backtests = await loadBacktestCorpus().catch(() => null)
+      return Response.json({ ...fromDisk, backtests }, { headers: CORS_HEADERS })
+    }
   }
 
-  return Response.json(payload, { headers: CORS_HEADERS })
+  // Always derive the latest backtest corpus from the vault snapshot — keeps
+  // the Self-Review tab in sync with `vault/Scanner/backtests/` automatically
+  // whenever the vault is re-synced.
+  const backtests = await loadBacktestCorpus().catch(() => null)
+  return Response.json({ ...payload, backtests }, { headers: CORS_HEADERS })
 }
 
 export async function POST(request: Request) {

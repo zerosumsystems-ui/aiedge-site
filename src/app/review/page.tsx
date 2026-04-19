@@ -10,6 +10,7 @@ import { FailureModeCard } from '@/components/review/FailureModeCard'
 import { SymbolTable } from '@/components/review/SymbolTable'
 import { AuditHistoryDrawer } from '@/components/review/AuditHistoryDrawer'
 import { CalibrationDiagram } from '@/components/review/CalibrationDiagram'
+import { BacktestCorpusPanel } from '@/components/review/BacktestCorpusPanel'
 
 export default function ReviewPage() {
   const [data, setData] = useState<AuditPayload | null>(null)
@@ -49,19 +50,30 @@ export default function ReviewPage() {
 
   if (!data.latest) {
     return (
-      <div className="flex items-center justify-center h-[calc(100dvh-var(--nav-h))]">
-        <div className="text-center max-w-md">
-          <div className="text-2xl mb-3 text-sub">No audit data yet</div>
-          <p className="text-sm text-sub">
-            Run a Brooks audit into{' '}
-            <code className="text-teal/80 font-mono text-xs">~/code/aiedge/audits/</code>{' '}
-            or sync via{' '}
-            <code className="text-teal/80 font-mono text-xs">
-              python3 scripts/sync_audit.py
-            </code>
-            .
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
+        <div>
+          <h1 className="text-lg font-bold text-text">Self-Review</h1>
+          <p className="text-xs text-sub mt-0.5">
+            No Brooks audit synced yet. Showing backtest corpus only.
           </p>
         </div>
+        {data.backtests && <BacktestCorpusPanel corpus={data.backtests} />}
+        {!data.backtests && (
+          <div className="bg-surface border border-border rounded-lg p-6 text-center">
+            <div className="text-sm text-sub mb-2">No audit or backtest data yet</div>
+            <p className="text-xs text-sub">
+              Run a Brooks audit into{' '}
+              <code className="text-teal/80 font-mono text-[11px]">
+                ~/code/aiedge/audits/
+              </code>{' '}
+              or sync via{' '}
+              <code className="text-teal/80 font-mono text-[11px]">
+                python3 scripts/sync_audit.py
+              </code>
+              .
+            </p>
+          </div>
+        )}
       </div>
     )
   }
@@ -151,6 +163,9 @@ export default function ReviewPage() {
           </div>
         </section>
       )}
+
+      {/* Backtest corpus — urgency-gated 6-month rollup */}
+      {data.backtests && <BacktestCorpusPanel corpus={data.backtests} />}
 
       {/* Calibration diagram */}
       <CalibrationDiagram />
