@@ -42,7 +42,7 @@ export interface ChartAnnotations {
   adrMultiple?: number
 }
 
-export type ChartTimeframe = "5min" | "15min" | "1h" | "daily"
+export type ChartTimeframe = "5min" | "15min" | "1h" | "daily" | "weekly"
 
 export interface ChartData {
   bars: Bar[]

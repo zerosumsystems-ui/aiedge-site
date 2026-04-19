@@ -68,6 +68,8 @@ function overrideToSchema(tf: ChartTimeframe): DatabentoSchema {
     case '1h':
       return 'ohlcv-1h'
     case 'daily':
+    case 'weekly':
+      // Databento doesn't expose ohlcv-1w — fetch daily and aggregate here.
       return 'ohlcv-1d'
   }
 }
@@ -88,6 +90,43 @@ function downsample(bars: Bar[], minutesPerBucket: number): Bar[] {
       if (current) out.push(current)
       current = { t: bucketStart, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v }
     } else {
+      current.h = Math.max(current.h, b.h)
+      current.l = Math.min(current.l, b.l)
+      current.c = b.c
+      current.v = (current.v ?? 0) + (b.v ?? 0)
+    }
+  }
+  if (current) out.push(current)
+  return out
+}
+
+/**
+ * Aggregate daily bars into weekly (Mon–Fri, keyed by the Monday of each
+ * week). Open = first trading day's open, high = max, low = min, close =
+ * last trading day's close. Volume summed.
+ */
+function downsampleWeekly(bars: Bar[]): Bar[] {
+  if (bars.length === 0) return bars
+  const out: Bar[] = []
+  let current: Bar | null = null
+  let currentWeekKey = ''
+  for (const b of bars) {
+    const d = new Date(b.t * 1000)
+    // Move back to the most-recent Monday (ET-agnostic; weeks are coarse).
+    const dow = d.getUTCDay() // 0 Sun … 6 Sat
+    const daysBackToMon = ((dow + 6) % 7)
+    const monday = new Date(d)
+    monday.setUTCDate(d.getUTCDate() - daysBackToMon)
+    monday.setUTCHours(0, 0, 0, 0)
+    const weekKey = monday.toISOString().slice(0, 10)
+    if (weekKey !== currentWeekKey) {
+      if (current) out.push(current)
+      currentWeekKey = weekKey
+      current = {
+        t: Math.floor(monday.getTime() / 1000),
+        o: b.o, h: b.h, l: b.l, c: b.c, v: b.v,
+      }
+    } else if (current) {
       current.h = Math.max(current.h, b.h)
       current.l = Math.min(current.l, b.l)
       current.c = b.c
@@ -171,10 +210,14 @@ export async function GET(request: Request) {
       : overrideToSchema(tfParam)
   const timeframe: ChartTimeframe =
     tfParam === 'auto' ? schemaToTimeframe(schema) : tfParam
+  // Context padding: weekly needs ~6 months of history so the chart has
+  // enough bars to read; daily gets a 1-week cushion; intraday 20% each side.
   const padMs =
-    schema === 'ohlcv-1d'
-      ? 5 * 86_400_000
-      : Math.max((toDate.getTime() - fromDate.getTime()) * 0.2, 3_600_000)
+    timeframe === 'weekly'
+      ? 180 * 86_400_000
+      : schema === 'ohlcv-1d'
+        ? 5 * 86_400_000
+        : Math.max((toDate.getTime() - fromDate.getTime()) * 0.2, 3_600_000)
   const paddedFrom = new Date(fromDate.getTime() - padMs)
   const paddedTo = new Date(Math.min(toDate.getTime() + padMs, Date.now()))
 
@@ -232,6 +275,9 @@ export async function GET(request: Request) {
         effectiveTimeframe = '5min'
         bars = downsample(rawBars, 5)
       }
+    } else if (timeframe === 'weekly' && schema === 'ohlcv-1d') {
+      bars = downsampleWeekly(rawBars)
+      effectiveTimeframe = 'weekly'
     }
 
     const payload: BarsResponse = {
