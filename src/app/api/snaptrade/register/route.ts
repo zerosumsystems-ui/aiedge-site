@@ -92,7 +92,8 @@ type SnaptradeErrorDetail = {
 
 // The SnapTrade SDK wraps axios, so on 4xx the useful info is on
 // err.response.{status,data}. err.message alone is just "Request failed with
-// status code 400" — surface the SnapTrade body so the caller can act on it.
+// status code 400" — surface the SnapTrade body so the caller can act on it
+// (shown in the BrokerPanel toast and in Vercel runtime logs).
 function extractSnaptradeError(err: unknown): SnaptradeErrorDetail {
   if (typeof err === 'object' && err !== null) {
     const maybeResponse = (err as { response?: { status?: number; data?: unknown } }).response
