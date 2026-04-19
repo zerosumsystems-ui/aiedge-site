@@ -76,7 +76,14 @@ export async function POST(request: Request) {
     return Response.json({ redirectURI: (loginData as { redirectURI?: string }).redirectURI })
   } catch (err: unknown) {
     const detail = extractSnaptradeError(err)
-    console.error('[snaptrade/register] failed:', detail)
+    console.error(
+      '[snaptrade/register] failed:',
+      JSON.stringify({
+        status: detail.status,
+        message: detail.message,
+        body: detail.body,
+      })
+    )
     return Response.json(
       { error: detail.message, snaptrade: detail.body, status: detail.status },
       { status: 500 }

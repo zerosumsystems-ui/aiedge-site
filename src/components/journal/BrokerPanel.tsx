@@ -58,7 +58,11 @@ export function BrokerPanel() {
       const r = await fetch('/api/snaptrade/register', { method: 'POST' })
       const data = await r.json()
       if (!r.ok || !data.redirectURI) {
-        throw new Error(data.error ?? 'register failed')
+        const parts: string[] = []
+        if (data.error) parts.push(String(data.error))
+        if (data.status) parts.push(`(status ${data.status})`)
+        if (data.snaptrade) parts.push(JSON.stringify(data.snaptrade))
+        throw new Error(parts.join(' ') || 'register failed')
       }
       window.location.href = data.redirectURI as string
     } catch (err) {
