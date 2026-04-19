@@ -30,6 +30,7 @@ export function BrokerPanel() {
   const [status, setStatus] = useState<BrokerStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
@@ -97,6 +98,40 @@ export function BrokerPanel() {
       })
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const onPullFullHistory = async () => {
+    setRefreshing(true)
+    setMessage(null)
+    try {
+      // refresh=true triggers SnapTrade's refreshBrokerageAuthorization
+      // on every connected broker, forcing a fresh pull of holdings +
+      // activities from Fidelity. startDate=2000-01-01 asks for everything.
+      const r = await fetch('/api/snaptrade/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh: true, startDate: '2000-01-01' }),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error ?? 'refresh failed')
+      const fills = data.fillsFetched ?? 0
+      const refreshed = data.authorizationsRefreshed ?? 0
+      setMessage({
+        kind: 'ok',
+        text:
+          `Refreshed ${refreshed} broker authorization${refreshed === 1 ? '' : 's'} · ` +
+          `${fills} fills so far. SnapTrade pulls new history in the background — ` +
+          `hit Sync now again in ~1 min to pick up more.`,
+      })
+      await refreshStatus()
+    } catch (err) {
+      setMessage({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Refresh failed',
+      })
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -184,10 +219,18 @@ export function BrokerPanel() {
             <>
               <button
                 onClick={onSyncNow}
-                disabled={syncing}
+                disabled={syncing || refreshing}
                 className="px-3 py-1.5 rounded bg-teal text-[#001d20] text-xs font-semibold hover:bg-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {syncing ? 'Syncing…' : 'Sync now'}
+              </button>
+              <button
+                onClick={onPullFullHistory}
+                disabled={syncing || refreshing}
+                title="Force SnapTrade to re-fetch holdings + activities from the broker, then pull all history"
+                className="px-3 py-1.5 rounded border border-teal/40 text-xs font-medium text-teal hover:bg-teal/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {refreshing ? 'Refreshing broker…' : 'Pull full history'}
               </button>
               <button
                 onClick={onConnect}

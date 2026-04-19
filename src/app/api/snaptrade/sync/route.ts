@@ -123,6 +123,48 @@ type Connection = {
   snaptrade_user_secret: string
 }
 
+type SnapAuthorization = { id?: string; disabled?: boolean }
+
+/**
+ * Kick every brokerage authorization to re-pull holdings + activities from
+ * the broker. Async on SnapTrade's side — they return 200 immediately and
+ * do the actual fetch in the background. Errors are non-fatal; a refresh
+ * failure for one authorization shouldn't block the sync of others.
+ */
+async function refreshAllAuthorizations(conn: Connection): Promise<number> {
+  const snaptrade = createSnaptradeClient()
+  let refreshed = 0
+  try {
+    const { data: auths } = await snaptrade.connections.listBrokerageAuthorizations({
+      userId: conn.snaptrade_user_id,
+      userSecret: conn.snaptrade_user_secret,
+    })
+    const list: SnapAuthorization[] = Array.isArray(auths) ? auths : []
+    for (const a of list) {
+      if (!a.id || a.disabled) continue
+      try {
+        await snaptrade.connections.refreshBrokerageAuthorization({
+          authorizationId: a.id,
+          userId: conn.snaptrade_user_id,
+          userSecret: conn.snaptrade_user_secret,
+        })
+        refreshed += 1
+      } catch (refreshErr) {
+        console.warn(
+          `[snaptrade/sync] refresh auth ${a.id} failed:`,
+          refreshErr instanceof Error ? refreshErr.message : String(refreshErr)
+        )
+      }
+    }
+  } catch (listErr) {
+    console.warn(
+      '[snaptrade/sync] listBrokerageAuthorizations failed:',
+      listErr instanceof Error ? listErr.message : String(listErr)
+    )
+  }
+  return refreshed
+}
+
 async function syncConnection(
   conn: Connection,
   startDate: string,
@@ -252,22 +294,27 @@ export async function POST(request: Request) {
     )
   }
 
-  let body: { startDate?: string; endDate?: string } = {}
+  let body: { startDate?: string; endDate?: string; refresh?: boolean } = {}
   try {
     body = await request.json()
   } catch {
     // Empty body is fine — cron hits with no body.
   }
-  const startDate = body.startDate ?? '2020-01-01'
+  const startDate = body.startDate ?? '2000-01-01'  // cover all reasonable history
   const endDate = body.endDate ?? new Date().toISOString().split('T')[0]
+  const refresh = body.refresh === true
 
   const admin = createAdminClient()
   const allFills: FilledTrade[] = []
   let totalAccounts = 0
+  let totalRefreshed = 0
   let lastSyncError: string | null = null
 
   for (const conn of connections) {
     try {
+      if (refresh) {
+        totalRefreshed += await refreshAllAuthorizations(conn)
+      }
       const { fills, accountCount } = await syncConnection(conn, startDate, endDate)
       allFills.push(...fills)
       totalAccounts += accountCount
@@ -321,6 +368,8 @@ export async function POST(request: Request) {
     accounts: totalAccounts,
     fillsFetched: allFills.length,
     fillsTotal: mergedFills.length,
+    authorizationsRefreshed: totalRefreshed,
+    refreshRequested: refresh,
     lastSyncError,
   })
 }
