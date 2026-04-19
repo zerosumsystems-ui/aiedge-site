@@ -29,22 +29,22 @@ const CLAUDE_STUDIES: Study[] = [
     producer: 'claude',
     stream: 'Scanner — trend classification',
     title:
-      'One of 12 trend judges hurt calibration — widening its window flips it positive',
-    lastRun: '2026-04-19 · incr 20',
+      'Live `TrendState.direction` rarely flips once formed — 63% of sessions have zero flips',
+    lastRun: '2026-04-19 18:35 ET · incr 22',
     takeaway:
-      'Two-axis sweep (window × min-consec) of the `always_in` contributor across 800 RTH sessions. Production (W=5, K=2) fires on 36% of days at 57.6% directional accuracy — below the 66% "always guess UP" baseline. Proposed (W=10, K=2) fires on 51.9% at 66.9%. Change `ALWAYS_IN_WINDOW` 5 → 10 in `aiedge/context/trend.py`.',
-    source: 'aiedge-scanner · Scanner/methodology/trend-contributor-findings-*',
+      'First real-time stability study of `compute_trend_state` across 300 RTH sessions × progressive bar calls (~20 000 calls, 468 s). 63.3% of directional sessions have ZERO up↔down flips end-to-end; mean 0.56, max 5. Median lock-in bar is 11 (essentially the opening); 70% lock in by bar 20, 93% by bar 40. At bar 10 the classifier is near-random (34/35/31 up/down/none); by bar 40 it is decisive (66/21/13). Live readings are safe to consume from ~bar 20 onward. No production change proposed — validates consumption, not yet wiring. Four prior threshold recommendations (incr 17–21) still pending Will\'s nod.',
+    source: 'aiedge-vault · Scanner/methodology/trend-contributor-findings-2026-04-19-incr22-realtime-stability.md',
     href: { label: 'Open Findings → Trend arc', url: '/findings#trend' },
   },
   {
     id: 'spt-research',
     producer: 'claude',
     stream: 'Brooks PA — small-pullback-trend (SPT)',
-    title: 'Brooks → aiedge transfer failure taxonomy',
-    lastRun: '2026-04-19 · pt 31',
+    title: 'Monday-open watchlist built on pt 33 multi-timeframe SPT scan',
+    lastRun: '2026-04-19 18:10 ET · pt 33 + watchlist',
     takeaway:
-      'Three closed-NEGATIVE Brooks candidates (pts 28/29/30 — next-session follow-through, 2× climactic burst exit, first MA-gap bar exit) surfaced a reusable failure taxonomy: Inversion, Rarity, Emptiness. Zero-compute 3-check vetting would have pre-screened all three. Brooks-source declared exhausted for SPT US single-name equities; future +R comes from scanner-side schema enrichments.',
-    source: 'aiedge-vault · Brooks PA/concepts/small-pullback-trend-*',
+      'Pt 33 scanned 52 names × 5 timeframes (daily · 60m · 30m · 15m · 5m), ranked by pure magnitude (net_R, pullback shallowness, closeness). Daily longs: AVGO/AMD/AMZN/BAC/SPY; shorts: CVX. Cross-TF stars: MRK up on 4 timeframes; ORCL/ADBE/CRM short across software complex. The 04-20 watchlist adds PLAYBOOK entry frames — per-horizon entry window, signal required, 1R stop zone, hybrid rule-9 target, invalidation. Expected economics if clean fires present: n≈18/mo · WR 74.6% · +1.84R/trade · max DD −2R. Consumption-layer only, no new Brooks research.',
+    source: 'aiedge-vault · Brooks PA/concepts/small-pullback-trend-{multi-tf-candidates-2026-04-19,monday-watchlist-2026-04-20}.md',
     href: { label: 'Open Findings → SPT arc', url: '/findings#spt' },
   },
   {
@@ -52,10 +52,10 @@ const CLAUDE_STUDIES: Study[] = [
     producer: 'claude',
     stream: '/organize-my-code scheduled task',
     title: '~7.6 GB of stale repos reclaimable, no moves executed yet',
-    lastRun: '2026-04-19 17:37 ET · run #17',
+    lastRun: '2026-04-19 18:37 ET · run #19',
     takeaway:
-      '5 archive candidates (`BPA-Bot-1`, `Gap-ups`, `Finviz-clone`, `market-dashboard`, `microgap-bot`) and 2 active repos to move into `~/code/` (`Brooks-Price-Action`, `trading-range`). `~/keys/*.env` now mode 600 (resolved organically). All moves gated on explicit go-ahead per management contract.',
-    source: '~/code/routines/FINDINGS_2026-04-19_*.md (13 runs today)',
+      '5 archive candidates (`BPA-Bot-1`, `Gap-ups`, `Finviz-clone`, `market-dashboard`, `microgap-bot`) and 2 active repos to move into `~/code/` (`Brooks-Price-Action`, `trading-range`). `~/keys/*.env` now mode 600. Organizational state unchanged since 04-18 — all moves gated on explicit go-ahead per management contract. Runs #18–19 used the scheduled-task cycle to ship and then refresh the /studies tab itself.',
+    source: '~/code/routines/FINDINGS_2026-04-19_*.md (15 runs today)',
   },
 ]
 
