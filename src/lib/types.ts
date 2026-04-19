@@ -415,7 +415,19 @@ export interface AuditPayload {
   symbols: AuditSymbolRow[]
   history: AuditHistoryEntry[]
   backtests?: BacktestCorpus | null
+  recentResearch?: RecentResearchNote[]
   syncedAt: string
+}
+
+/** Recent research notes surfaced on /review — pulled from vault
+ * Scanner/methodology/ and Journal/backtest-results/ folders */
+export interface RecentResearchNote {
+  slug: string          // vault slug, links to /knowledge/[slug]
+  title: string         // derived from first # heading or filename
+  folder: string        // e.g. "Scanner/methodology"
+  filename: string      // e.g. "small-pullback-trend-scoring.md"
+  date: string          // YYYY-MM-DD parsed from filename or content, or ''
+  excerpt: string       // first ~240 chars of body text
 }
 
 /** Urgency-gated backtest corpus (vault/Scanner/backtests/) */

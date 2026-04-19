@@ -11,6 +11,7 @@ import { SymbolTable } from '@/components/review/SymbolTable'
 import { AuditHistoryDrawer } from '@/components/review/AuditHistoryDrawer'
 import { CalibrationDiagram } from '@/components/review/CalibrationDiagram'
 import { BacktestCorpusPanel } from '@/components/review/BacktestCorpusPanel'
+import { RecentResearchPanel } from '@/components/review/RecentResearchPanel'
 
 export default function ReviewPage() {
   const [data, setData] = useState<AuditPayload | null>(null)
@@ -58,6 +59,7 @@ export default function ReviewPage() {
           </p>
         </div>
         {data.backtests && <BacktestCorpusPanel corpus={data.backtests} />}
+        <RecentResearchPanel notes={data.recentResearch ?? []} />
         {!data.backtests && (
           <div className="bg-surface border border-border rounded-lg p-6 text-center">
             <div className="text-sm text-sub mb-2">No audit or backtest data yet</div>
@@ -166,6 +168,9 @@ export default function ReviewPage() {
 
       {/* Backtest corpus — urgency-gated 6-month rollup */}
       {data.backtests && <BacktestCorpusPanel corpus={data.backtests} />}
+
+      {/* Recent research — output from scheduled routines */}
+      <RecentResearchPanel notes={data.recentResearch ?? []} />
 
       {/* Calibration diagram */}
       <CalibrationDiagram />

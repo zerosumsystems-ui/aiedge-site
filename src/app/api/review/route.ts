@@ -13,11 +13,13 @@ import type {
   AgreementLevel,
   DivergenceClass,
   TradeDecision,
+  VaultPayload,
 } from '@/lib/types'
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
 import { requireSession } from '@/lib/auth/require-session'
 import { getSnapshot, setSnapshot } from '@/lib/snapshots'
-import { loadBacktestCorpus } from '@/lib/backtests'
+import { parseFromVaultNotes } from '@/lib/backtests'
+import { deriveRecentResearch } from '@/lib/research'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +40,15 @@ export async function GET(request: Request) {
   const unauth = await requireSession(request)
   if (unauth) return unauth
 
-  const payload = await getSnapshot<AuditPayload>('review', EMPTY_PAYLOAD)
+  // Fetch the review snapshot and the vault snapshot in parallel. Both
+  // BacktestCorpus and RecentResearch derive from the same `VaultPayload`, so
+  // we read it once here and feed both pure derive functions.
+  const [payload, vault] = await Promise.all([
+    getSnapshot<AuditPayload>('review', EMPTY_PAYLOAD),
+    getSnapshot<VaultPayload>('vault', { notes: [], syncedAt: '', noteCount: 0 }),
+  ])
+  const backtests = safeDerive(() => parseFromVaultNotes(vault.notes))
+  const recentResearch = safeDerive(() => deriveRecentResearch(vault.notes)) ?? []
 
   // Dev convenience: if nothing has been synced yet, scrape local audit dirs.
   if (
@@ -48,16 +58,25 @@ export async function GET(request: Request) {
   ) {
     const fromDisk = loadFromFilesystem()
     if (fromDisk) {
-      const backtests = await loadBacktestCorpus().catch(() => null)
-      return Response.json({ ...fromDisk, backtests }, { headers: CORS_HEADERS })
+      return Response.json(
+        { ...fromDisk, backtests, recentResearch },
+        { headers: CORS_HEADERS }
+      )
     }
   }
 
-  // Always derive the latest backtest corpus from the vault snapshot — keeps
-  // the Self-Review tab in sync with `vault/Scanner/backtests/` automatically
-  // whenever the vault is re-synced.
-  const backtests = await loadBacktestCorpus().catch(() => null)
-  return Response.json({ ...payload, backtests }, { headers: CORS_HEADERS })
+  return Response.json(
+    { ...payload, backtests, recentResearch },
+    { headers: CORS_HEADERS }
+  )
+}
+
+function safeDerive<T>(fn: () => T): T | null {
+  try {
+    return fn()
+  } catch {
+    return null
+  }
 }
 
 export async function POST(request: Request) {
