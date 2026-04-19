@@ -129,16 +129,31 @@ export async function POST(request: Request) {
       throw new Error('SnapTrade register returned no userId/userSecret')
     }
 
-    await admin.from('broker_connections').upsert(
-      {
-        user_id: user.id,
-        snaptrade_user_id: regData.userId,
-        snaptrade_user_secret: regData.userSecret,
-        status: 'registered',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    )
+    const { error: upsertError } = await admin
+      .from('broker_connections')
+      .upsert(
+        {
+          user_id: user.id,
+          snaptrade_user_id: regData.userId,
+          snaptrade_user_secret: regData.userSecret,
+          status: 'registered',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      )
+    if (upsertError) {
+      // If we return the redirectURI without having stored the userSecret,
+      // the user's next "Connect Fidelity" click will delete+re-register the
+      // upstream SnapTrade user — wiping the connection they just made. Fail
+      // the request so the UI surfaces the storage error instead.
+      console.error(
+        '[snaptrade/register] upsert failed — refusing to return redirect:',
+        JSON.stringify(upsertError)
+      )
+      throw new Error(
+        `Failed to persist SnapTrade credentials: ${upsertError.message}`
+      )
+    }
 
     const { data: loginData } = await snaptrade.authentication.loginSnapTradeUser({
       userId: regData.userId,
