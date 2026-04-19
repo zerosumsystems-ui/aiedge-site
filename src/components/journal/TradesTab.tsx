@@ -10,6 +10,7 @@ import type {
   RoundTrip,
 } from '@/lib/types'
 import { LightweightChart } from '@/components/charts/LightweightChart'
+import { BrooksAnalysisPanel } from './BrooksAnalysisPanel'
 
 function formatDateTime(iso: string): string {
   try {
@@ -276,12 +277,42 @@ function RoundTripCard({ trip }: { trip: RoundTrip }) {
         </div>
       </summary>
 
-      {open && (
-        <div className="border-t border-border p-3 animate-[fadeIn_0.15s_ease]">
-          <RoundTripChart trip={trip} />
-        </div>
-      )}
+      {open && <ExpandedBody trip={trip} />}
     </details>
+  )
+}
+
+function ExpandedBody({ trip }: { trip: RoundTrip }) {
+  const [showBrooks, setShowBrooks] = useState(false)
+  return (
+    <div className="border-t border-border p-3 space-y-3 animate-[fadeIn_0.15s_ease]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-wider text-sub">
+          {trip.pairedReadId ? 'Chart + Brooks analysis' : 'Chart'}
+        </span>
+        <button
+          onClick={() => setShowBrooks((v) => !v)}
+          disabled={!trip.pairedReadId}
+          aria-pressed={showBrooks}
+          title={
+            trip.pairedReadId
+              ? 'Toggle the Brooks read + execution grade'
+              : 'No pre-trade Brooks read on file for this trade'
+          }
+          className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors border ${
+            !trip.pairedReadId
+              ? 'opacity-40 cursor-not-allowed border-border text-sub'
+              : showBrooks
+                ? 'bg-teal/20 text-teal border-teal/40'
+                : 'border-border text-sub hover:text-text hover:border-teal/30'
+          }`}
+        >
+          {showBrooks ? 'Hide Brooks analysis' : 'Brooks analysis'}
+        </button>
+      </div>
+      {showBrooks && <BrooksAnalysisPanel trip={trip} />}
+      <RoundTripChart trip={trip} />
+    </div>
   )
 }
 

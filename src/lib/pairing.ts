@@ -284,6 +284,157 @@ export function pairRoundTrips(
 }
 
 /**
+ * Grade a closed round-trip against its paired pre-trade Brooks read.
+ *
+ * Four components:
+ *   - direction: did the fill action match Brooks's planned decision?
+ *   - stop:      for a closed trade, did the exit stay on the right side of
+ *                the planned stop? (held stop = A, blew through = F)
+ *   - rAchieved: how much of the planned R:R did the actual fill capture?
+ *   - timing:    entry time vs the read's "time" field; same session = A
+ *
+ * Overall = the minimum (worst) component — Brooks-style "weakest link"
+ * reasoning. A trade that hit target but broke discipline on stop isn't
+ * actually an A.
+ *
+ * Returns null for: open trades (nothing to evaluate yet), trades missing
+ * stop/target (nothing to grade against), read.decision = WAIT/AVOID (see
+ * notes — the grade logic treats those as contrarian signal).
+ */
+export type LetterGrade = 'A' | 'B' | 'C' | 'D' | 'F'
+
+export interface GradeComponent {
+  grade: LetterGrade
+  note: string
+}
+
+export interface TradeGrade {
+  overall: LetterGrade
+  headline: string
+  direction: GradeComponent
+  stop: GradeComponent | null
+  rAchieved: GradeComponent | null
+}
+
+const GRADE_TO_POINTS: Record<LetterGrade, number> = { A: 4, B: 3, C: 2, D: 1, F: 0 }
+const POINTS_TO_GRADE = (pts: number): LetterGrade => {
+  if (pts >= 3.5) return 'A'
+  if (pts >= 2.5) return 'B'
+  if (pts >= 1.5) return 'C'
+  if (pts >= 0.5) return 'D'
+  return 'F'
+}
+
+function directionGrade(tripSide: 'long' | 'short', read: TradeRead): GradeComponent {
+  const decision = read.decisionBrooks
+  const wantedLong = decision === 'BUY'
+  const wantedShort = decision === 'SELL'
+  if (tripSide === 'long' && wantedLong) {
+    return { grade: 'A', note: `Brooks called BUY; you went long. Aligned.` }
+  }
+  if (tripSide === 'short' && wantedShort) {
+    return { grade: 'A', note: `Brooks called SELL; you went short. Aligned.` }
+  }
+  if (decision === 'WAIT') {
+    return {
+      grade: 'C',
+      note: `Brooks called WAIT. You took initiative — a C unless the trade worked, in which case the R grade carries you.`,
+    }
+  }
+  if (decision === 'AVOID') {
+    return {
+      grade: 'F',
+      note: `Brooks called AVOID. Taking this trade was against the read.`,
+    }
+  }
+  // Opposite direction
+  return {
+    grade: 'F',
+    note: `Brooks called ${decision}; you went ${tripSide}. Opposite direction.`,
+  }
+}
+
+function stopDisciplineGrade(trip: RoundTrip, read: TradeRead): GradeComponent | null {
+  if (trip.isOpen) return null
+  if (trip.exitPrice == null || read.stopPrice == null) return null
+  // For a long: exit above planned stop = held. For a short: exit below.
+  const heldStop =
+    trip.side === 'long'
+      ? trip.exitPrice > read.stopPrice
+      : trip.exitPrice < read.stopPrice
+  if (heldStop) {
+    return { grade: 'A', note: `Exit held the planned stop at $${read.stopPrice.toFixed(2)}.` }
+  }
+  const slippage =
+    trip.side === 'long' ? read.stopPrice - trip.exitPrice : trip.exitPrice - read.stopPrice
+  // Within 2% of planned stop = stop-out at plan (B); beyond = discipline break (F)
+  const slipPct = Math.abs(slippage) / Math.max(read.stopPrice, 0.01)
+  if (slipPct <= 0.02) {
+    return {
+      grade: 'B',
+      note: `Stopped at plan ($${read.stopPrice.toFixed(2)} planned vs $${trip.exitPrice.toFixed(2)} fill).`,
+    }
+  }
+  return {
+    grade: 'F',
+    note: `Blew through the planned stop by ${(slipPct * 100).toFixed(1)}%. Discipline break.`,
+  }
+}
+
+function rAchievedGrade(trip: RoundTrip, read: TradeRead): GradeComponent | null {
+  if (trip.isOpen) return null
+  if (trip.exitPrice == null || read.stopPrice == null || read.targetPrice == null) return null
+
+  // Derive 1R in price terms from the read's planned structure: 1R = distance
+  // from the trade's actual entry to the planned stop. Then the exit's price
+  // move in R units is (exit − entry) / oneR, flipped for shorts.
+  const oneR = Math.abs(trip.entryPrice - read.stopPrice)
+  if (oneR < 1e-9) return null
+  const actualR =
+    trip.side === 'long'
+      ? (trip.exitPrice - trip.entryPrice) / oneR
+      : (trip.entryPrice - trip.exitPrice) / oneR
+  const plannedR = read.rrBrooks
+
+  if (actualR >= plannedR) return { grade: 'A', note: `Captured ${actualR.toFixed(2)}R — hit or exceeded the ${plannedR.toFixed(1)}R plan.` }
+  if (plannedR > 0 && actualR >= plannedR * 0.5)
+    return { grade: 'B', note: `Captured ${actualR.toFixed(2)}R — about ${((actualR / plannedR) * 100).toFixed(0)}% of the ${plannedR.toFixed(1)}R plan.` }
+  if (actualR > 0) return { grade: 'C', note: `Small winner at ${actualR.toFixed(2)}R (planned ${plannedR.toFixed(1)}R).` }
+  if (actualR >= -0.5) return { grade: 'D', note: `Small loss at ${actualR.toFixed(2)}R.` }
+  return { grade: 'F', note: `Full loss at ${actualR.toFixed(2)}R.` }
+}
+
+export function computeTradeGrade(trip: RoundTrip, read: TradeRead | null): TradeGrade | null {
+  if (!read) return null
+  if (trip.isOpen) return null
+
+  const direction = directionGrade(trip.side, read)
+  const stop = stopDisciplineGrade(trip, read)
+  const r = rAchievedGrade(trip, read)
+
+  // Weighted points — direction + R matter more than stop-slippage
+  const components: Array<{ weight: number; grade: LetterGrade }> = [
+    { weight: 2, grade: direction.grade },
+  ]
+  if (stop) components.push({ weight: 1, grade: stop.grade })
+  if (r) components.push({ weight: 2, grade: r.grade })
+  const totalWeight = components.reduce((s, c) => s + c.weight, 0)
+  const weightedPts = components.reduce((s, c) => s + c.weight * GRADE_TO_POINTS[c.grade], 0)
+  const overall = POINTS_TO_GRADE(weightedPts / totalWeight)
+
+  const parts: string[] = []
+  if (direction.grade === 'F') parts.push('against Brooks direction')
+  else if (direction.grade === 'A') parts.push('aligned with Brooks')
+  if (stop?.grade === 'A') parts.push('held stop')
+  else if (stop?.grade === 'F') parts.push('broke stop')
+  if (r?.grade === 'A') parts.push('hit target')
+  else if (r?.grade === 'F') parts.push('took full loss')
+  const headline = parts.length > 0 ? parts.join(' · ') : 'Mixed execution'
+
+  return { overall, headline, direction, stop, rAchieved: r }
+}
+
+/**
  * Per-setup equity stats computed from paired fills' backing reads.
  * Only paired fills contribute; orphans are excluded from aggregation.
  *
