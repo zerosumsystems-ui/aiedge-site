@@ -2,7 +2,7 @@
 
 import type { ScanResult } from "@/lib/types"
 
-type SortKey = "rank" | "urgency" | "adrMult" | "uncertainty"
+type SortKey = "rank" | "urgency" | "adrMult" | "uncertainty" | "trend"
 
 interface SortBarProps {
   onSort: (key: SortKey) => void
@@ -17,6 +17,7 @@ export function SortBar({ onSort, activeKey }: SortBarProps) {
     { key: "urgency", label: "Urgency" },
     { key: "adrMult", label: "ADR ×" },
     { key: "uncertainty", label: "Uncertainty" },
+    { key: "trend", label: "Trend" },
   ]
 
   return (
@@ -54,6 +55,14 @@ export function sortResults(results: ScanResult[], key: SortKey): ScanResult[] {
     case "uncertainty":
       sorted.sort((a, b) => b.uncertainty - a.uncertainty)
       break
+    case "trend":
+      sorted.sort((a, b) => trendStrength(b) - trendStrength(a))
+      break
   }
   return sorted
+}
+
+function trendStrength(r: ScanResult): number {
+  const ts = r.trendState
+  return !ts || ts.direction === "none" ? 0 : ts.strength
 }

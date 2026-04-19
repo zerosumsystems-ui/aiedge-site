@@ -37,10 +37,21 @@ function formatDayType(dt: string): string {
   return dt.replace(/_/g, " ")
 }
 
+function trendChip(ts: ScanResult["trendState"]) {
+  if (!ts || ts.direction === "none") return null
+  const arrow = ts.direction === "up" ? "↑" : "↓"
+  const toneClass = ts.direction === "up"
+    ? "bg-teal/10 text-teal border border-teal/35"
+    : "bg-red/10 text-red border border-red/35"
+  const structShort = ts.structure.replace(/^bull_|^bear_/, "").replace(/_/g, " ")
+  const strengthPct = Math.round(ts.strength * 100)
+  return { arrow, toneClass, structShort, strengthPct }
+}
+
 export function ScannerCard({ result }: { result: ScanResult }) {
   const { ticker, rank, urgency, uncertainty, signal, dayType, cyclePhase, fillStatus,
     htfAlignment, adr, adrRatio, adrMult, adrTier, movement, components, warning,
-    summary, chart } = result
+    summary, chart, trendState } = result
 
   const movementClass = movement === "NEW" ? "text-teal" :
     movement.startsWith("+") ? "text-teal font-semibold" :
@@ -55,6 +66,8 @@ export function ScannerCard({ result }: { result: ScanResult }) {
       : htfAlignment === "opposed"
         ? "✗"
         : null
+
+  const trend = trendChip(trendState)
 
   return (
     <details className="bg-surface border border-border rounded-lg mb-2 overflow-hidden group">
@@ -82,6 +95,14 @@ export function ScannerCard({ result }: { result: ScanResult }) {
             {cyclePhase && (
               <span className="inline-block ml-1.5 px-1.5 py-px border border-border rounded text-[9.5px] tracking-wide text-teal bg-teal/[.06]">
                 {cyclePhase}
+              </span>
+            )}
+            {trend && (
+              <span
+                title={`Canonical trend: ${trendState!.direction} · strength ${trend.strengthPct}% · ${trend.structShort} · confidence ${(trendState!.confidence * 100).toFixed(0)}%`}
+                className={`inline-block ml-1.5 px-1.5 py-px rounded text-[9.5px] font-semibold tracking-wide ${trend.toneClass}`}
+              >
+                {trend.arrow} {trend.strengthPct}% · {trend.structShort}
               </span>
             )}
             {fillStatus && (

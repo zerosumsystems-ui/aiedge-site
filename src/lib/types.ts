@@ -107,6 +107,23 @@ export type AdrTier = "cold" | "warm" | "hot" | "extreme"
 export type FillStatus = "held" | "partial" | "recovered" | "failed"
 export type HtfAlignment = "aligned" | "mixed" | "opposed"
 
+// Mirrors aiedge/context/trend.py TrendState — 12 contributors aggregated.
+export type TrendDirection = "up" | "down" | "none"
+export type TrendStructure =
+  | "bull_spike" | "bear_spike"
+  | "bull_channel" | "bear_channel"
+  | "trading_range"
+
+export interface TrendStateData {
+  direction: TrendDirection
+  strength: number            // 0–1 aggregate magnitude
+  ageBars: number
+  structure: TrendStructure
+  confidence: number          // 0–1
+  lagBars: number
+  contributors?: Record<string, number>
+}
+
 export interface ScanResult {
   ticker: string
   rank: number
@@ -128,6 +145,7 @@ export interface ScanResult {
   chart?: ChartData    // interactive OHLC + key levels (Phase 6)
   bpaActiveSetups?: string[]   // BPA setups currently active — e.g. ["H2", "spike_channel"]
   phase?: string               // market phase — e.g. "trend_from_open", "trading_range"
+  trendState?: TrendStateData  // canonical trend aggregator (12 contributors → direction+strength+structure)
 }
 
 export interface ScanPayload {
