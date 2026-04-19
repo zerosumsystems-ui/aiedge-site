@@ -296,8 +296,10 @@ function RoundTripChart({ trip }: { trip: RoundTrip }) {
     const to = trip.exitTime ? trip.exitTime.slice(0, 10) : new Date().toISOString().slice(0, 10)
     const qs = new URLSearchParams({ ticker: trip.ticker, from, to, tf: 'auto' })
 
-    setLoading(true)
-    setError(null)
+    // Loading + error state start at defaults (useState init). We only touch
+    // them inside the .then/.catch to avoid the cascading-renders lint rule.
+    let cancelled = false
+
     fetch(`/api/bars?${qs}`)
       .then(async (r) => {
         const data = await r.json()
@@ -309,6 +311,7 @@ function RoundTripChart({ trip }: { trip: RoundTrip }) {
         }
       })
       .then((data) => {
+        if (cancelled) return
         const entryTs = Math.floor(new Date(trip.entryTime).getTime() / 1000)
         const exitTs = trip.exitTime ? Math.floor(new Date(trip.exitTime).getTime() / 1000) : null
         const direction = trip.side === 'long' ? 'long' : 'short'
@@ -330,9 +333,14 @@ function RoundTripChart({ trip }: { trip: RoundTrip }) {
         setLoading(false)
       })
       .catch((err) => {
+        if (cancelled) return
         setError(err instanceof Error ? err.message : String(err))
         setLoading(false)
       })
+
+    return () => {
+      cancelled = true
+    }
   }, [trip.ticker, trip.entryTime, trip.exitTime, trip.entryPrice, trip.exitPrice, trip.side])
 
   if (loading) {

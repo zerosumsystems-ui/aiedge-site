@@ -106,6 +106,19 @@ const CASH_SWEEP_TICKERS = new Set([
 const MIN_QTY = 1
 
 /**
+ * Same filter rules as activityToFilled — but applied to existing FilledTrade
+ * records that may predate the filter. We run this on the merged snapshot so
+ * that SPAXX / sub-share fills that slipped in before these rules landed get
+ * cleaned up on the next sync, not stuck forever.
+ */
+function isRealFill(fill: FilledTrade): boolean {
+  if (CASH_SWEEP_TICKERS.has(fill.ticker.toUpperCase())) return false
+  if (fill.qty < MIN_QTY) return false
+  if (fill.price <= 0) return false
+  return true
+}
+
+/**
  * Map a SnapTrade UniversalActivity into our FilledTrade shape. Handles both
  * the newer transactionsAndReporting.getActivities (snake_case) shape and the
  * older accountInformation.getAccountActivities (camelCase) shape.
@@ -316,11 +329,13 @@ export async function POST(request: Request) {
     }
   }
 
-  // Merge with existing snapshot fills — dedupe by id (idempotent re-syncs)
+  // Merge with existing snapshot fills — dedupe by id (idempotent re-syncs).
+  // Apply the cash-sweep + min-qty filter to merged fills too, so old records
+  // that landed before the filter existed get cleaned up on this sync.
   const existing = await getSnapshot<FilledTradesPayload>('filled_trades', EMPTY_PAYLOAD)
   const byId = new Map<string, FilledTrade>()
-  for (const fill of existing.fills) byId.set(fill.id, fill)
-  for (const fill of allFills) byId.set(fill.id, fill)
+  for (const fill of existing.fills) if (isRealFill(fill)) byId.set(fill.id, fill)
+  for (const fill of allFills) if (isRealFill(fill)) byId.set(fill.id, fill)
   const mergedFills = Array.from(byId.values()).sort((a, b) =>
     b.fillTime.localeCompare(a.fillTime)
   )

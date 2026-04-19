@@ -18,8 +18,7 @@
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
-    "snaptrade-typescript-sdk": "^9.0.164",
-    "yahoo-finance2": "^3.14.0"
+    "snaptrade-typescript-sdk": "^9.0.164"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
