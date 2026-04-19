@@ -129,29 +129,44 @@ export async function POST(request: Request) {
       throw new Error('SnapTrade register returned no userId/userSecret')
     }
 
-    const { error: upsertError } = await admin
+    // Use delete-then-insert instead of upsert(onConflict) to sidestep any
+    // PostgREST schema-cache staleness around unique-constraint metadata —
+    // if we got here the old row (if any) is stale anyway because we just
+    // re-registered upstream. We also avoid passing columns that might be
+    // missing from the cache, keeping the insert minimal.
+    const { error: deleteErr } = await admin
       .from('broker_connections')
-      .upsert(
-        {
-          user_id: user.id,
-          snaptrade_user_id: regData.userId,
-          snaptrade_user_secret: regData.userSecret,
-          status: 'registered',
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
-    if (upsertError) {
-      // If we return the redirectURI without having stored the userSecret,
-      // the user's next "Connect Fidelity" click will delete+re-register the
-      // upstream SnapTrade user — wiping the connection they just made. Fail
-      // the request so the UI surfaces the storage error instead.
+      .delete()
+      .eq('user_id', user.id)
+    if (deleteErr) {
       console.error(
-        '[snaptrade/register] upsert failed — refusing to return redirect:',
-        JSON.stringify(upsertError)
+        '[snaptrade/register] pre-insert delete failed:',
+        `code=${deleteErr.code}`,
+        `msg=${deleteErr.message}`,
+        `details=${deleteErr.details ?? ''}`
       )
       throw new Error(
-        `Failed to persist SnapTrade credentials: ${upsertError.message}`
+        `Failed to clear stale broker row (code=${deleteErr.code ?? '?'}): ${deleteErr.message}`
+      )
+    }
+
+    const { error: insertErr } = await admin
+      .from('broker_connections')
+      .insert({
+        user_id: user.id,
+        snaptrade_user_id: regData.userId,
+        snaptrade_user_secret: regData.userSecret,
+      })
+    if (insertErr) {
+      console.error(
+        '[snaptrade/register] insert failed:',
+        `code=${insertErr.code}`,
+        `msg=${insertErr.message}`,
+        `details=${insertErr.details ?? ''}`,
+        `hint=${insertErr.hint ?? ''}`
+      )
+      throw new Error(
+        `Failed to persist SnapTrade credentials (code=${insertErr.code ?? '?'}): ${insertErr.message}`
       )
     }
 
