@@ -1,3 +1,4 @@
+import { SnaptradeError } from 'snaptrade-typescript-sdk'
 import { requireSession } from '@/lib/auth/require-session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -13,10 +14,34 @@ export const dynamic = 'force-dynamic'
  *   - if user already has a SnapTrade registration → issue a fresh login redirect
  *   - else → register a new SnapTrade user, persist id+secret, issue login redirect
  *
+ * Self-healing on two common production failure modes:
+ *   1. Stored credentials exist but SnapTrade rejects them (stale) → delete + re-register
+ *   2. No stored credentials but SnapTrade already has a user with this userId
+ *      (disconnect didn't land server-side) → delete upstream + re-register
+ *
  * Response: { redirectURI: string }
  *   Frontend navigates to redirectURI (SnapTrade Connection Portal); SnapTrade
  *   redirects back to SNAPTRADE_REDIRECT_URI on completion.
  */
+
+function describeError(err: unknown): { message: string; status?: number; body?: unknown } {
+  if (err instanceof SnaptradeError) {
+    return {
+      message: `SnapTrade ${err.status ?? '?'} ${err.statusText ?? ''}: ${err.message}`.trim(),
+      status: err.status,
+      body: err.responseBody,
+    }
+  }
+  if (err instanceof Error) return { message: err.message }
+  return { message: String(err) }
+}
+
+/** SnapTrade returns 4xx for "user not found" (stale creds) and 400 for
+ * "already registered" (orphan user). Anything non-5xx we can try to self-heal. */
+function isRecoverable(status?: number): boolean {
+  return typeof status === 'number' && status >= 400 && status < 500
+}
+
 export async function POST(request: Request) {
   const unauth = await requireSession(request)
   if (unauth) return unauth
@@ -44,81 +69,94 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .maybeSingle()
 
+    // --- Path A: stored creds → try login, fall back to re-register on stale creds ---
     if (existing?.snaptrade_user_secret && existing.snaptrade_user_id) {
-      const { data: loginData } = await snaptrade.authentication.loginSnapTradeUser({
-        userId: existing.snaptrade_user_id,
-        userSecret: existing.snaptrade_user_secret,
-        connectionType: 'read',
-        customRedirect: redirectBase,
-      })
-      return Response.json({ redirectURI: (loginData as { redirectURI?: string }).redirectURI })
+      try {
+        const { data: loginData } = await snaptrade.authentication.loginSnapTradeUser({
+          userId: existing.snaptrade_user_id,
+          userSecret: existing.snaptrade_user_secret,
+          connectionType: 'read',
+          customRedirect: redirectBase,
+        })
+        return Response.json({
+          redirectURI: (loginData as { redirectURI?: string }).redirectURI,
+        })
+      } catch (loginErr) {
+        const info = describeError(loginErr)
+        if (!isRecoverable(info.status)) throw loginErr
+        console.warn(
+          '[snaptrade/register] login with stored creds failed, re-registering:',
+          info.message,
+          info.body
+        )
+        // Fall through to re-register below.
+      }
     }
 
-    const { data: regData } = await snaptrade.authentication.registerSnapTradeUser({
-      userId: user.id,
-    })
+    // --- Path B: no creds (or stale) → register, self-heal on "already exists" ---
+    const registerOnce = () =>
+      snaptrade.authentication.registerSnapTradeUser({ userId: user.id })
 
-    await admin.from('broker_connections').upsert({
-      user_id: user.id,
-      snaptrade_user_id: regData.userId,
-      snaptrade_user_secret: regData.userSecret,
-      status: 'registered',
-      updated_at: new Date().toISOString(),
-    })
+    let regData: { userId?: string; userSecret?: string }
+    try {
+      const { data } = await registerOnce()
+      regData = data
+    } catch (regErr) {
+      const info = describeError(regErr)
+      if (!isRecoverable(info.status)) throw regErr
+      // SnapTrade likely already has a user with userId=user.id (orphan
+      // upstream, no local row). Best-effort delete, then retry.
+      console.warn(
+        '[snaptrade/register] register failed, attempting delete+retry:',
+        info.message,
+        info.body
+      )
+      try {
+        await snaptrade.authentication.deleteSnapTradeUser({ userId: user.id })
+      } catch (deleteErr) {
+        const dInfo = describeError(deleteErr)
+        console.error(
+          '[snaptrade/register] upstream delete failed (non-fatal, will still retry):',
+          dInfo.message,
+          dInfo.body
+        )
+      }
+      const { data } = await registerOnce()
+      regData = data
+    }
+
+    if (!regData.userId || !regData.userSecret) {
+      throw new Error('SnapTrade register returned no userId/userSecret')
+    }
+
+    await admin.from('broker_connections').upsert(
+      {
+        user_id: user.id,
+        snaptrade_user_id: regData.userId,
+        snaptrade_user_secret: regData.userSecret,
+        status: 'registered',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    )
 
     const { data: loginData } = await snaptrade.authentication.loginSnapTradeUser({
-      userId: regData.userId!,
-      userSecret: regData.userSecret!,
+      userId: regData.userId,
+      userSecret: regData.userSecret,
       connectionType: 'read',
       customRedirect: redirectBase,
     })
 
     return Response.json({ redirectURI: (loginData as { redirectURI?: string }).redirectURI })
   } catch (err: unknown) {
-    const detail = extractSnaptradeError(err)
+    const info = describeError(err)
     console.error(
       '[snaptrade/register] failed:',
-      JSON.stringify({
-        status: detail.status,
-        message: detail.message,
-        body: detail.body,
-      })
+      JSON.stringify({ status: info.status, message: info.message, body: info.body })
     )
     return Response.json(
-      { error: detail.message, snaptrade: detail.body, status: detail.status },
+      { error: info.message, snaptrade: info.body, status: info.status ?? 500 },
       { status: 500 }
     )
   }
-}
-
-type SnaptradeErrorDetail = {
-  message: string
-  status?: number
-  body?: unknown
-}
-
-// The SnapTrade SDK wraps axios, so on 4xx the useful info is on
-// err.response.{status,data}. err.message alone is just "Request failed with
-// status code 400" — surface the SnapTrade body so the caller can act on it.
-function extractSnaptradeError(err: unknown): SnaptradeErrorDetail {
-  if (typeof err === 'object' && err !== null) {
-    const maybeResponse = (err as { response?: { status?: number; data?: unknown } }).response
-    if (maybeResponse && (maybeResponse.status || maybeResponse.data)) {
-      const body = maybeResponse.data
-      const bodyMessage =
-        typeof body === 'object' && body !== null
-          ? (body as { detail?: string; message?: string }).detail ??
-            (body as { detail?: string; message?: string }).message
-          : typeof body === 'string'
-            ? body
-            : undefined
-      const fallback = err instanceof Error ? err.message : 'SnapTrade request failed'
-      return {
-        message: bodyMessage ?? fallback,
-        status: maybeResponse.status,
-        body,
-      }
-    }
-  }
-  return { message: err instanceof Error ? err.message : String(err) }
 }
