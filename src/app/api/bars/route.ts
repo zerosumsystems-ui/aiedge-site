@@ -280,6 +280,15 @@ export async function GET(request: Request) {
       effectiveTimeframe = 'weekly'
     }
 
+    // Hard cap — 78 candles max per chart (one RTH session at 5-min bars).
+    // More than this causes analysis paralysis on a fast Brooks read. See
+    // user memory: feedback_chart_candle_cap. Tail keeps the most recent
+    // bars so the trade-exit context is preserved in round-trip charts.
+    const MAX_BARS = 78
+    if (bars.length > MAX_BARS) {
+      bars = bars.slice(-MAX_BARS)
+    }
+
     const payload: BarsResponse = {
       bars,
       timeframe,
