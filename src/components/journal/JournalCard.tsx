@@ -31,7 +31,15 @@ export function JournalCard({ entry }: { entry: JournalEntry }) {
         {linkedTickers.length > 0 && (
           <div className="flex gap-1">
             {linkedTickers.slice(0, 3).map((t) => (
-              <span key={t} className="text-[10px] text-sub bg-bg rounded px-1.5 py-0.5">{t}</span>
+              <Link
+                key={t}
+                href={`/symbol/${encodeURIComponent(t)}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-[10px] text-sub hover:text-teal bg-bg rounded px-1.5 py-0.5 transition-colors"
+                title={`Open ${t} — scanner + trades + fills + journal`}
+              >
+                {t}
+              </Link>
             ))}
             {linkedTickers.length > 3 && (
               <span className="text-[10px] text-gray">+{linkedTickers.length - 3}</span>

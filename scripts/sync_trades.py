@@ -195,6 +195,36 @@ def load_lessons() -> list[dict]:
     return entries
 
 
+def list_audit_tickers(audit_dir: Path) -> set[str]:
+    """Set of tickers covered in this audit, derived from reads/NN_TICKER.md filenames."""
+    reads_dir = audit_dir / "audit" / "reads"
+    if not reads_dir.is_dir():
+        return set()
+    tickers: set[str] = set()
+    for md_file in reads_dir.glob("*.md"):
+        match = re.match(r"\d+_(\w+)\.md", md_file.name)
+        if match:
+            tickers.add(match.group(1))
+    return tickers
+
+
+def extract_linked_tickers(content: str, ticker_universe: set[str]) -> list[str]:
+    """Mentions of ticker_universe symbols in content, deduped, in first-appearance order.
+
+    Case-sensitive uppercase matching so prose words ('ET', 'ALL', 'TR') don't collide.
+    """
+    if not ticker_universe:
+        return []
+    seen: set[str] = set()
+    found: list[str] = []
+    for match in re.finditer(r"\b[A-Z]{1,5}\b", content):
+        token = match.group(0)
+        if token in ticker_universe and token not in seen:
+            seen.add(token)
+            found.append(token)
+    return found
+
+
 def load_audit_journal_entries(audit_dir: Path) -> list[dict]:
     """Create a journal entry summarizing the audit findings."""
     summary_file = audit_dir / "SUMMARY_REPORT.md"
@@ -202,9 +232,14 @@ def load_audit_journal_entries(audit_dir: Path) -> list[dict]:
         return []
 
     date = extract_date_from_audit_dir(audit_dir)
-    content = summary_file.read_text(encoding="utf-8")
+    full_content = summary_file.read_text(encoding="utf-8")
+
+    # Extract tickers against the audit's own ticker set so badges open /symbol/[ticker]
+    # with real scanner/trade context. Run on full content so truncation can't drop refs.
+    linked_tickers = extract_linked_tickers(full_content, list_audit_tickers(audit_dir))
 
     # Truncate to a reasonable summary (first ~2000 chars)
+    content = full_content
     if len(content) > 2000:
         content = content[:2000] + "\n\n*[Truncated — see full report]*"
 
@@ -214,7 +249,7 @@ def load_audit_journal_entries(audit_dir: Path) -> list[dict]:
         "type": "audit_note",
         "title": f"Brooks Audit — {date}",
         "content": content,
-        "linkedTickers": [],
+        "linkedTickers": linked_tickers,
         "linkedVaultNotes": ["scanner/audits/2026-04-15-audit-replay"],
         "source": "audit",
     }]
