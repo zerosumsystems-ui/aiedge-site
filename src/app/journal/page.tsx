@@ -5,9 +5,10 @@ import type { JournalEntry } from '@/lib/types'
 import { JournalTimeline } from '@/components/journal/JournalTimeline'
 import { BrokerPanel } from '@/components/journal/BrokerPanel'
 import { FillsTable } from '@/components/journal/FillsTable'
+import { TradesTab } from '@/components/journal/TradesTab'
 
 type EntryTab = '' | 'daily_read' | 'mistake' | 'lesson' | 'audit_note'
-type TopTab = 'entries' | 'broker' | 'fills'
+type TopTab = 'entries' | 'broker' | 'fills' | 'trades'
 
 const ENTRY_TABS: { key: EntryTab; label: string }[] = [
   { key: '', label: 'All' },
@@ -21,6 +22,7 @@ const TOP_TABS: { key: TopTab; label: string }[] = [
   { key: 'entries', label: 'Bot Blog' },
   { key: 'broker', label: 'Broker' },
   { key: 'fills', label: 'Fills' },
+  { key: 'trades', label: 'Trades' },
 ]
 
 export default function JournalPage() {
@@ -81,6 +83,8 @@ export default function JournalPage() {
       {topTab === 'broker' && <BrokerPanel />}
 
       {topTab === 'fills' && <FillsTable />}
+
+      {topTab === 'trades' && <TradesTab />}
 
       {topTab === 'entries' && (
         <EntriesSection

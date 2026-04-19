@@ -180,16 +180,59 @@ export function LightweightChart({ chart, height = 360, compact = false }: Props
           title: 'TARGET',
         })
       }
+      // Collect all markers (signal + entry + exit) into one call — the API
+      // supports multiple markers per series.
+      const markers: SeriesMarker<Time>[] = []
       if (a.signalBar) {
-        createSeriesMarkers(candleSeries, [
-          {
-            time: a.signalBar.time as UTCTimestamp,
-            position: a.signalBar.direction === 'long' ? 'belowBar' : 'aboveBar',
-            color: '#FFD700',
-            shape: markerShape(a.signalBar.direction),
-            text: 'signal',
-          },
-        ])
+        markers.push({
+          time: a.signalBar.time as UTCTimestamp,
+          position: a.signalBar.direction === 'long' ? 'belowBar' : 'aboveBar',
+          color: '#FFD700',
+          shape: markerShape(a.signalBar.direction),
+          text: 'signal',
+        })
+      }
+      if (a.entryMarker) {
+        markers.push({
+          time: a.entryMarker.time as UTCTimestamp,
+          position: a.entryMarker.direction === 'long' ? 'belowBar' : 'aboveBar',
+          color: TEAL,
+          shape: markerShape(a.entryMarker.direction),
+          text: 'BUY',
+        })
+      }
+      if (a.exitMarker) {
+        markers.push({
+          time: a.exitMarker.time as UTCTimestamp,
+          position: a.exitMarker.direction === 'long' ? 'belowBar' : 'aboveBar',
+          color: RED,
+          shape: markerShape(a.exitMarker.direction),
+          text: 'SELL',
+        })
+      }
+      if (markers.length > 0) createSeriesMarkers(candleSeries, markers)
+
+      // Entry + exit price lines (for round-trip journal charts). Solid lines
+      // distinguish them from the dashed STOP/TARGET planning lines.
+      if (typeof a.entryPrice === 'number') {
+        candleSeries.createPriceLine({
+          price: a.entryPrice,
+          color: TEAL,
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+          axisLabelVisible: true,
+          title: 'ENTRY',
+        })
+      }
+      if (typeof a.exitPrice === 'number') {
+        candleSeries.createPriceLine({
+          price: a.exitPrice,
+          color: '#FFD700',
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+          axisLabelVisible: true,
+          title: 'EXIT',
+        })
       }
       if (a.trendline) {
         const trendSeries = api.addSeries(LineSeries, {

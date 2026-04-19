@@ -8,7 +8,7 @@ import { requireSyncSecret } from '@/lib/auth/sync-secret'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createSnaptradeClient } from '@/lib/snaptrade/client'
-import { pairFills, perSetupStats } from '@/lib/pairing'
+import { pairFills, pairRoundTrips, perSetupStats } from '@/lib/pairing'
 import { getSnapshot, setSnapshot } from '@/lib/snapshots'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +34,7 @@ const EMPTY_PAYLOAD: FilledTradesPayload = {
   fills: [],
   paired: [],
   stats: {},
+  roundTrips: [],
   syncedAt: '',
   lastSyncError: null,
   accountCount: 0,
@@ -334,11 +335,13 @@ export async function POST(request: Request) {
   })
   const paired = pairFills(mergedFills, trades.trades)
   const stats = perSetupStats(paired, trades.trades)
+  const roundTrips = pairRoundTrips(mergedFills, paired)
 
   const payload: FilledTradesPayload = {
     fills: mergedFills,
     paired,
     stats,
+    roundTrips,
     syncedAt: new Date().toISOString(),
     lastSyncError,
     accountCount: totalAccounts,

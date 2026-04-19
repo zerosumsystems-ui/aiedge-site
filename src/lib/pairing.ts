@@ -26,7 +26,7 @@
 
 import type { EquityStats } from './stats'
 import { computeEquityStats } from './stats'
-import type { FilledTrade, PairedTrade, TradeRead } from './types'
+import type { FilledTrade, PairedTrade, RoundTrip, TradeRead } from './types'
 
 /** Normalize ticker for matching: strip whitespace, uppercase, drop .US-style exchange suffix. */
 function canonTicker(s: string): string {
@@ -94,6 +94,193 @@ export function pairFills(fills: FilledTrade[], reads: TradeRead[]): PairedTrade
   }
 
   return paired
+}
+
+/**
+ * FIFO round-trip matcher.
+ *
+ * Walks a ticker's fills in chronological order maintaining a FIFO queue of
+ * open lots. Each incoming fill either opens a new lot (first fill, or same
+ * direction as the current open lots) or closes against the oldest open lots
+ * (opposite direction).
+ *
+ * Handles:
+ *   - Multi-leg entries: 50 BUY then 30 BUY → same open lot (aggregated)
+ *   - Partial exits: 80 open, 30 SELL → partial close; 50 still open
+ *   - Shorts: SELL first then BUY cover → side: "short"
+ *   - Open positions: remaining entry fills become open round-trips (isOpen=true)
+ *
+ * Qty-weighted average prices are computed per closed round-trip.
+ *
+ * NOTE on complexity: real position accounting has wash-sale, tax-lot, split
+ * adjustment concerns — out of scope here. This is for Brooks-style journal
+ * pairing (round-trip PnL + entry/exit chart), not tax reporting.
+ */
+export function pairRoundTrips(
+  fills: FilledTrade[],
+  paired: PairedTrade[]
+): RoundTrip[] {
+  // fill.id → pairedReadId for quick lookup when we label round-trips
+  const pairedReadByFillId = new Map<string, string | null>()
+  for (const p of paired) pairedReadByFillId.set(p.fill.id, p.pairedReadId)
+
+  // Bucket fills by ticker
+  const byTicker = new Map<string, FilledTrade[]>()
+  for (const fill of fills) {
+    const key = fill.ticker.toUpperCase()
+    const bucket = byTicker.get(key)
+    if (bucket) bucket.push(fill)
+    else byTicker.set(key, [fill])
+  }
+
+  const roundTrips: RoundTrip[] = []
+
+  for (const [ticker, tickerFills] of byTicker) {
+    // Chronological — oldest first. Ties broken by id for determinism.
+    const ordered = [...tickerFills].sort((a, b) => {
+      const c = a.fillTime.localeCompare(b.fillTime)
+      if (c !== 0) return c
+      return a.id.localeCompare(b.id)
+    })
+
+    // FIFO queue of open legs. `side` is the side of the OPEN position
+    // (long = we hold BUYs waiting to SELL; short = we hold SELLs waiting
+    // to BUY-to-cover).
+    let openSide: 'long' | 'short' | null = null
+    const openLegs: Array<{ fill: FilledTrade; remaining: number }> = []
+
+    for (const fill of ordered) {
+      const fillSide: 'long' | 'short' = fill.action === 'BUY' ? 'long' : 'short'
+
+      if (openSide === null || openLegs.length === 0) {
+        // Start a new position.
+        openSide = fillSide
+        openLegs.push({ fill, remaining: fill.qty })
+        continue
+      }
+
+      if (fillSide === openSide) {
+        // Same direction — just add a leg to the open position.
+        openLegs.push({ fill, remaining: fill.qty })
+        continue
+      }
+
+      // Opposite direction — close against oldest open legs (FIFO).
+      let remainingToClose = fill.qty
+      const closingEntryFills: Array<{ fill: FilledTrade; closedQty: number }> = []
+
+      while (remainingToClose > 0 && openLegs.length > 0) {
+        const head = openLegs[0]
+        const take = Math.min(head.remaining, remainingToClose)
+        closingEntryFills.push({ fill: head.fill, closedQty: take })
+        head.remaining -= take
+        remainingToClose -= take
+        if (head.remaining <= 1e-9) openLegs.shift()
+      }
+
+      const closedQty = fill.qty - remainingToClose
+      if (closedQty <= 0) {
+        // Should not happen — defensive.
+        continue
+      }
+
+      // Qty-weighted entry price across the entry legs we consumed.
+      const entryDollars = closingEntryFills.reduce(
+        (s, c) => s + c.fill.price * c.closedQty,
+        0
+      )
+      const entryPrice = entryDollars / closedQty
+      const entryFills = closingEntryFills.map((c) => c.fill)
+      const firstEntry = entryFills[0]
+      const lastEntry = entryFills[entryFills.length - 1]
+      // Sum of each entry fill's per-share commission+fees scaled to the qty
+      // we closed from that leg, plus the exit commissions in full.
+      const entryCommishClosedShare = closingEntryFills.reduce((s, c) => {
+        const perShare = (c.fill.commission + c.fill.fees) / Math.max(c.fill.qty, 1e-9)
+        return s + perShare * c.closedQty
+      }, 0)
+      const exitCommish = fill.commission + fill.fees
+
+      const side: 'long' | 'short' = openSide
+      const realizedPnL =
+        (side === 'long' ? fill.price - entryPrice : entryPrice - fill.price) * closedQty -
+        entryCommishClosedShare -
+        exitCommish
+
+      const costBasis = entryPrice * closedQty
+      const returnPct = costBasis !== 0 ? realizedPnL / costBasis : null
+
+      const durationMs =
+        new Date(fill.fillTime).getTime() - new Date(firstEntry.fillTime).getTime()
+
+      roundTrips.push({
+        id: `${ticker}_${firstEntry.id}_${fill.id}`,
+        ticker,
+        side,
+        qty: closedQty,
+        entryTime: firstEntry.fillTime,
+        entryPrice,
+        exitTime: fill.fillTime,
+        exitPrice: fill.price,
+        durationMs,
+        realizedPnL,
+        returnPct,
+        commissions: entryCommishClosedShare + exitCommish,
+        entryFillIds: entryFills.map((e) => e.id),
+        exitFillIds: [fill.id],
+        pairedReadId:
+          pairedReadByFillId.get(firstEntry.id) ??
+          pairedReadByFillId.get(lastEntry.id) ??
+          null,
+        isOpen: false,
+      })
+
+      if (openLegs.length === 0 && remainingToClose > 0) {
+        // Over-sold relative to the open position — the remainder flips
+        // us into the opposite direction. Reseed a new open leg with the
+        // unmatched portion of the closing fill.
+        openSide = fillSide
+        openLegs.push({
+          fill,
+          remaining: remainingToClose,
+        })
+      } else if (openLegs.length === 0) {
+        openSide = null
+      }
+    }
+
+    // Any legs still open → emit as open round-trips.
+    for (const leg of openLegs) {
+      if (leg.remaining <= 1e-9) continue
+      roundTrips.push({
+        id: `${ticker}_${leg.fill.id}_open`,
+        ticker,
+        side: openSide ?? 'long',
+        qty: leg.remaining,
+        entryTime: leg.fill.fillTime,
+        entryPrice: leg.fill.price,
+        exitTime: null,
+        exitPrice: null,
+        durationMs: null,
+        realizedPnL: null,
+        returnPct: null,
+        commissions:
+          ((leg.fill.commission + leg.fill.fees) / Math.max(leg.fill.qty, 1e-9)) *
+          leg.remaining,
+        entryFillIds: [leg.fill.id],
+        exitFillIds: [],
+        pairedReadId: pairedReadByFillId.get(leg.fill.id) ?? null,
+        isOpen: true,
+      })
+    }
+  }
+
+  // Most-recent first (closed trades by exitTime, open trades by entryTime)
+  return roundTrips.sort((a, b) => {
+    const aKey = a.exitTime ?? a.entryTime
+    const bKey = b.exitTime ?? b.entryTime
+    return bKey.localeCompare(aKey)
+  })
 }
 
 /**

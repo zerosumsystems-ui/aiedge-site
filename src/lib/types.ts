@@ -34,6 +34,9 @@ export interface ChartAnnotations {
   targetPrice?: number
   entryPrice?: number                   // solid entry line (drawn alongside stop/target)
   entryMode?: "stop" | "limit" | "market"
+  exitPrice?: number                    // solid exit line (for round-trip charts)
+  entryMarker?: { time: number; direction: SignalDirection }  // BUY at bar time
+  exitMarker?: { time: number; direction: SignalDirection }   // SELL at bar time
   verdict?: { decision: string; probability: number; rr: number }
   agreement?: "AGREE" | "PARTIAL" | "MINOR" | "MAJOR" | "DISAGREE" | "INVERTED"
   adrMultiple?: number
@@ -272,10 +275,36 @@ export interface PairedTrade {
   realizedPnL: number | null
 }
 
+/**
+ * A closed round-trip trade — one or more entry fills paired to one or more
+ * exit fills via FIFO matching. `side='long'` = BUY then SELL, `side='short'`
+ * = SELL then BUY (cover). Open positions (entries with no matching exit yet)
+ * appear with `isOpen: true` and null exit fields.
+ */
+export interface RoundTrip {
+  id: string                 // stable: `${ticker}_${firstEntryFillId}_${firstExitFillId}`
+  ticker: string
+  side: "long" | "short"
+  qty: number                // size of the round-trip (shares closed)
+  entryTime: string          // ISO — earliest entry fill
+  entryPrice: number         // qty-weighted average entry
+  exitTime: string | null    // ISO — latest exit fill, null if still open
+  exitPrice: number | null   // qty-weighted average exit
+  durationMs: number | null  // exitTime − entryTime, null if open
+  realizedPnL: number | null // (exit−entry) × qty × sign, null if open
+  returnPct: number | null   // realizedPnL / (entryPrice × qty)
+  commissions: number        // sum of fill commissions + fees across all legs
+  entryFillIds: string[]     // contributing fill ids (for drilldown)
+  exitFillIds: string[]
+  pairedReadId: string | null // inherits from entry fill's paired read
+  isOpen: boolean
+}
+
 export interface FilledTradesPayload {
   fills: FilledTrade[]
   paired: PairedTrade[]                     // Phase 2: populated; Phase 1: empty
   stats: Record<string, EquityStats>        // per-setupBrooks stats (Phase 2)
+  roundTrips: RoundTrip[]                   // FIFO-paired entries + exits (Phase 3)
   syncedAt: string
   lastSyncError: string | null
   accountCount: number
