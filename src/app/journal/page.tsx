@@ -1,10 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { JournalEntry, JournalEntryType } from '@/lib/types'
+import type { JournalEntry } from '@/lib/types'
 import { JournalTimeline } from '@/components/journal/JournalTimeline'
+import { BrokerPanel } from '@/components/journal/BrokerPanel'
+import { FillsTable } from '@/components/journal/FillsTable'
 
-const TABS: { key: string; label: string }[] = [
+type EntryTab = '' | 'daily_read' | 'mistake' | 'lesson' | 'audit_note'
+type TopTab = 'entries' | 'broker' | 'fills'
+
+const ENTRY_TABS: { key: EntryTab; label: string }[] = [
   { key: '', label: 'All' },
   { key: 'daily_read', label: 'Daily Reads' },
   { key: 'mistake', label: 'Mistakes' },
@@ -12,41 +17,114 @@ const TABS: { key: string; label: string }[] = [
   { key: 'audit_note', label: 'Audit Notes' },
 ]
 
+const TOP_TABS: { key: TopTab; label: string }[] = [
+  { key: 'entries', label: 'Entries' },
+  { key: 'broker', label: 'Broker' },
+  { key: 'fills', label: 'Fills' },
+]
+
 export default function JournalPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('')
+  const [loadingEntries, setLoadingEntries] = useState(true)
+  const [topTab, setTopTab] = useState<TopTab>(() => {
+    if (typeof window === 'undefined') return 'entries'
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('broker') === 'connected') return 'broker'
+    return 'entries'
+  })
+  const [entryTab, setEntryTab] = useState<EntryTab>('')
 
   useEffect(() => {
     fetch('/api/journal')
       .then((r) => r.json())
       .then((data) => {
         setEntries(data.entries || [])
-        setLoading(false)
+        setLoadingEntries(false)
       })
-      .catch(() => setLoading(false))
+      .catch(() => setLoadingEntries(false))
   }, [])
 
-  const filtered = activeTab
-    ? entries.filter((e) => e.type === activeTab)
-    : entries
+  const filtered = entryTab ? entries.filter((e) => e.type === entryTab) : entries
 
-  // Count per type for tab badges
   const counts = entries.reduce((acc, e) => {
     acc[e.type] = (acc[e.type] || 0) + 1
     return acc
   }, {} as Record<string, number>)
 
+  return (
+    <div className="max-w-5xl mx-auto p-6">
+      <h1 className="text-2xl font-bold text-text mb-1">Journal</h1>
+      <p className="text-sm text-sub mb-4">
+        Lessons, mistakes, daily reads — and auto-logged broker fills.
+      </p>
+
+      {/* Top-level section tabs */}
+      <div className="flex gap-1 mb-4 border-b border-border pb-2 overflow-x-auto scrollbar-none">
+        {TOP_TABS.map((tab) => {
+          const active = topTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setTopTab(tab.key)}
+              className={`px-3 py-1.5 rounded-t text-sm font-medium transition-colors ${
+                active
+                  ? 'bg-teal/10 text-teal border-b-2 border-teal'
+                  : 'text-sub hover:text-text'
+              }`}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {topTab === 'broker' && <BrokerPanel />}
+
+      {topTab === 'fills' && <FillsTable />}
+
+      {topTab === 'entries' && (
+        <EntriesSection
+          entries={entries}
+          filtered={filtered}
+          counts={counts}
+          entryTab={entryTab}
+          setEntryTab={setEntryTab}
+          loading={loadingEntries}
+        />
+      )}
+    </div>
+  )
+}
+
+interface EntriesSectionProps {
+  entries: JournalEntry[]
+  filtered: JournalEntry[]
+  counts: Record<string, number>
+  entryTab: EntryTab
+  setEntryTab: (t: EntryTab) => void
+  loading: boolean
+}
+
+function EntriesSection({
+  entries,
+  filtered,
+  counts,
+  entryTab,
+  setEntryTab,
+  loading,
+}: EntriesSectionProps) {
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto p-6">
-        <div className="skeleton h-8 w-32 mb-2" />
-        <div className="skeleton h-4 w-64 mb-6" />
+      <div>
         <div className="flex gap-2 mb-6">
-          {Array.from({ length: 5 }).map((_, i) => <div key={i} className="skeleton h-8 w-20" />)}
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="skeleton h-8 w-20" />
+          ))}
         </div>
         <div className="space-y-2">
-          {Array.from({ length: 10 }).map((_, i) => <div key={i} className="skeleton h-12" />)}
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="skeleton h-12" />
+          ))}
         </div>
       </div>
     )
@@ -54,9 +132,9 @@ export default function JournalPage() {
 
   if (entries.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[calc(100dvh-var(--nav-h))]">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center max-w-md">
-          <div className="text-2xl mb-3 text-sub">No journal entries yet</div>
+          <div className="text-xl mb-3 text-sub">No journal entries yet</div>
           <p className="text-sm text-sub">
             Lessons, mistakes, and daily reads will appear here after syncing.
           </p>
@@ -66,20 +144,16 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <h1 className="text-2xl font-bold text-text mb-1">Journal</h1>
-      <p className="text-sm text-sub mb-4">Lessons, mistakes, and daily reads</p>
-
-      {/* Type tabs */}
+    <>
       <div className="flex gap-1 mb-6 border-b border-border pb-2 overflow-x-auto scrollbar-none">
-        {TABS.map((tab) => {
-          const count = tab.key ? (counts[tab.key] || 0) : entries.length
-          const active = activeTab === tab.key
+        {ENTRY_TABS.map((tab) => {
+          const count = tab.key ? counts[tab.key] ?? 0 : entries.length
+          const active = entryTab === tab.key
 
           return (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => setEntryTab(tab.key)}
               className={`px-3 py-1.5 rounded-t text-xs font-medium transition-colors ${
                 active
                   ? 'bg-teal/10 text-teal border-b-2 border-teal'
@@ -95,15 +169,12 @@ export default function JournalPage() {
         })}
       </div>
 
-      <JournalTimeline
-        entries={filtered}
-        emptyMessage={emptyMessageFor(activeTab)}
-      />
-    </div>
+      <JournalTimeline entries={filtered} emptyMessage={emptyMessageFor(entryTab)} />
+    </>
   )
 }
 
-function emptyMessageFor(tab: string): string {
+function emptyMessageFor(tab: EntryTab): string {
   switch (tab) {
     case 'daily_read':
       return 'No daily reads synced yet. Source: structured pre-market / EOD read notes (pipeline TBD).'

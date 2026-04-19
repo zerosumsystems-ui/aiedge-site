@@ -242,6 +242,43 @@ export interface TradesPayload {
   tradeCount: number
 }
 
+/** Filled Trades (broker auto-log) types — populated by /api/snaptrade/sync */
+
+export type FillAction = "BUY" | "SELL"
+
+export interface FilledTrade {
+  id: string                    // brokerTradeId or `${fillTime}_${ticker}_${action}_${qty}`
+  ticker: string
+  action: FillAction
+  qty: number
+  price: number
+  commission: number
+  fees: number
+  amount: number                // qty * price (pre-fee notional)
+  fillTime: string              // ISO
+  date: string                  // YYYY-MM-DD, ET
+  accountId: string
+  accountName: string | null    // institution + account number label
+  brokerTradeId: string | null
+  description: string | null
+}
+
+export interface PairedTrade {
+  fill: FilledTrade
+  pairedReadId: string | null   // → TradeRead.id (null = orphan fill)
+  rMultiple: number | null
+  realizedPnL: number | null
+}
+
+export interface FilledTradesPayload {
+  fills: FilledTrade[]
+  paired: PairedTrade[]                     // Phase 2: populated; Phase 1: empty
+  stats: Record<string, unknown>            // Phase 2: per-setup EquityStats; Phase 1: {}
+  syncedAt: string
+  lastSyncError: string | null
+  accountCount: number
+}
+
 /** Journal types */
 
 export type JournalEntryType = "daily_read" | "mistake" | "lesson" | "audit_note"
