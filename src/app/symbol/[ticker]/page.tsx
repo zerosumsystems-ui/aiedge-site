@@ -15,6 +15,7 @@ import type {
 import { ScannerCard } from '@/components/scanner/ScannerCard'
 import { TradeCard } from '@/components/trades/TradeCard'
 import { JournalCard } from '@/components/journal/JournalCard'
+import { BarsChart } from '@/components/charts/BarsChart'
 
 function formatTime(iso: string): string {
   try {
@@ -144,13 +145,18 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
         />
       </header>
 
+      {/* Symbol chart — always shown so clicking any ticker surfaces price */}
+      <section className="mb-6">
+        <SymbolChart ticker={ticker} />
+      </section>
+
       {!hasAnything && (
-        <div className="flex items-center justify-center py-20">
+        <div className="flex items-center justify-center py-12">
           <div className="text-center max-w-md">
-            <div className="text-lg text-sub mb-2">No data for {ticker}</div>
+            <div className="text-sm text-sub mb-2">No linked context for {ticker}</div>
             <p className="text-xs text-sub mb-4">
-              This symbol has no scanner hits today, no Brooks reads, no broker fills,
-              and no journal entries linked to it.
+              No scanner hits today, no Brooks reads, no broker fills, no journal entries.
+              The chart above is the only context available right now.
             </p>
             <Link href="/journal" className="text-xs text-teal hover:text-teal/80">
               &larr; Back to Journal
@@ -262,6 +268,14 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
       )}
     </div>
   )
+}
+
+function SymbolChart({ ticker }: { ticker: string }) {
+  const to = new Date().toISOString().slice(0, 10)
+  const fromDate = new Date()
+  fromDate.setDate(fromDate.getDate() - 14)
+  const from = fromDate.toISOString().slice(0, 10)
+  return <BarsChart ticker={ticker} from={from} to={to} label={`Price · ${ticker}`} />
 }
 
 function SectionHeader({ label, hint }: { label: string; hint?: string }) {

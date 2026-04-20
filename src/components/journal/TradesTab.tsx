@@ -2,14 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import type {
-  Bar,
-  ChartData,
-  ChartTimeframe,
-  FilledTradesPayload,
-  RoundTrip,
-} from '@/lib/types'
-import { LightweightChart } from '@/components/charts/LightweightChart'
+import type { FilledTradesPayload, RoundTrip } from '@/lib/types'
+import { BarsChart } from '@/components/charts/BarsChart'
 import { BrooksAnalysisPanel } from './BrooksAnalysisPanel'
 
 function formatDateTime(iso: string): string {
@@ -313,125 +307,28 @@ function ExpandedBody({ trip }: { trip: RoundTrip }) {
   )
 }
 
-type TfChoice = 'auto' | ChartTimeframe
-
-const TF_PILLS: { key: TfChoice; label: string }[] = [
-  { key: 'auto', label: 'Auto' },
-  { key: '5min', label: '5m' },
-  { key: '15min', label: '15m' },
-  { key: '1h', label: '1h' },
-  { key: 'daily', label: 'D' },
-  { key: 'weekly', label: 'W' },
-]
-
 function RoundTripChart({ trip }: { trip: RoundTrip }) {
-  const [tfChoice, setTfChoice] = useState<TfChoice>('auto')
-  const [chart, setChart] = useState<ChartData | null>(null)
-  const [effectiveTf, setEffectiveTf] = useState<ChartTimeframe | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  // Track which tfChoice the current chart state corresponds to. When the
-  // user clicks a different pill, tfChoice !== settledTf → we render the
-  // skeleton while the new fetch is in flight. Avoids top-of-effect
-  // setState which trips React's compiler rule.
-  const [settledTf, setSettledTf] = useState<TfChoice | null>(null)
-
-  useEffect(() => {
-    const from = trip.entryTime.slice(0, 10)
-    const to = trip.exitTime ? trip.exitTime.slice(0, 10) : new Date().toISOString().slice(0, 10)
-    const qs = new URLSearchParams({ ticker: trip.ticker, from, to, tf: tfChoice })
-
-    let cancelled = false
-
-    fetch(`/api/bars?${qs}`)
-      .then(async (r) => {
-        const data = await r.json()
-        if (!r.ok) throw new Error(data.error ?? `bars fetch ${r.status}`)
-        return data as {
-          bars: Bar[]
-          timeframe: ChartTimeframe
-          effectiveTimeframe: ChartTimeframe
-        }
-      })
-      .then((data) => {
-        if (cancelled) return
-        const entryTs = Math.floor(new Date(trip.entryTime).getTime() / 1000)
-        const exitTs = trip.exitTime ? Math.floor(new Date(trip.exitTime).getTime() / 1000) : null
-        const direction = trip.side === 'long' ? 'long' : 'short'
-        setChart({
-          bars: data.bars,
-          timeframe: data.effectiveTimeframe,
-          annotations: {
-            entryPrice: trip.entryPrice,
-            exitPrice: trip.exitPrice ?? undefined,
-            entryMarker: { time: entryTs, direction },
-            exitMarker:
-              exitTs != null
-                ? { time: exitTs, direction: direction === 'long' ? 'short' : 'long' }
-                : undefined,
-          },
-        })
-        setEffectiveTf(data.effectiveTimeframe)
-        setError(null)
-        setSettledTf(tfChoice)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setChart(null)
-        setEffectiveTf(null)
-        setError(err instanceof Error ? err.message : String(err))
-        setSettledTf(tfChoice)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [trip.ticker, trip.entryTime, trip.exitTime, trip.entryPrice, trip.exitPrice, trip.side, tfChoice])
-
-  // Loading when the current user choice hasn't been settled by a fetch yet.
-  const isLoading = settledTf !== tfChoice
-
+  const from = trip.entryTime.slice(0, 10)
+  const to = trip.exitTime ? trip.exitTime.slice(0, 10) : new Date().toISOString().slice(0, 10)
+  const entryTs = Math.floor(new Date(trip.entryTime).getTime() / 1000)
+  const exitTs = trip.exitTime ? Math.floor(new Date(trip.exitTime).getTime() / 1000) : null
+  const direction = trip.side === 'long' ? 'long' : 'short'
+  const annotations = {
+    entryPrice: trip.entryPrice,
+    exitPrice: trip.exitPrice ?? undefined,
+    entryMarker: { time: entryTs, direction: direction as 'long' | 'short' },
+    exitMarker:
+      exitTs != null
+        ? { time: exitTs, direction: (direction === 'long' ? 'short' : 'long') as 'long' | 'short' }
+        : undefined,
+  }
   return (
-    <div>
-      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-        <span className="text-[10px] uppercase tracking-wider text-sub">
-          Chart · {trip.ticker}
-        </span>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-0.5 bg-bg rounded p-0.5 border border-border">
-            {TF_PILLS.map((pill) => {
-              // "Auto" is active when user hasn't overridden; otherwise the
-              // pill matching the effective timeframe is highlighted.
-              const active =
-                tfChoice === pill.key ||
-                (tfChoice === 'auto' && pill.key !== 'auto' && effectiveTf === pill.key)
-              return (
-                <button
-                  key={pill.key}
-                  onClick={() => setTfChoice(pill.key)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors tabular-nums ${
-                    active
-                      ? 'bg-teal/20 text-teal'
-                      : 'text-sub hover:text-text'
-                  }`}
-                >
-                  {pill.label}
-                </button>
-              )
-            })}
-          </div>
-          <span className="text-[10px] text-gray">Databento</span>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="skeleton h-[340px] w-full rounded" />
-      ) : error || !chart || chart.bars.length === 0 ? (
-        <div className="text-center py-12 text-sub text-xs">
-          {error ? `Chart unavailable: ${error}` : 'No bars returned for this range.'}
-        </div>
-      ) : (
-        <LightweightChart chart={chart} height={340} />
-      )}
-    </div>
+    <BarsChart
+      ticker={trip.ticker}
+      from={from}
+      to={to}
+      annotations={annotations}
+      label={`Chart · ${trip.ticker}`}
+    />
   )
 }

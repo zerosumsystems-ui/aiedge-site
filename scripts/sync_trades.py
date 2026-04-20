@@ -27,7 +27,7 @@ SELF_EVAL_DIR = Path.home() / "code" / "aiedge" / "self-eval"
 
 
 def find_latest_audit() -> Path | None:
-    """Find the most recent audit directory."""
+    """Find the most recent audit directory that has per-ticker trade reads."""
     if not AUDIT_BASE.is_dir():
         return None
     dirs = sorted(AUDIT_BASE.iterdir(), reverse=True)
@@ -35,6 +35,21 @@ def find_latest_audit() -> Path | None:
         if d.is_dir() and (d / "audit" / "reads_parsed.json").exists():
             return d
     return None
+
+
+def find_audits_with_summary() -> list[Path]:
+    """Every audit directory that has a SUMMARY_REPORT.md, newest first.
+
+    Includes setup/detector audits without per-ticker reads — they still
+    belong in the journal as audit_note entries.
+    """
+    if not AUDIT_BASE.is_dir():
+        return []
+    return [
+        d
+        for d in sorted(AUDIT_BASE.iterdir(), reverse=True)
+        if d.is_dir() and (d / "SUMMARY_REPORT.md").exists()
+    ]
 
 
 def extract_narrative(md_content: str) -> str:
@@ -225,8 +240,16 @@ def extract_linked_tickers(content: str, ticker_universe: set[str]) -> list[str]
     return found
 
 
-def load_audit_journal_entries(audit_dir: Path) -> list[dict]:
-    """Create a journal entry summarizing the audit findings."""
+def load_audit_journal_entries(
+    audit_dir: Path,
+    fallback_ticker_universe: set[str] | None = None,
+) -> list[dict]:
+    """Create a journal entry summarizing the audit findings.
+
+    For setup/detector audits (no per-ticker reads dir), falls back to the
+    caller-supplied ticker universe so references like `CRWD`, `IONQ`, etc.
+    still become clickable chips pointing at /symbol/[ticker].
+    """
     summary_file = audit_dir / "SUMMARY_REPORT.md"
     if not summary_file.exists():
         return []
@@ -234,23 +257,34 @@ def load_audit_journal_entries(audit_dir: Path) -> list[dict]:
     date = extract_date_from_audit_dir(audit_dir)
     full_content = summary_file.read_text(encoding="utf-8")
 
-    # Extract tickers against the audit's own ticker set so badges open /symbol/[ticker]
-    # with real scanner/trade context. Run on full content so truncation can't drop refs.
-    linked_tickers = extract_linked_tickers(full_content, list_audit_tickers(audit_dir))
+    # Prefer the audit's own ticker set; fall back to the supplied universe
+    # (e.g. the latest trade-reads audit's tickers) when absent.
+    universe = list_audit_tickers(audit_dir)
+    if not universe and fallback_ticker_universe:
+        universe = fallback_ticker_universe
+    linked_tickers = extract_linked_tickers(full_content, universe)
 
     # Truncate to a reasonable summary (first ~2000 chars)
     content = full_content
     if len(content) > 2000:
         content = content[:2000] + "\n\n*[Truncated — see full report]*"
 
+    # Title reflects the audit flavor — setup audits are distinct from
+    # daily Brooks reads audits and should be labeled as such.
+    name_lower = audit_dir.name.lower()
+    if "setup" in name_lower:
+        title = f"Setup Audit — {date}"
+    else:
+        title = f"Brooks Audit — {date}"
+
     return [{
-        "id": f"{date}_audit_summary",
+        "id": f"{audit_dir.name}_audit_summary",
         "date": date,
         "type": "audit_note",
-        "title": f"Brooks Audit — {date}",
+        "title": title,
         "content": content,
         "linkedTickers": linked_tickers,
-        "linkedVaultNotes": ["scanner/audits/2026-04-15-audit-replay"],
+        "linkedVaultNotes": [f"scanner/audits/{audit_dir.name}"],
         "source": "audit",
     }]
 
@@ -276,11 +310,20 @@ def sync(base_url: str):
     journal_entries = []
 
     if audit_dir:
-        print(f"Found audit: {audit_dir.name}")
+        print(f"Found audit with trade reads: {audit_dir.name}")
         trades = load_trades_from_audit(audit_dir)
-        journal_entries.extend(load_audit_journal_entries(audit_dir))
     else:
-        print("No audit directory found — skipping trade reads")
+        print("No audit directory with trade reads found — skipping trade reads")
+
+    # Collect ALL audits with summary reports — setup/detector audits that
+    # have no per-ticker reads still belong in the journal as audit notes.
+    trade_ticker_universe = {t["ticker"] for t in trades}
+    all_summary_audits = find_audits_with_summary()
+    for adir in all_summary_audits:
+        print(f"  audit note: {adir.name}")
+        journal_entries.extend(
+            load_audit_journal_entries(adir, fallback_ticker_universe=trade_ticker_universe)
+        )
 
     if trades:
         payload = {
