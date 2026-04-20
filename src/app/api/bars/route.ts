@@ -211,13 +211,16 @@ export async function GET(request: Request) {
   const timeframe: ChartTimeframe =
     tfParam === 'auto' ? schemaToTimeframe(schema) : tfParam
   // Context padding: weekly needs ~6 months of history so the chart has
-  // enough bars to read; daily gets a 1-week cushion; intraday 20% each side.
+  // enough bars to read; daily gets a 1-week cushion; intraday 20% each
+  // side with a 24h floor — callers pass YYYY-MM-DD (parsed as UTC midnight),
+  // so a same-day intraday trade (from == to) would land entirely outside US
+  // RTH without ≥24h of pad. The 78-bar cap below still keeps the chart tight.
   const padMs =
     timeframe === 'weekly'
       ? 180 * 86_400_000
       : schema === 'ohlcv-1d'
         ? 5 * 86_400_000
-        : Math.max((toDate.getTime() - fromDate.getTime()) * 0.2, 3_600_000)
+        : Math.max((toDate.getTime() - fromDate.getTime()) * 0.2, 86_400_000)
   const paddedFrom = new Date(fromDate.getTime() - padMs)
   const paddedTo = new Date(Math.min(toDate.getTime() + padMs, Date.now()))
 
