@@ -29,11 +29,11 @@ const CLAUDE_STUDIES: Study[] = [
     producer: 'claude',
     stream: 'Scanner — trend classification',
     title:
-      'Live direction trustworthiness is time-aware: bar k × |strength| 2-D grid yields a four-row candidate gate for 90%+ survival',
-    lastRun: '2026-04-19 21:0X ET · incr 25',
+      'The incr-25 live gate does NOT travel to ES: ES baseline direction-survival is 70.3% vs 78% on equities, forcing a tighter ES-only schedule',
+    lastRun: '2026-04-19 22:1X ET · incr 26',
     takeaway:
-      'Incr 23 distilled one headline: "at bar 20, |strength| ≥ 0.15 → 93% direction survival." Incr 25 re-reads the same 9 425-row trajectory at 2-D resolution (bar-bin × strength-bin) and shows that headline averaged over later bars where the signal was already crisp — at the strict k=20 bar in isolation it is only 81%. The 2-D grid surfaces a clean time-aware candidate gate: bars 10-29 need |strength| ≥ 0.30 (n=118, 98.3% survival); 30-39 need ≥ 0.20 (n=290, 97.2%); 40-59 need ≥ 0.15 (n=726, 95.9%); 60-78 need ≥ 0.10 (n=1 117, 98.4%). Everything else sits between 45-79%, barely above the 78% baseline of "if it said a direction it was probably right." Operator implication: bar 30 is the aggregator’s handoff point — below k=30 you need ≥ 0.30 to escape baseline; from k=30 a moderate 0.15-0.20 already clears 90%. **No production change** — proposal needs Will’s nod before any front-end gate ships. 602/905 still green.',
-    source: 'aiedge-vault · Scanner/methodology/trend-contributor-findings-2026-04-19-incr25-direction-survival.md',
+      'Follow-up answers one of the two "needs Will\'s nod" items from incr 25 — does the proposed equity-derived live direction-survival gate travel to ES futures? **No, not unchanged.** On 101 ES.c.0 RTH sessions (≈5 months Databento GLBX.MDP3, 4 887 directional observations), ES baseline is **70.3% vs 78% on equities**. Applying the incr-25 schedule to an ES live gate would miss the 90% target at every late-session cell. ES-calibrated p90 thresholds: bars 10-14 **0.20** (thin n=43, treat bar 15 as the real start); 15-29 **0.30**; 30-39 **0.30** (equity was 0.20, ΔES +0.10); 40-59 **0.20** (equity 0.15, Δ +0.05); 60-78 **0.15** (equity 0.10, Δ +0.05). The front half of the session agrees with equities; the gap opens from bar 30 onwards — exactly the hand-off zone incr 25 marked as "moderate 0.15-0.20 clears 90% on equities." On ES that cell only reaches ~85%. **No production code change** — still proposal, now with an instrument-specific schedule ready to ship when Will approves. Tests: 602/905 still green.',
+    source: 'aiedge-vault · Scanner/methodology/trend-contributor-findings-2026-04-19-incr26-es-direction-survival.md',
     href: { label: 'Open Findings → Trend arc', url: '/findings#trend' },
   },
   {
@@ -51,11 +51,11 @@ const CLAUDE_STUDIES: Study[] = [
     id: 'code-organization',
     producer: 'claude',
     stream: '/organize-my-code scheduled task',
-    title: '~7.6 GB of stale repos still reclaimable; dual-write fix continues to hold; codex re-confirms Monday-launch risk on dirty scanner checkout',
-    lastRun: '2026-04-19 21:37 ET · run #22',
+    title: 'Scope extended again: /studies now surfaces 4 newer Codex streams (trader-1, trader-2, both managers). Monday-launch risk on scanner worsens: untracked files now 65.',
+    lastRun: '2026-04-19 22:31 ET · run #23',
     takeaway:
-      '5 archive candidates (`BPA-Bot-1` 4.3 G, `Gap-ups` 2.8 G, `Finviz-clone` 451 M, `market-dashboard` 3.4 M, `microgap-bot` 188 K) and 2 active repos to move into `~/code/` (`Brooks-Price-Action` 70 M, `trading-range` 210 M). `~/keys/*.env` mode 600 (verified again). Organizational state unchanged since 04-18 — all moves gated on explicit go-ahead per management contract. **Dual-write fix held again this run** — `vault/Meta/Code Organization 2026-04-19_2137.md` is the only write; nothing landed at `~/code/CODE_ORGANIZATION_*.md`. 18 stale root-level duplicates remain (combined ~170 KB), all content already preserved in `vault/Meta/Code Organization 2026-04-19_*.md`, safe-to-delete on go-ahead. Monday-launch risk unchanged: `aiedge/scanner` `main` is still 10 commits ahead of origin with 16 modified + 55 untracked files. Codex `claude-updates` 21:04 ET adds: backtest re-run reaffirms `live-simple` 59.8% WR / +0.79R, dashboard shortlist 71.4% / +1.14R, full C3 77.1% / +1.91R; sub-5m feasibility scan suggests ~3.5× signal density at 1m bars (density only, not edge proof).',
-    source: '~/code/routines/FINDINGS_2026-04-19_*.md (19 runs today)',
+      '5 archive candidates (`BPA-Bot-1` 4.3 G, `Gap-ups` 2.8 G, `Finviz-clone` 510 M, `market-dashboard` 3.4 M, `microgap-bot` 284 K — grew since run #22 as Trader 1 shipped strict-live into it) and 2 active repos to move into `~/code/` (`Brooks-Price-Action` 70 M, `trading-range` 210 M). `~/keys/*.env` mode 600 (re-verified). Organizational state unchanged since 04-18 — all moves still gated on explicit go-ahead per management contract. **Dual-write fix held again** — `vault/Meta/Code Organization 2026-04-19_2231.md` is the only write. **Scope expansion this run**: /studies now includes 4 new Codex automation streams (`trader-1`, `trader-2`, `trader-manager-1`, `trader-manager-2`) — 10 Codex + 3 Claude = 13 cards total, up from 9. **Monday-launch risk worsens**: `aiedge/scanner` `main` still 10 commits ahead of origin, now 16 modified + **65 untracked files** (was 61 in run #22 — +4 SPT scratch outputs). Codex `claude-updates` 22:05 ET first run baselined from Claude artifacts; `market-dashboard` performance + fan-out issues still open per `performance-audit` 22:04 ET.',
+    source: '~/code/routines/FINDINGS_2026-04-19_*.md (21 runs today)',
   },
 ]
 
@@ -74,18 +74,18 @@ const CODEX_STUDIES: Study[] = [
     id: 'code-review',
     producer: 'codex',
     stream: 'Code review sweep',
-    title: 'Four fresh live-trading bugs in `~/trading-range`: contractId mixing, off-by-one cutoff bar, `first_trigger_bar`/`trigger_bar` mismatch, hindsight scan',
-    lastRun: '2026-04-19 21:06 ET',
+    title: 'Scope re-rotated to `~/market-dashboard` + staged lockfile in `~/Finviz-clone`; prior trading-range / Gap-ups / BPA-Bot-1 / market-dashboard bugs still open.',
+    lastRun: '2026-04-19 22:03 ET',
     takeaway:
-      'Scope shifted again — now reviewing `~/trading-range` with quick syntax checks across `trading-range`, `Gap-ups`, and `BPA-Bot-1`. Four `trading-range` findings, all live-trading critical: (1) `live/executor_tradovate.py` filters fills by `contractId`, which mixes previous fills on the same symbol into the current bracket and can mis-mark entries/exits. (2) `live/scanner.py` includes the bar exactly at each configured cutoff (`11:30`, `12:30`, etc.), while the research scanners exclude that bar — live trading can take out-of-window setups. (3) `live/scanner.py` switched entry timing to `first_trigger_bar`, but the stacked-count helper still measures against the mutable `trigger_bar`, so narrowed gaps can qualify using future information. (4) `run_today_microgaps.py` still computes time/ATR/stacking/entry off `trigger_bar`, so its "confirmed no-hindsight" output is not actually using the no-lookahead bar definition. Earlier-pass `market-dashboard` bugs (hardcoded FMP API key, no upstream error checks, screener hang on <3 candles, filter/reset desync, resize refetch) and `Gap-ups`, `BPA-Bot-1` bugs still open.',
+      'This pass re-focused on active changes in `~/market-dashboard` and the staged lockfile change in `~/Finviz-clone`. The four previously opened `~/trading-range` live-trading criticals remain unresolved — (1) `live/executor_tradovate.py` fills mixed by `contractId`; (2) `live/scanner.py` off-by-one cutoff-bar inclusion; (3) `first_trigger_bar` vs mutable `trigger_bar` narrowed-gap hindsight; (4) `run_today_microgaps.py` still computes off `trigger_bar`. Earlier-pass `market-dashboard` bugs also still open (hardcoded FMP API key, no upstream error checks, screener hang on <3 candles, filter/reset desync, resize refetch). Codex is rotating review targets each run rather than closing on any single repo — an operational rhythm observation, not a bug.',
     source: '~/.codex/automations/code-review/memory.md',
   },
   {
     id: 'performance-audit',
     producer: 'codex',
     stream: 'Performance audit',
-    title: 'No new regressions vs prior baseline; market-dashboard `index.html` still 28 588 B / 7 877 B gzip, screener still fans out to 22 Polygon calls, resize still unthrottled',
-    lastRun: '2026-04-19 21:06 ET',
+    title: 'Re-audit of market-dashboard — tracked HEAD still `0dd4c4b`, no new committed regression. Resize-refetch + 22-call screener fan-out remain the highest-leverage unsolved issues.',
+    lastRun: '2026-04-19 22:04 ET',
     takeaway:
       'Re-audited `~/market-dashboard` against the prior memory as baseline. **No new code-level performance regression** since the previous pass: `index.html` is still 28 588 B raw / 7 877 B gzip and screener/API files are unchanged from previously audited state. Highest-leverage issue remains the screener fan-out: one filter/apply path still becomes 22 upstream Polygon calls (`/api/screener` does one full-market snapshot; `/api/candles` fans out to up to 21 per-ticker aggregates). The resize regression also persists: `window.addEventListener(\'resize\', loadCharts)` still causes fresh `/api/aggs` fetches for SPY and QQQ on every resize event. Recommended next fixes (unchanged): short-lived shared snapshot/candle caching on the server, lazy-load or cap screener mini-charts, debounce resize to redraw from cached data only, then capture a browser trace to validate TTI improvement.',
     source: '~/.codex/automations/performance-audit/memory.md',
@@ -94,8 +94,8 @@ const CODEX_STUDIES: Study[] = [
     id: 'sdk-drift',
     producer: 'codex',
     stream: 'Dependency & SDK drift',
-    title: '`aiedge/scanner` now has manifest-to-manifest drift (`pyproject.toml` vs `requirements.txt`); Gap-ups + trading-range still underdeclare; video-pipeline gap closed',
-    lastRun: '2026-04-19 21:03 ET',
+    title: 'Rescan confirms: `aiedge/scanner` manifest-to-manifest drift (`pyproject.toml` vs `requirements.txt`) persists; Gap-ups + trading-range still underdeclare; Finviz-clone trails Next baseline',
+    lastRun: '2026-04-19 22:04 ET',
     takeaway:
       'Refresh of the prior baseline. **Video-pipeline gap closed** — `~/code/aiedge/scanner` now tracks both `pyproject.toml` and `requirements.txt` (it absorbed video-pipeline). New issue exposed: `aiedge/scanner` has manifest-to-manifest drift — `pyproject.toml` declares `databento>=0.70,<1` / `matplotlib>=3.7`, while `requirements.txt` carries `databento>=0.38.0` / `matplotlib>=3.8.0` plus pipeline-only SDKs (`anthropic`, `elevenlabs`, `httpx`, Google upload packages, `Pillow`, `Jinja2`). `Gap-ups` still tracks only `requirements.txt` with `databento>=0.40.0` / `pandas>=2.0.0` while code also imports `numpy` and `reportlab`. `trading-range` still tracks only `live/requirements.txt` with unversioned `requests` / `websocket-client` / `pandas` / `numpy`, while code also imports `databento`, `pytz`, `matplotlib`, `mpl_finance`. `BPA-Bot-1` remains the cleanest bounded baseline. `Finviz-clone` internally aligned but trails the newer Next baseline used by `aiedge/site` (`^16.1.6` vs `16.2.4`). Suggested next focus: normalize `Gap-ups` and `trading-range` manifests; decide whether `aiedge/scanner/pyproject.toml` is the authoritative runtime manifest with extras, or keep `requirements.txt` as the umbrella.',
     source: '~/.codex/automations/dependency-and-sdk-drift/memory.md',
@@ -104,21 +104,61 @@ const CODEX_STUDIES: Study[] = [
     id: 'claude-updates',
     producer: 'codex',
     stream: 'Claude activity monitor',
-    title: 'Strategy stack stronger tonight (trends incr 24, SPT pt 34, backtest reaffirmed); a tempting new "1m solves throughput" narrative needs four gated proofs before replacing the futures path',
-    lastRun: '2026-04-19 21:04 ET',
+    title: 'First-run baseline — prior memory was missing; snapshot captures the current trend-incr-25/26 + SPT-pt-35 state and flags operational hygiene as the top unresolved risk',
+    lastRun: '2026-04-19 22:05 ET',
     takeaway:
-      'New Claude work since prior cutoff: `trends` advanced to incr 24 (only 8.3% of structure flips are intended spike→channel; direction stays the trustworthy live signal, structure does not); SPT pt 34 quality grading shipped; `head-of-strategy` issued a heavily long-biased late-Monday queue with **ADBE as the only A-tier short, CRM as the only other**; `backtest` re-ran the 8-month trend + SPT stack and confirmed the strong filtered numbers (`live-simple` **59.8% WR / +0.79R**; dashboard shortlist **71.4% / +1.14R**; full C3 **77.1% / +1.91R**); `head-of-strategy` also produced **Sub-5m Feasibility Scan 2026-04-19** showing ~3.5× signal density at 1-minute bars vs 5-minute, reopening 10-15 trades/day on equities — **density only, not edge proof**. In-flight: a fresh `maintenence` run started 21:01 ET (verifying a possibly exposed Node port and a weekend cron pattern), and a fresh `backtest` run started 21:03 ET (validating today\'s trend/SPT slice is current). Codex second-eye read: the live Monday queue is concentrated in a bullish breadth thesis — regime confirmation now matters more than symbol selection; if the open is not actually broad-risk-on, the queue should shrink fast. The old bottleneck persists: solid memos, no ship/test/defer board. Treat the 1m scanner as a gated sprint with four required proofs (threshold recalibration, friction model, full backtest, paper-trade) — do not let the density memo replace the futures path on its own. Operational hygiene risks (broken `trading-reports` launchd path, dirty scanner checkout) still rank above any new research memo.',
+      'Baseline run. Prior memory was missing, so this pass establishes ground-truth from the current Claude artifacts rather than tracking deltas. Snapshot: trend arc at **incr 25 (equities live-gate proposal)** / **incr 26 (ES-calibrated ES-specific thresholds)**; SPT at **pt 35 (per-TF combined rank, WMT/MRK cross-TF longs, ADBE only A-tier short anywhere)**; head-of-strategy’s long-biased Monday queue still canonical. Operational hygiene risks unchanged from prior days — broken `trading-reports` launchd path, dirty `aiedge/scanner` checkout — still rank above any new research memo. The Sub-5m Feasibility Scan (~3.5× signal density at 1m bars) remains in "density observed, edge not proven" status; treat as a gated sprint needing threshold recalibration, friction model, full backtest, and paper-trade before it replaces the futures path.',
     source: '~/.codex/automations/claude-updates/memory.md',
   },
   {
     id: 'research-review',
     producer: 'codex',
     stream: 'Research review — verifies Claude output',
-    title: 'Pt 34 tier narrative directionally correct, but iphone repo SPT notes still promote invalidated names (CVX/ORCL/GE/COST); doc count mismatches in pt 34 itself',
-    lastRun: '2026-04-19 21:04 ET',
+    title: 'Re-verified iphone-repo SPT notes against pt 33/34 raw JSONs; Monday watchlist in the iphone repo still promotes invalidated names — pt 35 (Claude) consolidates and supersedes',
+    lastRun: '2026-04-19 22:10 ET',
     takeaway:
-      'Reviewed `~/code/iphone/spt-research` outputs against `/tmp/spt_scan/raw.json` (pt 33) and `/tmp/spt_scan_pt34/tiered.json` (pt 34). **Verified:** pt 34 tier narrative is directionally correct; ADBE is the only A-tier short; no daily or 60m short passes the pt 34 gates. **Operational inconsistency:** `~/code/iphone/spt-research/notes/small-pullback-trend-monday-watchlist-2026-04-20.md` is stale relative to pt 34 and still promotes invalidated names like CVX, ORCL, GE, and COST. **Doc mismatches:** daily C-tier long count is written as 8 in the README/pt 34 summary but the preserved graded output shows 12; pt 34\'s 30m B-tier section says 9 names but only lists 8 (omits AVGO). Minor: `head-of-strategy-2026-04-19-late.md` drops ORCL for the right reason but cites the wrong timeframe/value (`30m pb 0.83`; preserved raw scan shows `30m pb 1.52` and `5m pb 0.83`). Pt 35 (Claude, this run cycle) consolidates pt 33+34 into a clean per-TF rank — supersedes the stale Monday watchlist.',
+      'Fresh review against `/tmp/spt_scan/raw.json` (pt 33) and `/tmp/spt_scan_pt34/tiered.json` (pt 34). **Verified still holds:** pt 34 tier narrative directionally correct; ADBE the only A-tier short; no daily or 60m short passes pt 34 gates. **Operational inconsistency unchanged:** `~/code/iphone/spt-research/notes/small-pullback-trend-monday-watchlist-2026-04-20.md` stale vs pt 34/35, still promoting CVX/ORCL/GE/COST. **Doc mismatches in pt 34 itself unchanged:** daily C-tier long count written as 8 vs preserved 12; 30m B-tier says 9 but lists 8 (omits AVGO). Minor: `head-of-strategy-2026-04-19-late.md` drops ORCL citing wrong TF/value. Pt 35 (Claude, prior run cycle) consolidates pt 33+34 into a per-TF rank and supersedes the stale iphone Monday watchlist — next step is propagating pt 35 into the iphone repo copy.',
     source: '~/.codex/automations/research-review/memory.md',
+  },
+  {
+    id: 'trader-1',
+    producer: 'codex',
+    stream: 'Trader 1 — live execution builder',
+    title: 'Shipped opt-in `--strict-live` runtime in `~/microgap-bot`: polls Alpaca 1-min bars, resamples 5m, completed-bar triggers only, next-bar-open bracket via market parent',
+    lastRun: '2026-04-19 22:09 ET',
+    takeaway:
+      'Advanced `~/microgap-bot` from research-only strict scanning toward live execution parity with the canonical no-hindsight spec at `~/gaps/NO_HINDSIGHT_SPEC.md`. Refactored `research_signal_engine.py` into two layers: `plan_qualifying_setups(...)` emits canonical live plans with signal-time-only fields; `scan_qualifying_setups(...)` still adds retrospective outcomes for research CSVs. New opt-in live runtime `python run.py --strict-live` — polls Alpaca 1-min bars, resamples to 5-min, detects completed-bar triggers only, submits next-bar-open bracket orders via a market parent. `order_manager.py` now supports `entry_order_type=\'market\'` with stronger duplicate keys using `trigger_time`. Verification: `python3 -m unittest test_research_signal_engine.py` passes; `py_compile` clean across the module; strict scan still stable at 2 QQQ setups for session `2026-03-20`. **Note**: Trader Manager 1 has flagged this work as path-drift — the current champion is `Strict Micro-Gap Stack` in `~/gaps/ibkr`, not microgap-bot.',
+    source: '~/.codex/automations/trader-1/memory.md',
+  },
+  {
+    id: 'trader-2',
+    producer: 'codex',
+    stream: 'Trader 2 — paper routing layer',
+    title: 'Added paper-routing bridge in `~/mean-reversion/paper_trade_bridge.py`: ZSCORE_BAL + BB_VALUE → no-hindsight tickets (next-bar-open entry, signal-bar stop, 3R targets); hardened TopStepX shared stack',
+    lastRun: '2026-04-19 22:07 ET',
+    takeaway:
+      'Built a real paper-routing layer for mean-reversion signals. `paper_trade_bridge.py` converts `ZSCORE_BAL` and `BB_VALUE` signals into no-hindsight trade tickets with next-bar-open entry, signal-bar stop, and fixed `3R` targets. Writes session plans to `results/trader2_paper_plan_2026-03-19.{json,csv}`. Can optionally append fresh signals to the shared TopStepX pending queue. Hardened `~/gaps/topstepx/topstepx_trader.py`: returns `0` contracts when one contract already exceeds configured risk budget; accepts any symbol present in `INSTRUMENTS`, not just `ACTIVE_SYMBOLS`. Verification: `py_compile` clean on both files; `python3 paper_trade_bridge.py --ticker NQ --trade-symbol MNQ` produced two actionable tickets on session `2026-03-19`; `--queue-topstepx --force-queue` wrote two queue items. New README section documents the workflow with an MNQ execution example.',
+    source: '~/.codex/automations/trader-2/memory.md',
+  },
+  {
+    id: 'trader-manager-1',
+    producer: 'codex',
+    stream: 'Trader Manager 1 — oversight',
+    title: 'Flagged Trader 1 for execution-path drift: microgap-bot is not the current champion — `Strict Micro-Gap Stack` in `~/gaps/ibkr` is; runtime proof in `~/gaps/logs/ibkr` still missing',
+    lastRun: '2026-04-19 22:02 ET',
+    takeaway:
+      'Second run. Re-read Trader 1\'s latest report, memory, `~/gaps/TASKS.md`, and the `~/gaps/ibkr` paper-trading stack. Prior management call holds: **`Strict Micro-Gap Stack` remains the champion**; `~/gaps/ibkr` is configured for account `DUP346003`; still no runtime evidence under `~/gaps/logs/ibkr`. **Found new focus drift** in Trader 1\'s memory: the next-step wording has moved toward implementing execution inside `~/microgap-bot`, which is not the current champion path. Updated the manager report generator (`manager_report.py`) to flag execution-path drift and regenerated `latest_report.md`. Current management instruction: **prove paper runtime in `~/gaps/ibkr` before building any second live-execution path in `~/microgap-bot`**.',
+    source: '~/.codex/automations/trader-manager-1/memory.md',
+  },
+  {
+    id: 'trader-manager-2',
+    producer: 'codex',
+    stream: 'Trader Manager 2 — oversight',
+    title: 'Fixed nightly-council Reminders flood in `~/gaps`: preflight + batched create + duplicate-skip + exit-2-when-unavailable, wrapped so weekends degrade cleanly',
+    lastRun: '2026-04-19 22:04 ET',
+    takeaway:
+      'First-phase work addressed the concrete failure in `~/gaps/output/nightly.log` — repeated `osascript` / Apple Reminders connection errors on 2026-04-19. Updated `~/gaps/sync_reminders.py` to preflight Reminders once, use a single batched create path instead of one `osascript` call per task, skip duplicate reminder names, and return exit code `2` when Reminders is unavailable. Wrapped in `run_nightly_council.sh` to capture reminder-sync output and log a single "reminders unavailable — skipped sync" line instead of flooding the nightly log. Verified with `sync_reminders.py` exit 2 with one clear message; `bash -n` on the wrapper; `py_compile` on the Python; full `run_nightly_council.sh` end-to-end. Second-phase work created the Trader 2 manager mandate at `~/.codex/automations/trader-manager-2/SYSTEM.md`. Current outcome: nightly council completes successfully on weekends, writes the briefing, and degrades cleanly when macOS Reminders automation is unavailable.',
+    source: '~/.codex/automations/trader-manager-2/memory.md',
   },
 ]
 
