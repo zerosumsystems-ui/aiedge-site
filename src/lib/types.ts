@@ -502,53 +502,6 @@ export interface BacktestCorpus {
   rollupMarkdown: string  // full ROLLUP_6MO body for expandable viewer
 }
 
-/** Progress (Self-Eval Calibration) types */
-
-export type CategoryScore = "AGREE" | "PARTIAL" | "MISS"
-
-export interface ScoreboardEntry {
-  date: string
-  figureNumber: string
-  book: string
-  phase: CategoryScore
-  alwaysIn: CategoryScore
-  strength: CategoryScore
-  setup: CategoryScore
-  decision: CategoryScore
-  totalAgree: number
-}
-
-export interface Lesson {
-  id: string
-  title: string
-  fromFigure: string
-  fromDate: string
-  patternMissed: string
-  futureRule: string
-}
-
-export interface CategoryCount {
-  agree: number
-  partial: number
-  miss: number
-}
-
-export interface ProgressPayload {
-  scoreboard: ScoreboardEntry[]
-  lessons: Lesson[]
-  figuresCompleted: number
-  figuresTotal: number
-  nextQueue: string[]
-  categoryAccuracy: {
-    phase: CategoryCount
-    alwaysIn: CategoryCount
-    strength: CategoryCount
-    setup: CategoryCount
-    decision: CategoryCount
-  }
-  syncedAt: string
-}
-
 /** Routines — autonomous-job status dashboard (v0: status strip) */
 
 export type RoutineCategory =

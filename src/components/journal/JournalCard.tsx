@@ -73,19 +73,20 @@ export function JournalCard({ entry }: { entry: JournalEntry }) {
           </ReactMarkdown>
         </div>
 
-        {/* Linked vault notes */}
+        {/* Linked vault notes — render slugs as plain badges (was /knowledge,
+            removed in dead-weight cleanup). Vault is browsed directly now. */}
         {linkedVaultNotes.length > 0 && (
           <div className="mt-3 pt-3 border-t border-border/50">
             <div className="text-[10px] uppercase tracking-wider text-sub mb-1.5 font-semibold">Related Notes</div>
             <div className="flex flex-wrap gap-1.5">
               {linkedVaultNotes.map((slug) => (
-                <Link
+                <span
                   key={slug}
-                  href={`/knowledge/${slug}`}
-                  className="text-[11px] text-teal hover:text-teal/80 bg-teal/[.08] rounded px-2 py-0.5 border border-teal/20"
+                  className="text-[11px] text-sub bg-bg rounded px-2 py-0.5 border border-border"
+                  title={slug}
                 >
                   {slug.split('/').pop()}
-                </Link>
+                </span>
               ))}
             </div>
           </div>

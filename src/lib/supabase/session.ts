@@ -9,7 +9,7 @@ import { isAllowed } from '@/lib/auth/allowlist'
  * /api/* is excluded from the proxy matcher entirely (see src/proxy.ts)
  * so API auth is enforced per-route.
  */
-const PUBLIC_PREFIXES = ['/login', '/auth', '/knowledge']
+const PUBLIC_PREFIXES = ['/login', '/auth']
 
 function isPublic(pathname: string) {
   return PUBLIC_PREFIXES.some(

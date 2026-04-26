@@ -12,10 +12,6 @@ const NAV_ITEMS = [
   { href: '/trades', label: 'Trades' },
   { href: '/journal', label: 'Journal' },
   { href: '/review', label: 'Review' },
-  { href: '/progress', label: 'Progress' },
-  { href: '/knowledge', label: 'Knowledge' },
-  { href: '/findings', label: 'Findings' },
-  { href: '/studies', label: 'Studies' },
   { href: '/routines', label: 'Routines' },
   { href: '/brooks', label: 'Brooks' },
 ]
