@@ -21,6 +21,11 @@ type BarLabel = {
   ema_dist_atr: number
 }
 
+type BarsBundle = {
+  open: number[]; high: number[]; low: number[]; close: number[];
+  ema20: number[]; times: string[]
+}
+
 type Entry = {
   date: string
   ticker: string
@@ -31,6 +36,8 @@ type Entry = {
   opening_setups: string[]
   first_6_chart: string
   full_session_chart: string
+  first_6_bars: BarsBundle
+  full_session: BarsBundle
   first_6_labels?: BarLabel[]
 }
 
@@ -122,6 +129,122 @@ function BarBadge({ children, color }: { children: React.ReactNode; color: strin
     <span className={`text-[10px] uppercase tracking-wide font-semibold ${color}`}>
       {children}
     </span>
+  )
+}
+
+type Bars = {
+  open: number[]; high: number[]; low: number[]; close: number[]; ema20: number[]
+}
+
+function normalize(bars: Bars, flipY = false): {
+  o: number[]; h: number[]; l: number[]; c: number[]; e: number[]
+} {
+  const all = [...bars.open, ...bars.high, ...bars.low, ...bars.close, ...bars.ema20]
+  const min = Math.min(...all)
+  const max = Math.max(...all)
+  const span = max - min || 1
+  const n = (v: number) => {
+    const norm = (v - min) / span
+    return flipY ? 1 - norm : norm
+  }
+  // When flipping for bear→bull comparison, swap H↔L too (since flipped highs become lows).
+  const o = bars.open.map(n)
+  const c = bars.close.map(n)
+  const e = bars.ema20.map(n)
+  const h = flipY ? bars.low.map(n) : bars.high.map(n)
+  const l = flipY ? bars.high.map(n) : bars.low.map(n)
+  return { o, h, l, c, e }
+}
+
+/** Side-by-side spatial overlay: query candles + match candles on the same
+ *  normalized axes, with their EMA lines as smooth curves. The closer the
+ *  shapes overlap, the better the match — that's what the DTW score measures. */
+function SpatialOverlay({
+  query, match, flippedMatch,
+}: { query: Bars; match: Bars; flippedMatch: boolean }) {
+  const W = 560, H = 200, PAD_X = 12, PAD_Y = 12
+  const n = Math.min(query.open.length, match.open.length)
+  if (n < 2) return null
+
+  const Q = normalize(query, false)
+  const M = normalize(match, flippedMatch)
+
+  const usableW = W - PAD_X * 2
+  const usableH = H - PAD_Y * 2
+  const xStep = usableW / (n - 0.0001)
+  const xCenter = (i: number) => PAD_X + xStep * (i + 0.5)
+  const yPx = (v: number) => PAD_Y + (1 - v) * usableH
+
+  // Slight horizontal nudge so query and match candles don't overlap exactly.
+  const halfBody = Math.min(xStep * 0.18, 8)
+  const offset = halfBody + 2
+
+  const QUERY_UP = '#1f7a57', QUERY_DN = '#9f3a2d'
+  const MATCH_UP = '#3b82f6', MATCH_DN = '#a855f7'   // blue/purple = match
+
+  const renderSeries = (
+    bars: ReturnType<typeof normalize>, xOffset: number, upColor: string, downColor: string
+  ) => {
+    const elements: React.ReactNode[] = []
+    // Wicks + bodies
+    for (let i = 0; i < n; i++) {
+      const x = xCenter(i) + xOffset
+      const isUp = bars.c[i] >= bars.o[i]
+      const col = isUp ? upColor : downColor
+      const yH = yPx(bars.h[i])
+      const yL = yPx(bars.l[i])
+      const yO = yPx(bars.o[i])
+      const yC = yPx(bars.c[i])
+      const yTop = Math.min(yO, yC)
+      const yBot = Math.max(yO, yC)
+      elements.push(
+        <line key={`w-${i}`} x1={x} x2={x} y1={yH} y2={yL}
+          stroke={col} strokeWidth={1} opacity={0.85} />
+      )
+      elements.push(
+        <rect key={`b-${i}`} x={x - halfBody} y={yTop}
+          width={halfBody * 2} height={Math.max(yBot - yTop, 1)}
+          fill={col} fillOpacity={0.7} stroke={col} strokeOpacity={0.9} />
+      )
+    }
+    return elements
+  }
+
+  // EMA polylines
+  const emaPath = (bars: ReturnType<typeof normalize>, xOffset: number) =>
+    bars.e.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xCenter(i) + xOffset} ${yPx(v)}`).join(' ')
+
+  return (
+    <div className="bg-bg border border-border rounded p-2">
+      <div className="flex items-center gap-3 mb-1.5 text-[10px]">
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-2 rounded-sm" style={{ background: QUERY_UP }} />
+          <span className="text-text">query</span>
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-2 rounded-sm" style={{ background: MATCH_UP }} />
+          <span className="text-text">match{flippedMatch ? ' (flipped)' : ''}</span>
+        </span>
+        <span className="text-sub">overlaid on normalized [0,1] axes</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet"
+           className="block max-w-full">
+        {/* Match drawn first so query sits on top */}
+        {renderSeries(M, +offset, MATCH_UP, MATCH_DN)}
+        <path d={emaPath(M, +offset)} fill="none"
+          stroke="#7c3aed" strokeWidth={1.5} strokeOpacity={0.7} />
+        {renderSeries(Q, -offset, QUERY_UP, QUERY_DN)}
+        <path d={emaPath(Q, -offset)} fill="none"
+          stroke="#0e3b6b" strokeWidth={1.5} strokeOpacity={0.7} />
+        {/* X-axis bar numbers */}
+        {Array.from({ length: n }).map((_, i) => (
+          <text key={`xt-${i}`} x={xCenter(i)} y={H - 2}
+            textAnchor="middle" fontSize={9} fill="#808080">
+            bar {i + 1}
+          </text>
+        ))}
+      </svg>
+    </div>
   )
 }
 
@@ -336,11 +459,24 @@ export default function AnalogsPage() {
                       alt={`${e.ticker} ${e.date} full session`}
                       className="w-full h-auto rounded border border-border"
                     />
+                    {/* Spatial overlay — the actual data the matcher compares */}
+                    <div className="mt-3">
+                      <p className="text-[11px] text-sub mb-1">
+                        Spatial overlay — query (green/red) vs match (blue/purple), normalized to
+                        [0,1] on the same axes. The closer the shapes line up, the higher the DTW
+                        score.
+                      </p>
+                      <SpatialOverlay
+                        query={selected.first_6_bars}
+                        match={e.first_6_bars}
+                        flippedMatch={m.flipped}
+                      />
+                    </div>
                     {selected.first_6_labels && e.first_6_labels && (
                       <details className="mt-3 group">
                         <summary className="cursor-pointer text-xs text-sub hover:text-text select-none list-none flex items-center gap-1">
                           <span className="inline-block transition-transform group-open:rotate-90">▸</span>
-                          <span>What the matcher compared (bar-by-bar)</span>
+                          <span>Bar-by-bar Brooks labels</span>
                         </summary>
                         <table className="mt-2 w-full text-[11px] border-collapse">
                           <thead>
