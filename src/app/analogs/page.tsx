@@ -179,8 +179,10 @@ function SpatialOverlay({
   const halfBody = Math.min(xStep * 0.18, 8)
   const offset = halfBody + 2
 
-  const QUERY_UP = '#1f7a57', QUERY_DN = '#9f3a2d'
-  const MATCH_UP = '#3b82f6', MATCH_DN = '#a855f7'   // blue/purple = match
+  // Query uses the same warm-dark palette as the chart PNGs.
+  const QUERY_UP = '#34c79b', QUERY_DN = '#e07060'
+  // Match uses a cool blue/purple so it stands out against the warm query.
+  const MATCH_UP = '#7fa7d4', MATCH_DN = '#b785d0'
 
   const renderSeries = (
     bars: ReturnType<typeof normalize>, xOffset: number, upColor: string, downColor: string
@@ -215,7 +217,10 @@ function SpatialOverlay({
     bars.e.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xCenter(i) + xOffset} ${yPx(v)}`).join(' ')
 
   return (
-    <div className="bg-bg border border-border rounded p-2">
+    <div
+      className="border border-border rounded p-2"
+      style={{ background: '#1c1815' }}
+    >
       <div className="flex items-center gap-3 mb-1.5 text-[10px]">
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-2 rounded-sm" style={{ background: QUERY_UP }} />
@@ -232,14 +237,14 @@ function SpatialOverlay({
         {/* Match drawn first so query sits on top */}
         {renderSeries(M, +offset, MATCH_UP, MATCH_DN)}
         <path d={emaPath(M, +offset)} fill="none"
-          stroke="#7c3aed" strokeWidth={1.5} strokeOpacity={0.7} />
+          stroke="#b785d0" strokeWidth={1.5} strokeOpacity={0.7} />
         {renderSeries(Q, -offset, QUERY_UP, QUERY_DN)}
         <path d={emaPath(Q, -offset)} fill="none"
-          stroke="#0e3b6b" strokeWidth={1.5} strokeOpacity={0.7} />
+          stroke="#7fa7d4" strokeWidth={1.5} strokeOpacity={0.7} />
         {/* X-axis bar numbers */}
         {Array.from({ length: n }).map((_, i) => (
           <text key={`xt-${i}`} x={xCenter(i)} y={H - 2}
-            textAnchor="middle" fontSize={9} fill="#808080">
+            textAnchor="middle" fontSize={9} fill="#9b9286">
             bar {i + 1}
           </text>
         ))}
@@ -616,19 +621,19 @@ export default function AnalogsPage() {
                             [0, 0], [1, 0], [1, 1], [2, 2], [3, 3], [4, 3], [4, 4], [5, 5], [6, 6], [7, 7],
                           ].map(([qi, ci], k) => (
                             <line key={`w-${k}`} x1={xs[qi]} y1={ya[qi]} x2={xs[ci]} y2={yb[ci] + 50}
-                              stroke="#808080" strokeWidth={0.7} strokeDasharray="2,3" opacity={0.7} />
+                              stroke="#9b9286" strokeWidth={0.7} strokeDasharray="2,3" opacity={0.7} />
                           ))}
-                          <path d={linePath(ya)} fill="none" stroke="#1f7a57" strokeWidth={2} />
+                          <path d={linePath(ya)} fill="none" stroke="#34c79b" strokeWidth={2} />
                           {ya.map((y, i) => (
-                            <circle key={`a-${i}`} cx={xs[i]} cy={y} r={3.5} fill="#1f7a57" />
+                            <circle key={`a-${i}`} cx={xs[i]} cy={y} r={3.5} fill="#34c79b" />
                           ))}
                           <path d={linePath(yb.map((y) => y + 50))}
-                            fill="none" stroke="#3b82f6" strokeWidth={2} />
+                            fill="none" stroke="#7fa7d4" strokeWidth={2} />
                           {yb.map((y, i) => (
-                            <circle key={`b-${i}`} cx={xs[i]} cy={y + 50} r={3.5} fill="#3b82f6" />
+                            <circle key={`b-${i}`} cx={xs[i]} cy={y + 50} r={3.5} fill="#7fa7d4" />
                           ))}
-                          <text x={10} y={42} fontSize={10} fill="#1f7a57" fontWeight={600}>query</text>
-                          <text x={10} y={130} fontSize={10} fill="#3b82f6" fontWeight={600}>match</text>
+                          <text x={10} y={42} fontSize={10} fill="#34c79b" fontWeight={600}>query</text>
+                          <text x={10} y={130} fontSize={10} fill="#7fa7d4" fontWeight={600}>match</text>
                         </>
                       )
                     })()}
