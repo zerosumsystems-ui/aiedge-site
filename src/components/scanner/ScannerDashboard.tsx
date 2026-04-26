@@ -70,9 +70,14 @@ function ScannerDashboardInner() {
     [router, pathname, searchParams],
   )
 
+  // ?demo=analogs swaps in a static fixture so the analog UI is verifiable
+  // off-hours. Production reads from /api/scan as usual.
+  const demoMode = searchParams.get("demo") === "analogs"
+
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/scan")
+      const url = demoMode ? "/scanner-demo.json" : "/api/scan"
+      const res = await fetch(url, { cache: "no-store" })
       const json: ScanPayload = await res.json()
       setData(json)
     } catch (err) {
@@ -80,14 +85,15 @@ function ScannerDashboardInner() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [demoMode])
 
   useEffect(() => {
     fetchData()
-    // Auto-refresh every 5 minutes
+    // Auto-refresh every 5 minutes (skip in demo mode — fixture is static).
+    if (demoMode) return
     const interval = setInterval(fetchData, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [fetchData])
+  }, [fetchData, demoMode])
 
   const hasData = Boolean(data && data.results.length > 0)
   const results = data?.results ?? []
@@ -121,7 +127,11 @@ function ScannerDashboardInner() {
     <div className="max-w-5xl mx-auto px-3 py-3">
       {/* Header */}
       <header className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-baseline sm:gap-0 mb-3 pb-2 border-b border-border">
-        <h1 className="text-[17px] font-bold tracking-tight">Live Scanner</h1>
+        <h1 className="text-[17px] font-bold tracking-tight">Live Scanner{demoMode && (
+          <span className="ml-2 text-[11px] font-normal text-yellow uppercase tracking-wider">
+            demo fixture · ?demo=analogs
+          </span>
+        )}</h1>
         <div className="text-xs text-sub sm:text-right">
           {data?.timestamp || ""} &middot; {data?.date || ""}
         </div>

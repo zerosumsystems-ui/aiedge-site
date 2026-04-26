@@ -124,6 +124,64 @@ export interface TrendStateData {
   contributors?: Record<string, number>
 }
 
+// Analog matcher output — one detection's "closest historical chart shapes"
+// as computed by aiedge/runners/scanner_analog_matcher.py. Two views may be
+// present: "anchored" matches the morning shape (first 2..6 bars) and is
+// always shown once we're past bar 1. "rolling" matches the trailing 6-bar
+// window and only kicks in once we're past bar 6. Outcomes are normalized
+// in ATR units so cross-instrument comparison is meaningful.
+export interface AnalogShape {
+  open: number[]
+  high: number[]
+  low: number[]
+  close: number[]
+  ema20: number[]
+}
+
+export interface AnalogOutcome {
+  direction: "up" | "down" | "flat"
+  eod_move_atr: number       // signed: + = price rose after the anchor
+  max_up_atr: number         // ≥ 0
+  max_down_atr: number       // ≥ 0
+  continuation: boolean      // shape direction matched eod direction
+  shape_direction?: "up" | "down" | "flat"
+  insufficient?: boolean
+}
+
+export interface AnalogMatch {
+  rank: number
+  slug: string
+  source_slug: string         // parent session slug (links into /analogs)
+  date: string                // "2025-10-08"
+  ticker: string
+  anchor_type: "first_n" | "rolling"
+  anchor_n: number
+  dtw: number
+  shape: AnalogShape
+  atr: number
+  outcome: AnalogOutcome
+}
+
+export interface AnalogView {
+  query_shape: AnalogShape
+  query_atr: number
+  matches: AnalogMatch[]
+}
+
+export interface AnalogAnchoredView extends AnalogView {
+  anchor_n: number            // 2..6
+}
+
+export interface AnalogRollingView extends AnalogView {
+  window: number              // typically 6
+  query_end_bar: number       // 1-based bar index in today's session
+}
+
+export interface AnalogResult {
+  anchored?: AnalogAnchoredView
+  rolling?: AnalogRollingView
+}
+
 export interface ScanResult {
   ticker: string
   rank: number
@@ -146,6 +204,7 @@ export interface ScanResult {
   bpaActiveSetups?: string[]   // BPA setups currently active — e.g. ["H2", "spike_channel"]
   phase?: string               // market phase — e.g. "trend_from_open", "trading_range"
   trendState?: TrendStateData  // canonical trend aggregator (12 contributors → direction+strength+structure)
+  analogs?: AnalogResult       // closest historical chart-shape matches (DTW)
 }
 
 export interface ScanPayload {

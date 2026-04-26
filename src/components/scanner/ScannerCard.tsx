@@ -4,6 +4,7 @@ import type { ScanResult } from "@/lib/types"
 import { ScoreBar } from "./ScoreBar"
 import { ComponentTiles } from "./ComponentTiles"
 import { SignalBadge } from "./SignalBadge"
+import { ScannerAnalogs } from "./ScannerAnalogs"
 import { LightweightChart } from "@/components/charts/LightweightChart"
 
 const ADR_TIER_STYLES: Record<string, string> = {
@@ -51,7 +52,7 @@ function trendChip(ts: ScanResult["trendState"]) {
 export function ScannerCard({ result }: { result: ScanResult }) {
   const { ticker, rank, urgency, uncertainty, signal, dayType, cyclePhase, fillStatus,
     htfAlignment, adr, adrRatio, adrMult, adrTier, movement, components, warning,
-    summary, chart, trendState } = result
+    summary, chart, trendState, analogs } = result
 
   const movementClass = movement === "NEW" ? "text-teal" :
     movement.startsWith("+") ? "text-teal font-semibold" :
@@ -171,6 +172,11 @@ export function ScannerCard({ result }: { result: ScanResult }) {
         ) : (
           <div className="py-4 px-3 text-xs text-sub text-center">No chart available</div>
         )}
+
+        {/* Closest historical analogs — DTW match block populated by the
+            scanner (aiedge/runners/scanner_analog_matcher.py). Renders only
+            when analogs are present in the payload. */}
+        {analogs && <ScannerAnalogs analogs={analogs} signal={signal} />}
       </div>
     </details>
   )
