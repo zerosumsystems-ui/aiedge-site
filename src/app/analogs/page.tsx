@@ -64,11 +64,15 @@ function dirArrow(dir: string): string {
   return '→'
 }
 
+type DirectionMode = 'same' | 'include_flips'
+const SHOW_K = 5  // how many matches to display after filtering
+
 export default function AnalogsPage() {
   const [corpus, setCorpus] = useState<Corpus | null>(null)
   const [matches, setMatches] = useState<Matches | null>(null)
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [directionMode, setDirectionMode] = useState<DirectionMode>('include_flips')
 
   useEffect(() => {
     Promise.all([
@@ -99,7 +103,16 @@ export default function AnalogsPage() {
   }, [corpus])
 
   const selected = selectedSlug ? entryBySlug.get(selectedSlug) ?? null : null
-  const selectedMatches: Match[] = selectedSlug && matches ? matches.matches[selectedSlug] ?? [] : []
+  const allSelectedMatches: Match[] = selectedSlug && matches ? matches.matches[selectedSlug] ?? [] : []
+  const selectedMatches: Match[] = useMemo(() => {
+    const filtered = directionMode === 'same'
+      ? allSelectedMatches.filter((m) => !m.flipped)
+      : allSelectedMatches
+    // Re-rank to 1..N after filtering so the displayed numbers are contiguous.
+    return filtered.slice(0, SHOW_K).map((m, i) => ({ ...m, rank: i + 1 }))
+  }, [allSelectedMatches, directionMode])
+  const flippedCount = allSelectedMatches.filter((m) => m.flipped).length
+  const sameCount    = allSelectedMatches.filter((m) => !m.flipped).length
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -197,9 +210,35 @@ export default function AnalogsPage() {
           </div>
 
           <div className="pt-4">
-            <h3 className="text-base font-semibold text-text mb-3">
-              5 most-similar past mornings
-            </h3>
+            <div className="flex items-baseline justify-between gap-3 mb-3">
+              <h3 className="text-base font-semibold text-text">
+                {selectedMatches.length} most-similar past morning{selectedMatches.length === 1 ? '' : 's'}
+              </h3>
+              <div className="inline-flex items-center gap-0.5 text-[11px] rounded border border-border p-0.5">
+                <button
+                  onClick={() => setDirectionMode('same')}
+                  className={`px-2 py-0.5 rounded transition ${
+                    directionMode === 'same'
+                      ? 'bg-teal/20 text-teal'
+                      : 'text-sub hover:text-text'
+                  }`}
+                  title="Show only matches where the open went the same direction"
+                >
+                  Same direction · {sameCount}
+                </button>
+                <button
+                  onClick={() => setDirectionMode('include_flips')}
+                  className={`px-2 py-0.5 rounded transition ${
+                    directionMode === 'include_flips'
+                      ? 'bg-teal/20 text-teal'
+                      : 'text-sub hover:text-text'
+                  }`}
+                  title="Include matches where the corpus open was vertically mirrored"
+                >
+                  Include flips · {sameCount + flippedCount}
+                </button>
+              </div>
+            </div>
             <div className="space-y-8">
               {selectedMatches.map((m) => {
                 const e = entryBySlug.get(m.slug)

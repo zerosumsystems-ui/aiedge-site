@@ -1,5 +1,5 @@
 {
-  "k": 5,
+  "k": 10,
   "n_entries": 43,
   "matches": {
     "2025-10-08_QQQ": [
@@ -41,6 +41,46 @@
         "date": "2025-12-15",
         "ticker": "QQQ",
         "dtw": 1.9372744267564634,
+        "flipped": true
+      },
+      {
+        "rank": 6,
+        "slug": "2025-12-15_TQQQ",
+        "date": "2025-12-15",
+        "ticker": "TQQQ",
+        "dtw": 1.9467479517661608,
+        "flipped": true
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-12_META",
+        "date": "2025-11-12",
+        "ticker": "META",
+        "dtw": 2.014456823502078,
+        "flipped": true
+      },
+      {
+        "rank": 8,
+        "slug": "2025-12-15_IWM",
+        "date": "2025-12-15",
+        "ticker": "IWM",
+        "dtw": 2.1012384502809764,
+        "flipped": true
+      },
+      {
+        "rank": 9,
+        "slug": "2025-12-16_TLT",
+        "date": "2025-12-16",
+        "ticker": "TLT",
+        "dtw": 2.1107323525532005,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 2.1367023938715057,
         "flipped": true
       }
     ],
@@ -84,6 +124,46 @@
         "ticker": "QQQ",
         "dtw": 1.9415062417029365,
         "flipped": true
+      },
+      {
+        "rank": 6,
+        "slug": "2025-12-15_TQQQ",
+        "date": "2025-12-15",
+        "ticker": "TQQQ",
+        "dtw": 1.9514396313815134,
+        "flipped": true
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-12_META",
+        "date": "2025-11-12",
+        "ticker": "META",
+        "dtw": 2.02310012608722,
+        "flipped": true
+      },
+      {
+        "rank": 8,
+        "slug": "2025-12-15_IWM",
+        "date": "2025-12-15",
+        "ticker": "IWM",
+        "dtw": 2.113385975028978,
+        "flipped": true
+      },
+      {
+        "rank": 9,
+        "slug": "2025-12-16_TLT",
+        "date": "2025-12-16",
+        "ticker": "TLT",
+        "dtw": 2.115034601152275,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 2.1480370622079397,
+        "flipped": true
       }
     ],
     "2025-10-10_ADBE": [
@@ -125,6 +205,46 @@
         "date": "2026-02-23",
         "ticker": "MA",
         "dtw": 1.4352887848157927,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-16_QQQ",
+        "date": "2026-01-16",
+        "ticker": "QQQ",
+        "dtw": 1.4890604282273334,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-01-16_TQQQ",
+        "date": "2026-01-16",
+        "ticker": "TQQQ",
+        "dtw": 1.5151037629427315,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-11-18_V",
+        "date": "2025-11-18",
+        "ticker": "V",
+        "dtw": 1.5580108931822725,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.5639638288946003,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-10_QCOM",
+        "date": "2025-11-10",
+        "ticker": "QCOM",
+        "dtw": 1.5849818630679953,
         "flipped": false
       }
     ],
@@ -168,6 +288,46 @@
         "ticker": "QQQ",
         "dtw": 1.8605456012313848,
         "flipped": true
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-16_TQQQ",
+        "date": "2026-01-16",
+        "ticker": "TQQQ",
+        "dtw": 1.8865835275156586,
+        "flipped": true
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.9032407597870824,
+        "flipped": true
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-11_IWM",
+        "date": "2026-02-11",
+        "ticker": "IWM",
+        "dtw": 1.954678805469871,
+        "flipped": true
+      },
+      {
+        "rank": 9,
+        "slug": "2025-11-18_V",
+        "date": "2025-11-18",
+        "ticker": "V",
+        "dtw": 1.9593109801467326,
+        "flipped": true
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.9742487524035348,
+        "flipped": true
       }
     ],
     "2025-11-04_XLF": [
@@ -210,6 +370,46 @@
         "ticker": "HD",
         "dtw": 1.7712344548472896,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-13_CRM",
+        "date": "2026-01-13",
+        "ticker": "CRM",
+        "dtw": 1.7750399851259162,
+        "flipped": true
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-03_SQQQ",
+        "date": "2026-02-03",
+        "ticker": "SQQQ",
+        "dtw": 1.7854022801937512,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-01-16_SQQQ",
+        "date": "2026-01-16",
+        "ticker": "SQQQ",
+        "dtw": 1.8329015190261604,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-09_MA",
+        "date": "2026-02-09",
+        "ticker": "MA",
+        "dtw": 1.8458920378212271,
+        "flipped": true
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-23_JPM",
+        "date": "2026-02-23",
+        "ticker": "JPM",
+        "dtw": 1.899637256070678,
+        "flipped": true
       }
     ],
     "2025-11-06_AMD": [
@@ -251,6 +451,46 @@
         "date": "2026-01-29",
         "ticker": "QQQ",
         "dtw": 1.187625400136762,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-11_IWM",
+        "date": "2026-02-11",
+        "ticker": "IWM",
+        "dtw": 1.2308355515461709,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-03_AVGO",
+        "date": "2026-02-03",
+        "ticker": "AVGO",
+        "dtw": 1.2628440125602896,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-10-10_ADBE",
+        "date": "2025-10-10",
+        "ticker": "ADBE",
+        "dtw": 1.3141746206321618,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.388430844543765,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-01-13_XLF",
+        "date": "2026-01-13",
+        "ticker": "XLF",
+        "dtw": 1.408846511812468,
         "flipped": false
       }
     ],
@@ -294,6 +534,46 @@
         "ticker": "AMAT",
         "dtw": 1.5344518338005804,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-10-10_ADBE",
+        "date": "2025-10-10",
+        "ticker": "ADBE",
+        "dtw": 1.5849818630679953,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-18_V",
+        "date": "2025-11-18",
+        "ticker": "V",
+        "dtw": 1.5855618435228136,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.5912115360897907,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.6250193131348976,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-12_META",
+        "date": "2025-11-12",
+        "ticker": "META",
+        "dtw": 1.685924404537678,
+        "flipped": false
       }
     ],
     "2025-11-12_META": [
@@ -335,6 +615,46 @@
         "date": "2026-01-29",
         "ticker": "QQQ",
         "dtw": 1.2838632772409317,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-29_TQQQ",
+        "date": "2026-01-29",
+        "ticker": "TQQQ",
+        "dtw": 1.298081890653364,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.3099756897971042,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-03_AVGO",
+        "date": "2026-02-03",
+        "ticker": "AVGO",
+        "dtw": 1.371188223970789,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-12-15_QQQ",
+        "date": "2025-12-15",
+        "ticker": "QQQ",
+        "dtw": 1.4204276966959395,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-12-15_TQQQ",
+        "date": "2025-12-15",
+        "ticker": "TQQQ",
+        "dtw": 1.4214279686447364,
         "flipped": false
       }
     ],
@@ -378,6 +698,46 @@
         "ticker": "QQQ",
         "dtw": 1.3238685322668176,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-03_TQQQ",
+        "date": "2026-02-03",
+        "ticker": "TQQQ",
+        "dtw": 1.3249021693194711,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.3511915277618,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.404294572039936,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.4131388066137518,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-01-16_QQQ",
+        "date": "2026-01-16",
+        "ticker": "QQQ",
+        "dtw": 1.4940102703418492,
+        "flipped": false
       }
     ],
     "2025-11-25_HD": [
@@ -420,6 +780,46 @@
         "ticker": "META",
         "dtw": 1.62905539295949,
         "flipped": true
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.6516288325055806,
+        "flipped": true
+      },
+      {
+        "rank": 7,
+        "slug": "2025-12-15_QQQ",
+        "date": "2025-12-15",
+        "ticker": "QQQ",
+        "dtw": 1.665328615064248,
+        "flipped": true
+      },
+      {
+        "rank": 8,
+        "slug": "2025-12-15_TQQQ",
+        "date": "2025-12-15",
+        "ticker": "TQQQ",
+        "dtw": 1.6814986383307207,
+        "flipped": true
+      },
+      {
+        "rank": 9,
+        "slug": "2026-01-29_SQQQ",
+        "date": "2026-01-29",
+        "ticker": "SQQQ",
+        "dtw": 1.715321834545163,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-10-08_QQQ",
+        "date": "2025-10-08",
+        "ticker": "QQQ",
+        "dtw": 1.7571202382186426,
+        "flipped": false
       }
     ],
     "2025-12-04_V": [
@@ -461,6 +861,46 @@
         "date": "2026-01-13",
         "ticker": "XLF",
         "dtw": 1.7759437695925335,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.7972206623658342,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-09_MA",
+        "date": "2026-02-09",
+        "ticker": "MA",
+        "dtw": 1.8513222298381142,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.870289433419968,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-18_SQQQ",
+        "date": "2026-02-18",
+        "ticker": "SQQQ",
+        "dtw": 1.8885415760043034,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-10-10_ADBE",
+        "date": "2025-10-10",
+        "ticker": "ADBE",
+        "dtw": 1.8941031312301035,
         "flipped": false
       }
     ],
@@ -504,6 +944,46 @@
         "ticker": "QQQ",
         "dtw": 1.4532244211401495,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-12-15_TQQQ",
+        "date": "2025-12-15",
+        "ticker": "TQQQ",
+        "dtw": 1.4582780122186016,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.5173644793291488,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-01-29_QQQ",
+        "date": "2026-01-29",
+        "ticker": "QQQ",
+        "dtw": 1.588584399174381,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-01-29_TQQQ",
+        "date": "2026-01-29",
+        "ticker": "TQQQ",
+        "dtw": 1.60602488929148,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-25_HD",
+        "date": "2025-11-25",
+        "ticker": "HD",
+        "dtw": 1.6190224780550584,
+        "flipped": true
       }
     ],
     "2025-12-15_QQQ": [
@@ -545,6 +1025,46 @@
         "date": "2026-01-29",
         "ticker": "QQQ",
         "dtw": 1.461636774755926,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-29_TQQQ",
+        "date": "2026-01-29",
+        "ticker": "TQQQ",
+        "dtw": 1.472297533669443,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.510595658373222,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.577742195515036,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-11-25_HD",
+        "date": "2025-11-25",
+        "ticker": "HD",
+        "dtw": 1.6653286150642477,
+        "flipped": true
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-03_AVGO",
+        "date": "2026-02-03",
+        "ticker": "AVGO",
+        "dtw": 1.6734633346536254,
         "flipped": false
       }
     ],
@@ -588,6 +1108,46 @@
         "ticker": "DIA",
         "dtw": 1.82808337414279,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-11-25_HD",
+        "date": "2025-11-25",
+        "ticker": "HD",
+        "dtw": 1.8820436076326306,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2025-12-15_IWM",
+        "date": "2025-12-15",
+        "ticker": "IWM",
+        "dtw": 1.8919182999876383,
+        "flipped": true
+      },
+      {
+        "rank": 8,
+        "slug": "2025-11-12_META",
+        "date": "2025-11-12",
+        "ticker": "META",
+        "dtw": 1.9260601209759682,
+        "flipped": true
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.9466329058993628,
+        "flipped": true
+      },
+      {
+        "rank": 10,
+        "slug": "2026-01-29_QQQ",
+        "date": "2026-01-29",
+        "ticker": "QQQ",
+        "dtw": 1.9558832875194463,
+        "flipped": true
       }
     ],
     "2025-12-15_TQQQ": [
@@ -630,6 +1190,46 @@
         "ticker": "QQQ",
         "dtw": 1.479562685218189,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-29_TQQQ",
+        "date": "2026-01-29",
+        "ticker": "TQQQ",
+        "dtw": 1.4905017329924672,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.5214321256399288,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.5809337880393093,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-03_AVGO",
+        "date": "2026-02-03",
+        "ticker": "AVGO",
+        "dtw": 1.6779035883063718,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-25_HD",
+        "date": "2025-11-25",
+        "ticker": "HD",
+        "dtw": 1.6814986383307207,
+        "flipped": true
       }
     ],
     "2025-12-16_TLT": [
@@ -672,6 +1272,46 @@
         "ticker": "TQQQ",
         "dtw": 1.9497084212507148,
         "flipped": true
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-29_QQQ",
+        "date": "2026-01-29",
+        "ticker": "QQQ",
+        "dtw": 1.9545230894570147,
+        "flipped": true
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-12_TLT",
+        "date": "2026-02-12",
+        "ticker": "TLT",
+        "dtw": 1.9600533179657451,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-01-21_DIA",
+        "date": "2026-01-21",
+        "ticker": "DIA",
+        "dtw": 1.9903519807114582,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-18_TQQQ",
+        "date": "2026-02-18",
+        "ticker": "TQQQ",
+        "dtw": 2.0061539011523193,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-04_XLF",
+        "date": "2025-11-04",
+        "ticker": "XLF",
+        "dtw": 2.0337506633910714,
+        "flipped": false
       }
     ],
     "2026-01-08_HD": [
@@ -714,6 +1354,46 @@
         "ticker": "XLF",
         "dtw": 1.7712344548472896,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-03_AVGO",
+        "date": "2026-02-03",
+        "ticker": "AVGO",
+        "dtw": 1.792073070529196,
+        "flipped": true
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.8093407891412703,
+        "flipped": true
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-03_SQQQ",
+        "date": "2026-02-03",
+        "ticker": "SQQQ",
+        "dtw": 1.8146295406263524,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-01-21_DIA",
+        "date": "2026-01-21",
+        "ticker": "DIA",
+        "dtw": 1.8423086740409238,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-12_META",
+        "date": "2025-11-12",
+        "ticker": "META",
+        "dtw": 1.8427109588862667,
+        "flipped": true
       }
     ],
     "2026-01-13_CRM": [
@@ -755,6 +1435,46 @@
         "date": "2025-11-06",
         "ticker": "AMD",
         "dtw": 1.6798390670453687,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-10-10_ADBE",
+        "date": "2025-10-10",
+        "ticker": "ADBE",
+        "dtw": 1.7574547805331653,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-04_XLF",
+        "date": "2025-11-04",
+        "ticker": "XLF",
+        "dtw": 1.775039985125916,
+        "flipped": true
+      },
+      {
+        "rank": 8,
+        "slug": "2025-11-18_V",
+        "date": "2025-11-18",
+        "ticker": "V",
+        "dtw": 1.8047978978896984,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-09_MA",
+        "date": "2026-02-09",
+        "ticker": "MA",
+        "dtw": 1.8226499474456952,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.828997791895254,
         "flipped": false
       }
     ],
@@ -798,6 +1518,46 @@
         "ticker": "AMD",
         "dtw": 1.408846511812468,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-11-10_QCOM",
+        "date": "2025-11-10",
+        "ticker": "QCOM",
+        "dtw": 1.4257708101476874,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.465917092452672,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-01-29_QQQ",
+        "date": "2026-01-29",
+        "ticker": "QQQ",
+        "dtw": 1.5845776404987522,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-01-29_TQQQ",
+        "date": "2026-01-29",
+        "ticker": "TQQQ",
+        "dtw": 1.5951821408704905,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-03_AVGO",
+        "date": "2026-02-03",
+        "ticker": "AVGO",
+        "dtw": 1.6096189328008839,
+        "flipped": false
       }
     ],
     "2026-01-14_AVGO": [
@@ -839,6 +1599,46 @@
         "date": "2026-01-29",
         "ticker": "TQQQ",
         "dtw": 1.5087082631434243,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-29_QQQ",
+        "date": "2026-01-29",
+        "ticker": "QQQ",
+        "dtw": 1.5231521530190968,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-03_AVGO",
+        "date": "2026-02-03",
+        "ticker": "AVGO",
+        "dtw": 1.526426640476894,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.5526087691489696,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.5885725868381049,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-18_V",
+        "date": "2025-11-18",
+        "ticker": "V",
+        "dtw": 1.807230504240799,
         "flipped": false
       }
     ],
@@ -882,6 +1682,46 @@
         "ticker": "AMAT",
         "dtw": 1.3421914533542985,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-11_IWM",
+        "date": "2026-02-11",
+        "ticker": "IWM",
+        "dtw": 1.4188374047882806,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2025-10-10_ADBE",
+        "date": "2025-10-10",
+        "ticker": "ADBE",
+        "dtw": 1.4890604282273334,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-11-18_V",
+        "date": "2025-11-18",
+        "ticker": "V",
+        "dtw": 1.4940102703418492,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.5294340949027525,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.5615129041199836,
+        "flipped": false
       }
     ],
     "2026-01-16_SQQQ": [
@@ -923,6 +1763,46 @@
         "date": "2025-10-14",
         "ticker": "QCOM",
         "dtw": 1.656429929416643,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-18_QQQ",
+        "date": "2026-02-18",
+        "ticker": "QQQ",
+        "dtw": 1.8190913663774597,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-04_XLF",
+        "date": "2025-11-04",
+        "ticker": "XLF",
+        "dtw": 1.8329015190261604,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-12-16_TLT",
+        "date": "2025-12-16",
+        "ticker": "TLT",
+        "dtw": 1.8808657917171945,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-03_SQQQ",
+        "date": "2026-02-03",
+        "ticker": "SQQQ",
+        "dtw": 1.8980690070623383,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-12_TLT",
+        "date": "2026-02-12",
+        "ticker": "TLT",
+        "dtw": 1.916188936184443,
         "flipped": false
       }
     ],
@@ -966,6 +1846,46 @@
         "ticker": "AMAT",
         "dtw": 1.3896555337253225,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-11_IWM",
+        "date": "2026-02-11",
+        "ticker": "IWM",
+        "dtw": 1.417084187619835,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2025-10-10_ADBE",
+        "date": "2025-10-10",
+        "ticker": "ADBE",
+        "dtw": 1.5151037629427315,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-11-18_V",
+        "date": "2025-11-18",
+        "ticker": "V",
+        "dtw": 1.5164442093641841,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.539438110028241,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.635603686705764,
+        "flipped": false
       }
     ],
     "2026-01-21_DIA": [
@@ -1007,6 +1927,46 @@
         "date": "2026-01-08",
         "ticker": "HD",
         "dtw": 1.8423086740409238,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-12-16_TLT",
+        "date": "2025-12-16",
+        "ticker": "TLT",
+        "dtw": 1.9903519807114582,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-25_HD",
+        "date": "2025-11-25",
+        "ticker": "HD",
+        "dtw": 2.026895273859978,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-12-15_QQQ",
+        "date": "2025-12-15",
+        "ticker": "QQQ",
+        "dtw": 2.0673676017954485,
+        "flipped": true
+      },
+      {
+        "rank": 9,
+        "slug": "2025-12-15_TQQQ",
+        "date": "2025-12-15",
+        "ticker": "TQQQ",
+        "dtw": 2.073385765010372,
+        "flipped": true
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-03_SQQQ",
+        "date": "2026-02-03",
+        "ticker": "SQQQ",
+        "dtw": 2.126855470861326,
         "flipped": false
       }
     ],
@@ -1050,6 +2010,46 @@
         "ticker": "AMAT",
         "dtw": 1.036629716722542,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-29_SQQQ",
+        "date": "2026-01-29",
+        "ticker": "SQQQ",
+        "dtw": 1.1372394193673259,
+        "flipped": true
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.187625400136762,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-03_QQQ",
+        "date": "2026-02-03",
+        "ticker": "QQQ",
+        "dtw": 1.265412049425147,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-03_TQQQ",
+        "date": "2026-02-03",
+        "ticker": "TQQQ",
+        "dtw": 1.2768336609874544,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-12_META",
+        "date": "2025-11-12",
+        "ticker": "META",
+        "dtw": 1.2838632772409317,
+        "flipped": false
       }
     ],
     "2026-01-29_SQQQ": [
@@ -1092,6 +2092,46 @@
         "ticker": "NFLX",
         "dtw": 1.6090963952775172,
         "flipped": true
+      },
+      {
+        "rank": 6,
+        "slug": "2025-12-16_TLT",
+        "date": "2025-12-16",
+        "ticker": "TLT",
+        "dtw": 1.653956278943474,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-03_AVGO",
+        "date": "2026-02-03",
+        "ticker": "AVGO",
+        "dtw": 1.6632381641005098,
+        "flipped": true
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.6921394345084058,
+        "flipped": true
+      },
+      {
+        "rank": 9,
+        "slug": "2025-11-04_XLF",
+        "date": "2025-11-04",
+        "ticker": "XLF",
+        "dtw": 1.7076056250257254,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-25_HD",
+        "date": "2025-11-25",
+        "ticker": "HD",
+        "dtw": 1.715321834545163,
+        "flipped": false
       }
     ],
     "2026-01-29_TQQQ": [
@@ -1133,6 +2173,46 @@
         "date": "2026-02-26",
         "ticker": "AMAT",
         "dtw": 1.051297076973329,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-29_SQQQ",
+        "date": "2026-01-29",
+        "ticker": "SQQQ",
+        "dtw": 1.1372836109788433,
+        "flipped": true
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.1871439580052467,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-03_QQQ",
+        "date": "2026-02-03",
+        "ticker": "QQQ",
+        "dtw": 1.2541198020048696,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-03_TQQQ",
+        "date": "2026-02-03",
+        "ticker": "TQQQ",
+        "dtw": 1.2652868987519759,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-12_META",
+        "date": "2025-11-12",
+        "ticker": "META",
+        "dtw": 1.298081890653364,
         "flipped": false
       }
     ],
@@ -1176,6 +2256,46 @@
         "ticker": "TQQQ",
         "dtw": 1.3896555337253225,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.4288501299291192,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-10_QCOM",
+        "date": "2025-11-10",
+        "ticker": "QCOM",
+        "dtw": 1.5344518338005804,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-09_MA",
+        "date": "2026-02-09",
+        "ticker": "MA",
+        "dtw": 1.5502483588208258,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.6235575472378205,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-18_SQQQ",
+        "date": "2026-02-18",
+        "ticker": "SQQQ",
+        "dtw": 1.6334511374799496,
+        "flipped": false
       }
     ],
     "2026-02-03_AVGO": [
@@ -1217,6 +2337,46 @@
         "date": "2025-11-06",
         "ticker": "AMD",
         "dtw": 1.2628440125602896,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.320335755045067,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-03_QQQ",
+        "date": "2026-02-03",
+        "ticker": "QQQ",
+        "dtw": 1.3669859128919133,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-03_TQQQ",
+        "date": "2026-02-03",
+        "ticker": "TQQQ",
+        "dtw": 1.367370876934885,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-11-12_META",
+        "date": "2025-11-12",
+        "ticker": "META",
+        "dtw": 1.371188223970789,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.4251513633583524,
         "flipped": false
       }
     ],
@@ -1260,6 +2420,46 @@
         "ticker": "AMAT",
         "dtw": 1.3332273540126938,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-03_AVGO",
+        "date": "2026-02-03",
+        "ticker": "AVGO",
+        "dtw": 1.3669859128919133,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-01-14_AVGO",
+        "date": "2026-01-14",
+        "ticker": "AVGO",
+        "dtw": 1.3715414776793375,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.4609324416100764,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.5831516079081616,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.5903158352385862,
+        "flipped": false
       }
     ],
     "2026-02-03_SQQQ": [
@@ -1302,6 +2502,46 @@
         "ticker": "TLT",
         "dtw": 1.7449647780818307,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-11-04_XLF",
+        "date": "2025-11-04",
+        "ticker": "XLF",
+        "dtw": 1.7854022801937512,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-01-08_HD",
+        "date": "2026-01-08",
+        "ticker": "HD",
+        "dtw": 1.8146295406263524,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-18_TQQQ",
+        "date": "2026-02-18",
+        "ticker": "TQQQ",
+        "dtw": 1.8182955201144022,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-01-16_SQQQ",
+        "date": "2026-01-16",
+        "ticker": "SQQQ",
+        "dtw": 1.8980690070623383,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-01-29_TQQQ",
+        "date": "2026-01-29",
+        "ticker": "TQQQ",
+        "dtw": 1.908589269838075,
+        "flipped": true
       }
     ],
     "2026-02-03_TQQQ": [
@@ -1344,6 +2584,46 @@
         "ticker": "AMAT",
         "dtw": 1.332946128535958,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-03_AVGO",
+        "date": "2026-02-03",
+        "ticker": "AVGO",
+        "dtw": 1.367370876934885,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-01-14_AVGO",
+        "date": "2026-01-14",
+        "ticker": "AVGO",
+        "dtw": 1.3790147659350747,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.4558104609675362,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.5946921716923046,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-03_SQQQ",
+        "date": "2026-02-03",
+        "ticker": "SQQQ",
+        "dtw": 1.5993230000199794,
+        "flipped": true
       }
     ],
     "2026-02-09_MA": [
@@ -1385,6 +2665,46 @@
         "date": "2026-02-11",
         "ticker": "NFLX",
         "dtw": 1.3708347300801682,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-10-10_ADBE",
+        "date": "2025-10-10",
+        "ticker": "ADBE",
+        "dtw": 1.3877367877133289,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-01-14_AVGO",
+        "date": "2026-01-14",
+        "ticker": "AVGO",
+        "dtw": 1.4303749621037576,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-01-29_TQQQ",
+        "date": "2026-01-29",
+        "ticker": "TQQQ",
+        "dtw": 1.541826437278287,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-01-29_QQQ",
+        "date": "2026-01-29",
+        "ticker": "QQQ",
+        "dtw": 1.5436925057096704,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-03_AMAT",
+        "date": "2026-02-03",
+        "ticker": "AMAT",
+        "dtw": 1.5502483588208258,
         "flipped": false
       }
     ],
@@ -1428,6 +2748,46 @@
         "ticker": "MA",
         "dtw": 1.343201712957629,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-10-10_ADBE",
+        "date": "2025-10-10",
+        "ticker": "ADBE",
+        "dtw": 1.390025804566874,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-01-16_TQQQ",
+        "date": "2026-01-16",
+        "ticker": "TQQQ",
+        "dtw": 1.417084187619835,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-01-16_QQQ",
+        "date": "2026-01-16",
+        "ticker": "QQQ",
+        "dtw": 1.4188374047882806,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-11-12_META",
+        "date": "2025-11-12",
+        "ticker": "META",
+        "dtw": 1.503451442128887,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.5079931098865575,
+        "flipped": false
       }
     ],
     "2026-02-11_NFLX": [
@@ -1469,6 +2829,46 @@
         "date": "2026-02-03",
         "ticker": "AVGO",
         "dtw": 1.320335755045067,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-11-18_V",
+        "date": "2025-11-18",
+        "ticker": "V",
+        "dtw": 1.3511915277618,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-09_MA",
+        "date": "2026-02-09",
+        "ticker": "MA",
+        "dtw": 1.3708347300801682,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-11-10_QCOM",
+        "date": "2025-11-10",
+        "ticker": "QCOM",
+        "dtw": 1.4356928855592925,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-12-15_QQQ",
+        "date": "2025-12-15",
+        "ticker": "QQQ",
+        "dtw": 1.510595658373222,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-12-15_TQQQ",
+        "date": "2025-12-15",
+        "ticker": "TQQQ",
+        "dtw": 1.5214321256399288,
         "flipped": false
       }
     ],
@@ -1512,6 +2912,46 @@
         "ticker": "SQQQ",
         "dtw": 1.916188936184443,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-18_TQQQ",
+        "date": "2026-02-18",
+        "ticker": "TQQQ",
+        "dtw": 1.9326411822512792,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2025-11-04_XLF",
+        "date": "2025-11-04",
+        "ticker": "XLF",
+        "dtw": 1.9509789514953222,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-12-16_TLT",
+        "date": "2025-12-16",
+        "ticker": "TLT",
+        "dtw": 1.9600533179657451,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-01-29_TQQQ",
+        "date": "2026-01-29",
+        "ticker": "TQQQ",
+        "dtw": 2.091279901377724,
+        "flipped": true
+      },
+      {
+        "rank": 10,
+        "slug": "2026-01-29_QQQ",
+        "date": "2026-01-29",
+        "ticker": "QQQ",
+        "dtw": 2.092931604886851,
+        "flipped": true
       }
     ],
     "2026-02-18_QQQ": [
@@ -1553,6 +2993,46 @@
         "date": "2025-11-18",
         "ticker": "V",
         "dtw": 1.8632723555161173,
+        "flipped": true
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-03_SQQQ",
+        "date": "2026-02-03",
+        "ticker": "SQQQ",
+        "dtw": 1.9286706912756284,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-01-29_SQQQ",
+        "date": "2026-01-29",
+        "ticker": "SQQQ",
+        "dtw": 1.9353667832447043,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-10-14_QCOM",
+        "date": "2025-10-14",
+        "ticker": "QCOM",
+        "dtw": 1.9869898300423179,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-01-16_TQQQ",
+        "date": "2026-01-16",
+        "ticker": "TQQQ",
+        "dtw": 1.987509658609105,
+        "flipped": true
+      },
+      {
+        "rank": 10,
+        "slug": "2026-01-16_QQQ",
+        "date": "2026-01-16",
+        "ticker": "QQQ",
+        "dtw": 1.9907100036913001,
         "flipped": true
       }
     ],
@@ -1596,6 +3076,46 @@
         "ticker": "XLF",
         "dtw": 1.6368039361472506,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-23_JPM",
+        "date": "2026-02-23",
+        "ticker": "JPM",
+        "dtw": 1.6662673362681673,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-03_TQQQ",
+        "date": "2026-02-03",
+        "ticker": "TQQQ",
+        "dtw": 1.6941545429369556,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-03_QQQ",
+        "date": "2026-02-03",
+        "ticker": "QQQ",
+        "dtw": 1.6998511999377848,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-11-18_V",
+        "date": "2025-11-18",
+        "ticker": "V",
+        "dtw": 1.7554301413509823,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2026-01-14_AVGO",
+        "date": "2026-01-14",
+        "ticker": "AVGO",
+        "dtw": 1.8691688273048355,
+        "flipped": false
       }
     ],
     "2026-02-18_TQQQ": [
@@ -1637,6 +3157,46 @@
         "date": "2026-02-03",
         "ticker": "SQQQ",
         "dtw": 1.8182955201144022,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-29_SQQQ",
+        "date": "2026-01-29",
+        "ticker": "SQQQ",
+        "dtw": 1.8503528067794404,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-12_TLT",
+        "date": "2026-02-12",
+        "ticker": "TLT",
+        "dtw": 1.9326411822512792,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-01-08_HD",
+        "date": "2026-01-08",
+        "ticker": "HD",
+        "dtw": 1.972020192016505,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-12-16_TLT",
+        "date": "2025-12-16",
+        "ticker": "TLT",
+        "dtw": 2.0061539011523193,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-10-14_QCOM",
+        "date": "2025-10-14",
+        "ticker": "QCOM",
+        "dtw": 2.0253417427579197,
         "flipped": false
       }
     ],
@@ -1680,6 +3240,46 @@
         "ticker": "MA",
         "dtw": 1.7522872825192781,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-16_QQQ",
+        "date": "2026-01-16",
+        "ticker": "QQQ",
+        "dtw": 1.8052960448176822,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-01-16_TQQQ",
+        "date": "2026-01-16",
+        "ticker": "TQQQ",
+        "dtw": 1.8106355057422179,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-02-09_MA",
+        "date": "2026-02-09",
+        "ticker": "MA",
+        "dtw": 1.8287481338820042,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.8459654316521275,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-04_XLF",
+        "date": "2025-11-04",
+        "ticker": "XLF",
+        "dtw": 1.899637256070678,
+        "flipped": true
       }
     ],
     "2026-02-23_MA": [
@@ -1721,6 +3321,46 @@
         "date": "2026-02-11",
         "ticker": "NFLX",
         "dtw": 1.2405237445345505,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2025-11-12_META",
+        "date": "2025-11-12",
+        "ticker": "META",
+        "dtw": 1.3099756897971042,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-01-29_QQQ",
+        "date": "2026-01-29",
+        "ticker": "QQQ",
+        "dtw": 1.316170733862788,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-01-29_TQQQ",
+        "date": "2026-01-29",
+        "ticker": "TQQQ",
+        "dtw": 1.319343945816391,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.3653547854734012,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-06_AMD",
+        "date": "2025-11-06",
+        "ticker": "AMD",
+        "dtw": 1.388430844543765,
         "flipped": false
       }
     ],
@@ -1764,6 +3404,46 @@
         "ticker": "SQQQ",
         "dtw": 1.6368039361472506,
         "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-01-29_TQQQ",
+        "date": "2026-01-29",
+        "ticker": "TQQQ",
+        "dtw": 1.69575499595483,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.7059947943217297,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2026-01-29_QQQ",
+        "date": "2026-01-29",
+        "ticker": "QQQ",
+        "dtw": 1.7096861735478694,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2025-11-04_XLF",
+        "date": "2025-11-04",
+        "ticker": "XLF",
+        "dtw": 1.728398910305944,
+        "flipped": true
+      },
+      {
+        "rank": 10,
+        "slug": "2026-02-26_AMAT",
+        "date": "2026-02-26",
+        "ticker": "AMAT",
+        "dtw": 1.730618940972045,
+        "flipped": false
       }
     ],
     "2026-02-26_AMAT": [
@@ -1805,6 +3485,46 @@
         "date": "2026-02-03",
         "ticker": "AVGO",
         "dtw": 1.1663120929295592,
+        "flipped": false
+      },
+      {
+        "rank": 6,
+        "slug": "2026-02-11_NFLX",
+        "date": "2026-02-11",
+        "ticker": "NFLX",
+        "dtw": 1.1894574043952653,
+        "flipped": false
+      },
+      {
+        "rank": 7,
+        "slug": "2026-01-13_XLF",
+        "date": "2026-01-13",
+        "ticker": "XLF",
+        "dtw": 1.2395353459861576,
+        "flipped": false
+      },
+      {
+        "rank": 8,
+        "slug": "2025-12-15_IWM",
+        "date": "2025-12-15",
+        "ticker": "IWM",
+        "dtw": 1.3511891568725762,
+        "flipped": false
+      },
+      {
+        "rank": 9,
+        "slug": "2026-02-23_MA",
+        "date": "2026-02-23",
+        "ticker": "MA",
+        "dtw": 1.3653547854734012,
+        "flipped": false
+      },
+      {
+        "rank": 10,
+        "slug": "2025-11-18_V",
+        "date": "2025-11-18",
+        "ticker": "V",
+        "dtw": 1.404294572039936,
         "flipped": false
       }
     ]
