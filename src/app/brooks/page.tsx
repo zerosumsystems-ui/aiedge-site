@@ -26,6 +26,7 @@ type Pick = {
   image_filename: string
   narration: string
   passages: string[]
+  full_narration?: string
 }
 
 type MatchData = {
@@ -216,6 +217,24 @@ export default function BrooksPage() {
                     <p className="mt-3 text-sm text-sub italic">
                       (no keyword-rich passages found)
                     </p>
+                  )}
+                  {p.full_narration && p.full_narration.length > 0 && (
+                    <details className="mt-3 group">
+                      <summary className="cursor-pointer text-xs text-sub hover:text-text select-none list-none flex items-center gap-1">
+                        <span className="inline-block transition-transform group-open:rotate-90">
+                          ▸
+                        </span>
+                        <span>
+                          Full passage{' '}
+                          <span className="text-sub/70">
+                            ({p.full_narration.length.toLocaleString()} chars)
+                          </span>
+                        </span>
+                      </summary>
+                      <div className="mt-2 pl-3 border-l-2 border-border text-sm text-text/80 whitespace-pre-wrap leading-relaxed">
+                        {p.full_narration}
+                      </div>
+                    </details>
                   )}
                 </section>
               ))}
