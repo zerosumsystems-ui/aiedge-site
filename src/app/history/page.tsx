@@ -1,97 +1,82 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { Suspense } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { HistorySnapshots } from '@/components/history/HistorySnapshots'
+import { HistoryAnalogs } from '@/components/history/HistoryAnalogs'
 
-interface DateEntry {
-  date: string
-  capturedAt: string
-  symbolsScanned: number
-  passedFilters: number
-  resultCount: number
+type Tab = 'snapshots' | 'analogs'
+
+const TABS: { id: Tab; label: string; sublabel: string }[] = [
+  { id: 'snapshots', label: 'Snapshots',
+    sublabel: 'End-of-day scan results, captured nightly.' },
+  { id: 'analogs',   label: 'Analogs',
+    sublabel: 'Past mornings whose first 6 bars match a chosen day.' },
+]
+
+function parseTab(raw: string | null): Tab {
+  return raw === 'analogs' ? 'analogs' : 'snapshots'
 }
 
 export default function HistoryPage() {
-  const [dates, setDates] = useState<DateEntry[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch('/api/scan/history')
-      .then((r) => r.json())
-      .then((data) => {
-        setDates(data.dates || [])
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [])
-
-  if (loading) {
-    return (
+  return (
+    <Suspense fallback={
       <div className="flex items-center justify-center h-[calc(100dvh-var(--nav-h))]">
-        <div className="text-sub text-sm">Loading history...</div>
+        <div className="text-sub text-sm">Loading...</div>
       </div>
-    )
+    }>
+      <HistoryPageInner />
+    </Suspense>
+  )
+}
+
+function HistoryPageInner() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const tab = parseTab(searchParams.get('tab'))
+
+  const setTab = (next: Tab) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (next === 'snapshots') params.delete('tab')
+    else params.set('tab', next)
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
   }
 
-  if (dates.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-[calc(100dvh-var(--nav-h))]">
-        <div className="text-center max-w-md px-4">
-          <div className="text-2xl mb-3 text-sub">No history yet</div>
-          <p className="text-sm text-sub">
-            End-of-day scan results live here. Capture today&apos;s with:
-          </p>
-          <pre className="text-[11px] bg-bg border border-border rounded p-3 mt-3 overflow-x-auto text-left">
-            python3 scripts/capture_eod.py https://www.aiedge.trade
-          </pre>
-          <p className="text-xs text-sub mt-3">
-            Or schedule it as a cron job for automatic nightly capture.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  const active = TABS.find((t) => t.id === tab) ?? TABS[0]
 
   return (
     <div className="max-w-5xl mx-auto p-6">
-      <h1 className="text-2xl font-bold text-text mb-1">Scan History</h1>
-      <p className="text-sm text-sub mb-6">{dates.length} trading days captured</p>
+      <header className="mb-4">
+        <h1 className="text-2xl font-bold text-text">History</h1>
+      </header>
 
-      <div className="space-y-2">
-        {dates.map((entry) => {
-          const d = new Date(entry.date + 'T12:00:00')
-          const dayName = d.toLocaleDateString('en-US', { weekday: 'short' })
-          const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-
+      {/* Tab switcher */}
+      <div role="tablist" aria-label="History views" className="flex gap-1 border-b border-border mb-4">
+        {TABS.map((t) => {
+          const isActive = t.id === tab
           return (
-            <Link
-              key={entry.date}
-              href={`/history/${entry.date}`}
-              className="flex items-center gap-4 p-4 bg-surface rounded-lg border border-border hover:border-teal/30 transition-colors group"
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setTab(t.id)}
+              className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                isActive
+                  ? 'border-teal text-teal'
+                  : 'border-transparent text-sub hover:text-text'
+              }`}
             >
-              <div className="text-center w-16 shrink-0">
-                <div className="text-[10px] uppercase tracking-wider text-sub">{dayName}</div>
-                <div className="text-lg font-bold text-text">{monthDay}</div>
-                <div className="text-[10px] text-gray">{entry.date.split('-')[0]}</div>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-text">{entry.resultCount} signals</span>
-                  <span className="text-gray">&middot;</span>
-                  <span className="text-sub">{entry.passedFilters} passed filters</span>
-                  <span className="text-gray">&middot;</span>
-                  <span className="text-sub">{entry.symbolsScanned} scanned</span>
-                </div>
-              </div>
-
-              <div className="text-xs text-gray group-hover:text-teal transition-colors">
-                View &rarr;
-              </div>
-            </Link>
+              {t.label}
+            </button>
           )
         })}
       </div>
+
+      <p className="text-xs text-sub mb-4">{active.sublabel}</p>
+
+      {tab === 'snapshots' ? <HistorySnapshots /> : <HistoryAnalogs />}
     </div>
   )
 }
