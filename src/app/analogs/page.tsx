@@ -320,33 +320,61 @@ export default function AnalogsPage() {
         </div>
       )}
 
-      {corpus && (
-        <div className="mb-6 flex flex-wrap gap-1.5">
-          {sortedEntries.map((e) => {
-            const active = e.slug === selectedSlug
-            return (
-              <button
-                key={e.slug}
-                onClick={() => setSelectedSlug(e.slug)}
-                className={`text-[11px] rounded px-2 py-1 border transition ${
-                  active
-                    ? 'bg-teal/20 border-teal text-teal'
-                    : 'border-border text-sub hover:border-sub hover:text-text'
-                }`}
-              >
-                <span className="font-mono text-text">{e.ticker}</span>
-                <span className="text-sub ml-1.5">{e.date}</span>
-                <span
-                  className={`ml-1.5 ${pctClass(e.outcome.eod_move_pct)}`}
-                  title="EOD move from open"
-                >
-                  {dirArrow(e.outcome.open_direction)}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {corpus && (() => {
+        const groups = new Map<string, Entry[]>()
+        for (const e of sortedEntries) {
+          const ym = e.date.slice(0, 7) // YYYY-MM
+          if (!groups.has(ym)) groups.set(ym, [])
+          groups.get(ym)!.push(e)
+        }
+        const monthLabel = (ym: string) => {
+          const [y, m] = ym.split('-')
+          const monthName = new Date(Number(y), Number(m) - 1, 1)
+            .toLocaleString('en', { month: 'short' })
+          return `${monthName} ${y}`
+        }
+        return (
+          <div className="mb-6 border border-border rounded max-h-[420px] overflow-y-auto">
+            {[...groups.entries()].map(([ym, items]) => (
+              <div key={ym}>
+                <div className="sticky top-0 z-10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-sub bg-bg/95 backdrop-blur-sm border-b border-border/60">
+                  {monthLabel(ym)} · {items.length}
+                </div>
+                {items.map((e) => {
+                  const active = e.slug === selectedSlug
+                  const day = e.date.slice(8, 10)
+                  return (
+                    <button
+                      key={e.slug}
+                      onClick={() => setSelectedSlug(e.slug)}
+                      className={`w-full flex items-center justify-between px-3 py-1.5 text-left transition border-l-2 ${
+                        active
+                          ? 'bg-teal/10 border-teal'
+                          : 'border-transparent hover:bg-border/20'
+                      }`}
+                    >
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <span className={`font-mono text-sm font-semibold ${active ? 'text-teal' : 'text-text'}`}>
+                          {e.ticker}
+                        </span>
+                        <span className="text-xs text-sub font-mono">·{day}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs shrink-0">
+                        <span className={pctClass(e.outcome.open_move_pct)}>
+                          {dirArrow(e.outcome.open_direction)}
+                        </span>
+                        <span className={`font-mono ${pctClass(e.outcome.eod_move_pct)}`}>
+                          {pct(e.outcome.eod_move_pct, 1)}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        )
+      })()}
 
       {selected && (
         <article className="space-y-6">
