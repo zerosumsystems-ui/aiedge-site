@@ -540,11 +540,151 @@ export default function AnalogsPage() {
             </div>
           </div>
 
-          <footer className="pt-4 border-t border-border text-xs text-sub">
+          <details className="pt-4 border-t border-border group">
+            <summary className="cursor-pointer text-sm font-semibold text-text hover:text-teal select-none list-none flex items-center gap-1.5">
+              <span className="inline-block transition-transform group-open:rotate-90">▸</span>
+              What DTW Score means (and how we compute it)
+            </summary>
+            <div className="mt-3 space-y-3 text-sm text-text/85 leading-relaxed">
+              <p>
+                <span className="font-semibold text-text">DTW (Dynamic Time Warping)</span> is a
+                way to measure how similar two time-series are when they may be slightly stretched
+                or compressed in time. Regular point-by-point distance fails if one chart's move
+                takes 4 bars and the other takes 5 — DTW handles that by finding the best
+                <em> alignment</em> between the two sequences before computing distance.
+              </p>
+
+              <div className="bg-bg border border-border rounded p-3">
+                <p className="text-xs text-sub mb-2 font-semibold">Visual intuition</p>
+                <svg viewBox="0 0 560 140" width="100%" preserveAspectRatio="xMidYMid meet"
+                     className="block max-w-full">
+                  {/* Two example curves */}
+                  {(() => {
+                    const ya = [70, 55, 38, 28, 32, 50, 65, 70]
+                    const yb = [85, 70, 50, 45, 30, 35, 60, 75]
+                    const xs = ya.map((_, i) => 40 + i * 65)
+                    const linePath = (ys: number[]) =>
+                      ys.map((y, i) => `${i === 0 ? 'M' : 'L'} ${xs[i]} ${y}`).join(' ')
+                    return (
+                      <>
+                        {/* Warp lines (alignment) */}
+                        {[
+                          [0, 0], [1, 0], [1, 1], [2, 2], [3, 3], [4, 3], [4, 4], [5, 5], [6, 6], [7, 7],
+                        ].map(([qi, ci], k) => (
+                          <line key={`w-${k}`} x1={xs[qi]} y1={ya[qi]} x2={xs[ci]} y2={yb[ci] + 50}
+                            stroke="#808080" strokeWidth={0.7} strokeDasharray="2,3" opacity={0.7} />
+                        ))}
+                        {/* Curve A (query) */}
+                        <path d={linePath(ya)} fill="none" stroke="#1f7a57" strokeWidth={2} />
+                        {ya.map((y, i) => (
+                          <circle key={`a-${i}`} cx={xs[i]} cy={y} r={3.5} fill="#1f7a57" />
+                        ))}
+                        {/* Curve B (match) — shifted down for visual separation */}
+                        <path d={linePath(yb.map((y) => y + 50))}
+                          fill="none" stroke="#3b82f6" strokeWidth={2} />
+                        {yb.map((y, i) => (
+                          <circle key={`b-${i}`} cx={xs[i]} cy={y + 50} r={3.5} fill="#3b82f6" />
+                        ))}
+                        {/* Labels */}
+                        <text x={10} y={42} fontSize={10} fill="#1f7a57" fontWeight={600}>query</text>
+                        <text x={10} y={130} fontSize={10} fill="#3b82f6" fontWeight={600}>match</text>
+                      </>
+                    )
+                  })()}
+                </svg>
+                <p className="text-[11px] text-sub mt-1.5">
+                  Dashed lines show how DTW pairs each query bar with a match bar. Notice bar 1 of
+                  the query maps to bars 1 AND 2 of the match (the move took longer there) — DTW
+                  allows that stretching. The DTW <em>score</em> is the sum of distances along
+                  these dashed lines.
+                </p>
+              </div>
+
+              <p>
+                <span className="font-semibold text-text">How to read the number:</span>
+              </p>
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="text-sub border-b border-border">
+                    <th className="text-left py-1 font-normal">DTW Score</th>
+                    <th className="text-left py-1 font-normal">Quality</th>
+                    <th className="text-left py-1 font-normal">What it looks like</th>
+                  </tr>
+                </thead>
+                <tbody className="text-text/85">
+                  <tr className="border-b border-border/40">
+                    <td className="py-1 font-mono text-teal">&lt; 1.5</td>
+                    <td className="py-1">Tight twin</td>
+                    <td className="py-1 text-sub">Curves overlap almost exactly. Often same ticker different day, or sister tickers.</td>
+                  </tr>
+                  <tr className="border-b border-border/40">
+                    <td className="py-1 font-mono text-teal">1.5 – 2.5</td>
+                    <td className="py-1">Strong match</td>
+                    <td className="py-1 text-sub">Same shape, minor pace or magnitude differences.</td>
+                  </tr>
+                  <tr className="border-b border-border/40">
+                    <td className="py-1 font-mono text-yellow">2.5 – 3.5</td>
+                    <td className="py-1">Solid</td>
+                    <td className="py-1 text-sub">Same overall arc; some local divergence (one bar deeper, one wick longer).</td>
+                  </tr>
+                  <tr className="border-b border-border/40">
+                    <td className="py-1 font-mono text-yellow">3.5 – 5.0</td>
+                    <td className="py-1">Loose</td>
+                    <td className="py-1 text-sub">Same direction, similar momentum, but the geometry doesn&apos;t track precisely.</td>
+                  </tr>
+                  <tr>
+                    <td className="py-1 font-mono text-red">5.0+</td>
+                    <td className="py-1">Reaching</td>
+                    <td className="py-1 text-sub">DTW had to warp aggressively. Treat the match skeptically.</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p>
+                <span className="font-semibold text-text">What we actually compute:</span> Per
+                pair (query, match) we sum two DTWs:
+              </p>
+              <ul className="list-disc pl-5 space-y-1.5">
+                <li>
+                  <span className="font-semibold text-text">Skeleton DTW</span> — multidimensional
+                  DTW on a 5-channel sequence per bar:{' '}
+                  <span className="font-mono text-xs">[open, high, low, close, ema20]</span>,
+                  joint-min-max normalized to [0, 1] per chart. This is the <em>spatial</em>{' '}
+                  comparison you see in the overlay above.
+                </li>
+                <li>
+                  <span className="font-semibold text-text">Brooks-feature DTW</span> — multidim
+                  DTW on a 10-channel per-bar feature vector: is_doji, bull/bear trend bar,
+                  bull/bear signal bar, body_ratio, close_in_range, bar_size_rel, ema_distance,
+                  bar_direction. This is the <em>vocabulary</em> comparison.
+                </li>
+                <li>
+                  <span className="font-semibold text-text">Combined score</span>:{' '}
+                  <span className="font-mono text-xs">total = skeleton + 0.5 × features</span>.
+                  Both contribute, but raw shape (skeleton) carries more weight.
+                </li>
+                <li>
+                  <span className="font-semibold text-text">Vertical-flip search</span> — for each
+                  pair we also try the vertically-mirrored query (bull-shape ↔ bear-shape) and
+                  take whichever DTW is lower. If the flipped version wins, we tag it{' '}
+                  <span className="text-yellow font-semibold">[FLIP]</span>.
+                </li>
+              </ul>
+
+              <p>
+                <span className="font-semibold text-text">What DTW <em>can&apos;t</em> see:</span>{' '}
+                Absolute price magnitude (everything is normalized per-chart), volume, drawn
+                trendlines, and the time-of-day of each bar (only relative position within the
+                6-bar window). Two charts that are spatially identical but at different
+                volatility regimes will both score well — even if one is a 2R intraday range and
+                the other is 0.5R.
+              </p>
+            </div>
+          </details>
+
+          <footer className="pt-4 mt-4 border-t border-border text-xs text-sub">
             Corpus built {corpus && new Date(corpus.built_at).toLocaleString()} ·{' '}
             {corpus?.entries.length} mornings · trend-from-open trade-intake (120-day causal SPBL).
-            DTW = hybrid skeleton (OHLC+EMA20) + Brooks features (signal/trend/doji bars), with
-            vertical-flip search. [FLIP] = match was against a vertically-mirrored past morning.
           </footer>
         </article>
       )}
