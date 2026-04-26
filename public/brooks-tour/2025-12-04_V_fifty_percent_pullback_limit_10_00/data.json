@@ -1,0 +1,107 @@
+{
+  "trade_id": "2025-12-04:V:fifty_percent_pullback_limit:10:00",
+  "ticker": "V",
+  "trading_date": "2025-12-04",
+  "direction": "short",
+  "entry_pattern": "fifty_percent_pullback_limit",
+  "opening_setup_label": "failed_breakout_prior_day_open_close",
+  "entry_family": "limit_pullback",
+  "fill_time": "10:10",
+  "exit_time": "10:35",
+  "entry_price": 327.595,
+  "stop_price": 328.4,
+  "target_2r": 325.985,
+  "outcome": "stopped",
+  "exit_r": -1.0,
+  "max_favorable_r": 1.36,
+  "eod_r": 0.702,
+  "trade_chart": "trade.png",
+  "picks": [
+    {
+      "rank": 1,
+      "dtw": 6.012857585062012,
+      "flipped": false,
+      "vol_ratio": 0.48440552131762715,
+      "length_ratio": 2.6,
+      "figure_number": "6.14",
+      "book_title": "Trading Price Action Trends",
+      "image_path": "data/chart_images/trends/34decf52e0c67779d9bfb09bfd0b1a93.jpg",
+      "narration": "A bar with no tail at either end in a strong trend is a sign of strength, and traders should enter with trend on its breakout. In Figure 6.13, bar 8 was a bear bar in a strong bear trend, and it had n",
+      "passages": [
+        "Bar 10 was a breakout pullback from the breakout below the bar 9 wedge bull flag low and the failed high 2, and it followed a breakout below the double top bear flag that formed after bar 9.",
+        "Bar 9 was a wedge bull flag with the three pushes down from bar 8, but because the sell-off was in a relatively tight bear channel and the market might have reversed into a bear trend, it is better to wait to see if there will be an acceptable breakout pullback buy setup.",
+        "Bar 8 was a two-bar breakout and traders could have shorted on the close of the bar because of a likely trend from the open bear trend, or below bar 10, the first pause, or on the bar 13 double top bear flag test of the moving average."
+      ],
+      "image_filename": "fig_6_14.jpg"
+    },
+    {
+      "rank": 2,
+      "dtw": 6.106628721489833,
+      "flipped": true,
+      "vol_ratio": 0.5892919808412856,
+      "length_ratio": 2.3636363636363638,
+      "figure_number": "2.7",
+      "book_title": "Reading Price Charts Bar by Bar",
+      "image_path": "data/chart_images/reading-price-charts/c59a350893b23647951c3d3cdfdb54cd.jpg",
+      "narration": "Bar 2 dipped below a six-bar trendline. Traders would place a buy stop above its high. When not filled, they would move the stop to the high of the next bar and would be filled on Bar 3. Incidentally,",
+      "passages": [
+        "Incidentally, the bar before Bar 2 was a possible short setup based on a Micro Trend Channel Line (not shown) that is a parallel of the three-bar Micro Trendline leading up to Bar 1.",
+        "Bar 5 broke the major trendline of the day (any trendline lasting about an hour or so is more significant), so traders would be thinking that a two-legged pullback was more likely.",
+        "Bar 4 was a small inside bar that extended below a two-bar trendline (the penetration is not shown)."
+      ],
+      "image_filename": "fig_2_7.jpg"
+    },
+    {
+      "rank": 3,
+      "dtw": 6.17384604755083,
+      "flipped": true,
+      "vol_ratio": 0.8239116309291878,
+      "length_ratio": 2.4375,
+      "figure_number": "31.5",
+      "book_title": "Trading Price Action Trading Ranges",
+      "image_path": "data/chart_images/trading-ranges/4a0b84c37bcb558af4cb73acc2537457.jpg",
+      "narration": "When bulls are confident that the market is going higher and skeptical that there will soon be a pullback that would allow them to buy lower, they begin to buy at the market and keep buying all the wa",
+      "passages": [
+        "The market had about a $1.00 spike and channel bear pullback to the moving average at bar 13, where the bulls finally overwhelmed the bears.",
+        "Figure 31.5 Scaling into a Pullback When the moving average is steeply up, traders will buy a pullback to the moving average and scale in lower.",
+        "In Figure 31.4, Apple (AAPL) had a large gap up, then a pullback, and then a bull breakout at bar 6."
+      ],
+      "image_filename": "fig_31_5.jpg"
+    },
+    {
+      "rank": 4,
+      "dtw": 6.199455049868723,
+      "flipped": false,
+      "vol_ratio": 0.42795314671432083,
+      "length_ratio": 1.95,
+      "figure_number": "9.15",
+      "book_title": "Trading Price Action Reversals",
+      "image_path": "data/chart_images/reversals/00e1ca2cf97531181e7ab75ff2c4ba5c.jpg",
+      "narration": "AAPL usually yields $1.00 scalps (the moves are usually more than $1.00, allowing a scalper to take partial profits on a $1.00 limit order). As shown in Figure 9.15, however, bar 2 extended only 93 ce",
+      "passages": [
+        "As shown in Figure 9.15, however, bar 2 extended only 93 cents above the entry above bar 1, and then set up a low 2 short.",
+        "FIGURE 9.16 A Bear Spike Can Be a Buying Opportunity",
+        "This low 2 meant that the market failed twice to reach the target."
+      ],
+      "image_filename": "fig_9_15.jpg"
+    },
+    {
+      "rank": 5,
+      "dtw": 6.216846746304497,
+      "flipped": false,
+      "vol_ratio": 0.4422645128943018,
+      "length_ratio": 3.12,
+      "figure_number": "1.18",
+      "book_title": "Reading Price Charts Bar by Bar",
+      "image_path": "data/chart_images/reading-price-charts/0fabd0d0c33154a535a1b145d47c0ffd.jpg",
+      "narration": "Bar 2 had a shaved top in a bear, but since the market was not in free fall at this point, that was not the reason for a short. However, it was a short entry based on taking out the low of a small ins",
+      "passages": [
+        "Bar 3 was a bull trend bar with a shaved top and bottom, but it was not in a bull trend, and therefore it does not function as a buy setup.",
+        "The first EMA pullback broke the bear trend line so the move down to Bar 3 was a two-legged Lower Low, which is usually good for at least a scalp.",
+        "However, there was still a buy on the next bar because it was a High 2, and a Down Up Twin reversal at a Lower Low, which was also a failed breakout of a trading range."
+      ],
+      "image_filename": "fig_1_18.jpg"
+    }
+  ],
+  "synced_at": "2026-04-26T14:58:00"
+}

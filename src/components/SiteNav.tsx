@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: '/findings', label: 'Findings' },
   { href: '/studies', label: 'Studies' },
   { href: '/routines', label: 'Routines' },
+  { href: '/brooks', label: 'Brooks' },
 ]
 
 type Props = { userEmail: string | null }

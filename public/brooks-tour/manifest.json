@@ -1,0 +1,26 @@
+{
+  "matches": [
+    {
+      "slug": "2025-12-04_V_fifty_percent_pullback_limit_10_00",
+      "trade_id": "2025-12-04:V:fifty_percent_pullback_limit:10:00",
+      "ticker": "V",
+      "trading_date": "2025-12-04",
+      "direction": "short",
+      "entry_pattern": "fifty_percent_pullback_limit",
+      "outcome": "stopped",
+      "exit_r": -1.0,
+      "synced_at": "2026-04-26T14:58:00"
+    },
+    {
+      "slug": "2025-12-04_V_prior_bar_breakout_stop_10_40",
+      "trade_id": "2025-12-04:V:prior_bar_breakout_stop:10:40",
+      "ticker": "V",
+      "trading_date": "2025-12-04",
+      "direction": "short",
+      "entry_pattern": "prior_bar_breakout_stop",
+      "outcome": "target_2r",
+      "exit_r": 2.0,
+      "synced_at": "2026-04-26T14:58:11"
+    }
+  ]
+}
