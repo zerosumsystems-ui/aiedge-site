@@ -13,6 +13,14 @@ type Outcome = {
   insufficient_data?: boolean
 }
 
+type BarLabel = {
+  bar_type: string
+  close_position: 'top' | 'mid' | 'bottom'
+  ema_position: 'above' | 'near' | 'below'
+  body_ratio: number
+  ema_dist_atr: number
+}
+
 type Entry = {
   date: string
   ticker: string
@@ -23,6 +31,7 @@ type Entry = {
   opening_setups: string[]
   first_6_chart: string
   full_session_chart: string
+  first_6_labels?: BarLabel[]
 }
 
 type Corpus = {
@@ -62,6 +71,58 @@ function dirArrow(dir: string): string {
   if (dir === 'up') return '↑'
   if (dir === 'down') return '↓'
   return '→'
+}
+
+const BAR_TYPE_LABEL: Record<string, string> = {
+  bull_signal: 'Bull Signal',
+  bull_trend:  'Bull Trend',
+  bull_minor:  'Bull Minor',
+  bear_signal: 'Bear Signal',
+  bear_trend:  'Bear Trend',
+  bear_minor:  'Bear Minor',
+  doji:        'Doji',
+  neutral:     'Neutral',
+}
+
+const BAR_TYPE_COLOR: Record<string, string> = {
+  bull_signal: 'text-teal',
+  bull_trend:  'text-teal',
+  bull_minor:  'text-teal/70',
+  bear_signal: 'text-red',
+  bear_trend:  'text-red',
+  bear_minor:  'text-red/70',
+  doji:        'text-yellow',
+  neutral:     'text-sub',
+}
+
+/** Conceptually mirror a bar label so a flipped match can be compared on equal footing. */
+function flipLabel(l: BarLabel): BarLabel {
+  const FLIP_TYPE: Record<string, string> = {
+    bull_signal: 'bear_signal', bull_trend: 'bear_trend', bull_minor: 'bear_minor',
+    bear_signal: 'bull_signal', bear_trend: 'bull_trend', bear_minor: 'bull_minor',
+    doji: 'doji', neutral: 'neutral',
+  }
+  const FLIP_CLOSE: Record<BarLabel['close_position'], BarLabel['close_position']> = {
+    top: 'bottom', bottom: 'top', mid: 'mid',
+  }
+  const FLIP_EMA: Record<BarLabel['ema_position'], BarLabel['ema_position']> = {
+    above: 'below', below: 'above', near: 'near',
+  }
+  return {
+    bar_type: FLIP_TYPE[l.bar_type] ?? l.bar_type,
+    close_position: FLIP_CLOSE[l.close_position],
+    ema_position: FLIP_EMA[l.ema_position],
+    body_ratio: l.body_ratio,
+    ema_dist_atr: -l.ema_dist_atr,
+  }
+}
+
+function BarBadge({ children, color }: { children: React.ReactNode; color: string }) {
+  return (
+    <span className={`text-[10px] uppercase tracking-wide font-semibold ${color}`}>
+      {children}
+    </span>
+  )
 }
 
 type DirectionMode = 'same' | 'include_flips'
@@ -275,6 +336,68 @@ export default function AnalogsPage() {
                       alt={`${e.ticker} ${e.date} full session`}
                       className="w-full h-auto rounded border border-border"
                     />
+                    {selected.first_6_labels && e.first_6_labels && (
+                      <details className="mt-3 group">
+                        <summary className="cursor-pointer text-xs text-sub hover:text-text select-none list-none flex items-center gap-1">
+                          <span className="inline-block transition-transform group-open:rotate-90">▸</span>
+                          <span>What the matcher compared (bar-by-bar)</span>
+                        </summary>
+                        <table className="mt-2 w-full text-[11px] border-collapse">
+                          <thead>
+                            <tr className="text-sub border-b border-border">
+                              <th className="text-left py-1 font-normal">Bar</th>
+                              <th className="text-left py-1 font-normal">Query · {selected.ticker}</th>
+                              <th className="text-left py-1 font-normal">
+                                Match · {e.ticker}
+                                {m.flipped && <span className="ml-1 text-yellow">(flipped)</span>}
+                              </th>
+                              <th className="text-center py-1 font-normal">Agree</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selected.first_6_labels.map((q, i) => {
+                              const raw = e.first_6_labels![i]
+                              if (!raw) return null
+                              const c = m.flipped ? flipLabel(raw) : raw
+                              const agreeType  = q.bar_type === c.bar_type
+                              const agreeClose = q.close_position === c.close_position
+                              const agreeEma   = q.ema_position === c.ema_position
+                              const score = (agreeType ? 1 : 0) + (agreeClose ? 1 : 0) + (agreeEma ? 1 : 0)
+                              const dot = (ok: boolean) => (
+                                <span className={ok ? 'text-teal' : 'text-red/70'}>{ok ? '●' : '○'}</span>
+                              )
+                              return (
+                                <tr key={i} className="border-b border-border/40">
+                                  <td className="py-1 font-mono text-sub">{i + 1}</td>
+                                  <td className="py-1">
+                                    <BarBadge color={BAR_TYPE_COLOR[q.bar_type] ?? 'text-sub'}>
+                                      {BAR_TYPE_LABEL[q.bar_type] ?? q.bar_type}
+                                    </BarBadge>{' '}
+                                    <span className="text-sub">· close@{q.close_position}</span>{' '}
+                                    <span className="text-sub">· {q.ema_position} EMA</span>
+                                  </td>
+                                  <td className="py-1">
+                                    <BarBadge color={BAR_TYPE_COLOR[c.bar_type] ?? 'text-sub'}>
+                                      {BAR_TYPE_LABEL[c.bar_type] ?? c.bar_type}
+                                    </BarBadge>{' '}
+                                    <span className="text-sub">· close@{c.close_position}</span>{' '}
+                                    <span className="text-sub">· {c.ema_position} EMA</span>
+                                  </td>
+                                  <td className="py-1 text-center font-mono">
+                                    {dot(agreeType)}{dot(agreeClose)}{dot(agreeEma)}
+                                    <span className="ml-1 text-sub">{score}/3</span>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                        <p className="mt-2 text-[10px] text-sub">
+                          ● bar-type · close-in-range · EMA-distance. Three Brooks-vocabulary tags
+                          per bar. The matcher also compares raw OHLC + EMA via DTW (the numbers behind these labels) — this table is the *plain-English* view of what's being compared.
+                        </p>
+                      </details>
+                    )}
                   </section>
                 )
               })}
