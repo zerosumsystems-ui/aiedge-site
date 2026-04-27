@@ -225,12 +225,13 @@ export function HistoryAnalogs() {
   const [matches, setMatches] = useState<Matches | null>(null)
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // Default to same-direction-only — matches the scanner-card behavior
-  // (no flipping). Toggle to "Include flips" when the user wants to see
-  // mirrored shapes. If the selected slug has zero same-direction
-  // matches in the top 10, the render falls through to flips with a
-  // one-line note rather than showing an empty state.
-  const [directionMode, setDirectionMode] = useState<DirectionMode>('same')
+  // No direction toggle — same as scanner cards. Always show
+  // same-direction matches, fall back to flipped only when the slug has
+  // zero same-direction in the top 10 (~17 of 2,723 slugs). Earlier
+  // versions had a Same/Include-flips switcher; it was cut because
+  // toggling rarely produced a visible difference in the top-5 list,
+  // so the buttons felt broken.
+  const directionMode: DirectionMode = 'same'
   // Lazy-loaded full RTH session bars per slug. corpus.json ships slim
   // (no full_session) for backfill entries; we fetch the per-slug
   // session.json file only when an entry is being rendered. The page
@@ -464,39 +465,13 @@ export function HistoryAnalogs() {
           </div>
 
           <div className="pt-4">
-            <div className="flex items-baseline justify-between gap-3 mb-3">
-              <h3 className="text-base font-semibold text-text">
-                {selectedMatches.length} most-similar past morning{selectedMatches.length === 1 ? '' : 's'}
-              </h3>
-              <div className="inline-flex items-center gap-0.5 text-[11px] rounded border border-border p-0.5">
-                <button
-                  onClick={() => setDirectionMode('same')}
-                  className={`px-2 py-0.5 rounded transition ${
-                    directionMode === 'same'
-                      ? 'bg-teal/20 text-teal'
-                      : 'text-sub hover:text-text'
-                  }`}
-                  title="Show only matches where the open went the same direction"
-                >
-                  Same direction · {sameCount}
-                </button>
-                <button
-                  onClick={() => setDirectionMode('include_flips')}
-                  className={`px-2 py-0.5 rounded transition ${
-                    directionMode === 'include_flips'
-                      ? 'bg-teal/20 text-teal'
-                      : 'text-sub hover:text-text'
-                  }`}
-                  title="Include matches where the corpus open was vertically mirrored"
-                >
-                  Include flips · {sameCount + flippedCount}
-                </button>
-              </div>
-            </div>
+            <h3 className="text-base font-semibold text-text mb-3">
+              {selectedMatches.length} most-similar past morning{selectedMatches.length === 1 ? '' : 's'}
+            </h3>
             {sameModeFellBackToFlips && (
               <p className="text-[11px] text-yellow mb-3">
                 No same-direction matches in this morning&apos;s top {SHOW_K + 5} —
-                showing flipped (vertically mirrored) shapes instead.
+                showing vertically mirrored shapes instead.
               </p>
             )}
             <div className="space-y-8">
