@@ -225,7 +225,12 @@ export function HistoryAnalogs() {
   const [matches, setMatches] = useState<Matches | null>(null)
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [directionMode, setDirectionMode] = useState<DirectionMode>('include_flips')
+  // Default to same-direction-only — matches the scanner-card behavior
+  // (no flipping). Toggle to "Include flips" when the user wants to see
+  // mirrored shapes. If the selected slug has zero same-direction
+  // matches in the top 10, the render falls through to flips with a
+  // one-line note rather than showing an empty state.
+  const [directionMode, setDirectionMode] = useState<DirectionMode>('same')
   // Lazy-loaded full RTH session bars per slug. corpus.json ships slim
   // (no full_session) for backfill entries; we fetch the per-slug
   // session.json file only when an entry is being rendered. The page
@@ -263,14 +268,22 @@ export function HistoryAnalogs() {
 
   const selected = selectedSlug ? entryBySlug.get(selectedSlug) ?? null : null
   const allSelectedMatches: Match[] = selectedSlug && matches ? matches.matches[selectedSlug] ?? [] : []
+  const flippedCount = allSelectedMatches.filter((m) => m.flipped).length
+  const sameCount    = allSelectedMatches.filter((m) => !m.flipped).length
+
+  // True when the user explicitly chose "Same direction" but every match
+  // in the top-K for this slug happens to be flipped — falls back to
+  // showing the flipped matches (with a one-line note) rather than an
+  // empty section. Affects ~17 of 2,723 slugs in the current corpus.
+  const sameModeFellBackToFlips = directionMode === 'same' && sameCount === 0 && flippedCount > 0
+
   const selectedMatches: Match[] = useMemo(() => {
-    const filtered = directionMode === 'same'
+    const useSameOnly = directionMode === 'same' && sameCount > 0
+    const filtered = useSameOnly
       ? allSelectedMatches.filter((m) => !m.flipped)
       : allSelectedMatches
     return filtered.slice(0, SHOW_K).map((m, i) => ({ ...m, rank: i + 1 }))
-  }, [allSelectedMatches, directionMode])
-  const flippedCount = allSelectedMatches.filter((m) => m.flipped).length
-  const sameCount    = allSelectedMatches.filter((m) => !m.flipped).length
+  }, [allSelectedMatches, directionMode, sameCount])
 
   // Lazy-fetch session.json for the selected entry + its top matches.
   // We fire one fetch per slug that's missing a session AND not already
@@ -480,6 +493,12 @@ export function HistoryAnalogs() {
                 </button>
               </div>
             </div>
+            {sameModeFellBackToFlips && (
+              <p className="text-[11px] text-yellow mb-3">
+                No same-direction matches in this morning&apos;s top {SHOW_K + 5} —
+                showing flipped (vertically mirrored) shapes instead.
+              </p>
+            )}
             <div className="space-y-8">
               {selectedMatches.map((m) => {
                 const e = entryBySlug.get(m.slug)
