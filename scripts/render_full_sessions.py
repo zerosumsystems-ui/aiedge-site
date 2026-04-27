@@ -48,9 +48,12 @@ def _find_parquet(ticker: str, yyyy: str, mm: str) -> Path | None:
 def _load_session(ticker: str, day: date_t) -> dict | None:
     """Load + resample one RTH session to 5-min bars + EMA20.
 
-    Same convention as build_analogs_corpus.py and the backfill script:
-    1-min databento → 5-min OHLC, prices ×1e9 (matches the parquet's
-    decimal scaling), session = 09:30..16:00 ET.
+    EMA20 is seeded with the prior trading day's session (same month
+    parquet) so the open's EMA reflects yesterday's price action — what
+    a trader actually sees on a 5-min chart with a continuous EMA line.
+    Without seeding the EMA "warms up" from close[0] over the first ~20
+    bars, making the morning EMA channel functionally redundant with
+    close in the DTW comparison.
     """
     p = _find_parquet(ticker, str(day.year), f"{day.month:02d}")
     if p is None:
@@ -62,26 +65,41 @@ def _load_session(ticker: str, day: date_t) -> dict | None:
     if df.empty:
         return None
     df.index = df.index.tz_convert(ET)
-    df = df[df.index.date == day]
-    df = df[(df.index.time >= pd.Timestamp("09:30").time()) &
-            (df.index.time <  pd.Timestamp("16:00").time())]
-    if df.empty:
-        return None
     for c in ("open", "high", "low", "close"):
         df[c] = df[c] * 1e9
-    rs = df[["open", "high", "low", "close"]].resample("5min").agg(
+    # RTH only across the whole month, then split prior + today.
+    df = df[(df.index.time >= pd.Timestamp("09:30").time()) &
+            (df.index.time <  pd.Timestamp("16:00").time())]
+    today_raw = df[df.index.date == day]
+    prior_raw = df[df.index.date < day]
+    if today_raw.empty:
+        return None
+
+    today_5m = today_raw[["open", "high", "low", "close"]].resample("5min").agg(
         {"open": "first", "high": "max", "low": "min", "close": "last"}
     ).dropna()
-    if rs.empty:
+    if today_5m.empty:
         return None
-    rs["ema20"] = rs["close"].ewm(span=20, adjust=False).mean()
+
+    if not prior_raw.empty:
+        # Use the most-recent prior trading day in the same month.
+        last_prior_date = prior_raw.index.date.max()
+        prior_one_day = prior_raw[prior_raw.index.date == last_prior_date]
+        prior_5m = prior_one_day[["close"]].resample("5min").agg({"close": "last"}).dropna()
+        combined = pd.concat([prior_5m, today_5m[["close"]]])
+        ema_full = combined["close"].ewm(span=20, adjust=False).mean()
+        today_5m["ema20"] = ema_full.loc[today_5m.index]
+    else:
+        # First trading day of the month — fall back to from-scratch.
+        today_5m["ema20"] = today_5m["close"].ewm(span=20, adjust=False).mean()
+
     return {
-        "open":  [round(float(x), 4) for x in rs["open"]],
-        "high":  [round(float(x), 4) for x in rs["high"]],
-        "low":   [round(float(x), 4) for x in rs["low"]],
-        "close": [round(float(x), 4) for x in rs["close"]],
-        "ema20": [round(float(x), 4) for x in rs["ema20"]],
-        "times": [t.strftime("%H:%M") for t in rs.index],
+        "open":  [round(float(x), 4) for x in today_5m["open"]],
+        "high":  [round(float(x), 4) for x in today_5m["high"]],
+        "low":   [round(float(x), 4) for x in today_5m["low"]],
+        "close": [round(float(x), 4) for x in today_5m["close"]],
+        "ema20": [round(float(x), 4) for x in today_5m["ema20"]],
+        "times": [t.strftime("%H:%M") for t in today_5m.index],
     }
 
 

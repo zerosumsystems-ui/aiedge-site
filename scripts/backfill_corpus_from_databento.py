@@ -77,7 +77,18 @@ def _load_month(ticker: str, yyyy: str, mm: str) -> pd.DataFrame | None:
     return df
 
 
-def _resample_day_5min(month_df: pd.DataFrame, day: date_t) -> pd.DataFrame | None:
+def _resample_day_5min(month_df: pd.DataFrame, day: date_t,
+                       prior_day_data: pd.DataFrame | None = None) -> pd.DataFrame | None:
+    """Resample 5-min bars for `day`, with EMA20 seeded from the prior
+    trading day's session so the open's EMA reflects yesterday's price
+    action — what a trader actually sees on a 5-min chart. Without
+    seeding the EMA "warms up" from close[0] across the first 20 bars,
+    making the morning EMA channel functionally redundant with close.
+
+    If `prior_day_data` is given, EMA20 is computed continuously across
+    [prior session 5-min bars + today's 5-min bars] and only today's
+    portion is returned. Otherwise falls back to from-scratch EMA.
+    """
     df = month_df[month_df.index.date == day]
     df = df[(df.index.time >= pd.Timestamp("09:30").time()) &
             (df.index.time <  pd.Timestamp("16:00").time())]
@@ -88,8 +99,35 @@ def _resample_day_5min(month_df: pd.DataFrame, day: date_t) -> pd.DataFrame | No
     ).dropna()
     if rs.empty:
         return None
-    rs["ema20"] = rs["close"].ewm(span=20, adjust=False).mean()
+
+    if prior_day_data is not None and not prior_day_data.empty:
+        # Concat prior + today, compute EMA continuously, slice today.
+        combined = pd.concat([prior_day_data[["close"]], rs[["close"]]])
+        ema_full = combined["close"].ewm(span=20, adjust=False).mean()
+        rs["ema20"] = ema_full.loc[rs.index]
+    else:
+        rs["ema20"] = rs["close"].ewm(span=20, adjust=False).mean()
     return rs
+
+
+def _prior_trading_day_5min(month_df: pd.DataFrame, day: date_t) -> pd.DataFrame | None:
+    """Return the most recent prior trading day's 5-min RTH bars from
+    the same month parquet, if any. Returns None if `day` is the first
+    trading day of the month (caller can pass None to skip seeding —
+    the warm-up bias is small at the start of months because the first
+    bar of the *month* is genuinely the start of available data)."""
+    df = month_df[month_df.index.date < day]
+    df = df[(df.index.time >= pd.Timestamp("09:30").time()) &
+            (df.index.time <  pd.Timestamp("16:00").time())]
+    if df.empty:
+        return None
+    # Take only the last available trading day in this slice.
+    last_date = df.index.date.max()
+    df = df[df.index.date == last_date]
+    rs = df[["open", "high", "low", "close"]].resample("5min").agg(
+        {"open": "first", "high": "max", "low": "min", "close": "last"}
+    ).dropna()
+    return rs if not rs.empty else None
 
 
 # ── Corpus entry building ──────────────────────────────────────────────────
@@ -319,7 +357,11 @@ def main() -> int:
                 skipped_no_data += 1
                 continue
             try:
-                df5 = _resample_day_5min(month_df, d)
+                # Seed EMA20 with the prior trading day's session if we
+                # have it (same month parquet usually does — the only
+                # case we miss is the very first trading day of a month).
+                prior = _prior_trading_day_5min(month_df, d)
+                df5 = _resample_day_5min(month_df, d, prior_day_data=prior)
             except Exception as e:
                 if args.verbose:
                     print(f"  err {slug}: {e}")
