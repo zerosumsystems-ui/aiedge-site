@@ -493,8 +493,8 @@ export function HistoryAnalogs() {
                   query={selected.first_6_bars}
                   matches={selectedMatches.map((m) => {
                     const e = entryBySlug.get(m.slug)
-                    return e ? { shape: e.first_6_bars, flipped: m.flipped } : null
-                  }).filter((x): x is { shape: typeof selected.first_6_bars; flipped: boolean } => x !== null)}
+                    return e ? { shape: e.first_6_bars, flipped: m.flipped, dtw: m.dtw } : null
+                  }).filter((x): x is { shape: typeof selected.first_6_bars; flipped: boolean; dtw: number } => x !== null)}
                 />
               </div>
             )}

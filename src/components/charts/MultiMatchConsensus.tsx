@@ -13,7 +13,7 @@ import type { AnalogShape } from '@/lib/types'
 
 interface ConsensusProps {
   query: AnalogShape
-  matches: { shape: AnalogShape; flipped: boolean }[]
+  matches: { shape: AnalogShape; flipped: boolean; dtw?: number }[]
   /** Number of bars to render. Defaults to query.open.length, but can
    *  be set lower if some matches are shorter. */
   nBars?: number
@@ -94,24 +94,38 @@ export function MultiMatchConsensus({ query, matches, nBars }: ConsensusProps) {
         {/* Match close-lines first so query candles sit on top. Each
             match is normalized to its own [0, 1] band — different
             instruments at different absolute prices end up readable
-            on the same axis. */}
-        {matches.map(({ shape, flipped }, mi) => {
-          const closes = normCloses(shape.close, flipped)
-          const path = closes
-            .map((y, i) => `${i === 0 ? 'M' : 'L'} ${xCenter(i)} ${yPx(y)}`)
-            .join(' ')
-          const color = MATCH_COLORS[mi % MATCH_COLORS.length]
-          return (
-            <g key={`match-${mi}`}>
-              <path d={path} fill="none" stroke={color}
-                strokeWidth={1.5} strokeOpacity={0.55} />
-              {closes.map((y, i) => (
-                <circle key={`mp-${mi}-${i}`} cx={xCenter(i)} cy={yPx(y)} r={1.8}
-                  fill={color} fillOpacity={0.55} />
-              ))}
-            </g>
-          )
-        })}
+            on the same axis. Per-line opacity + thickness scaled by
+            1/(dtw+ε) so the tightest match is visually loudest and
+            loose matches recede — eyeballing the chart agrees with
+            the weighted aggregation in the Accuracy tab. */}
+        {(() => {
+          // Compute weights once for this render.
+          const weights = matches.map((m) => 1 / ((m.dtw ?? 1) + 0.1))
+          const wMax = Math.max(...weights, 1e-9)
+          return matches.map(({ shape, flipped }, mi) => {
+            const closes = normCloses(shape.close, flipped)
+            const path = closes
+              .map((y, i) => `${i === 0 ? 'M' : 'L'} ${xCenter(i)} ${yPx(y)}`)
+              .join(' ')
+            const color = MATCH_COLORS[mi % MATCH_COLORS.length]
+            // Map normalized weight [0..1] → opacity [0.30..0.85]
+            // and stroke-width [1.0..2.4]. Tightest match always
+            // visible; weakest matches still legible but recede.
+            const wNorm = weights[mi] / wMax
+            const opacity = 0.30 + wNorm * 0.55
+            const strokeWidth = 1.0 + wNorm * 1.4
+            return (
+              <g key={`match-${mi}`}>
+                <path d={path} fill="none" stroke={color}
+                  strokeWidth={strokeWidth} strokeOpacity={opacity} />
+                {closes.map((y, i) => (
+                  <circle key={`mp-${mi}-${i}`} cx={xCenter(i)} cy={yPx(y)} r={1.8}
+                    fill={color} fillOpacity={opacity} />
+                ))}
+              </g>
+            )
+          })
+        })()}
 
         {/* Query candles on top, full opacity. Already normalized to
             its own [0, 1] band so it sits on the same axis as the

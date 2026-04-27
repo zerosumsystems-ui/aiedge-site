@@ -76,13 +76,6 @@ const EMPTY: AccuracyPayload = {
   recent: [], oldestDate: null, latestDate: null,
 }
 
-function median(xs: number[]): number {
-  if (!xs.length) return 0
-  const sorted = [...xs].sort((a, b) => a - b)
-  const m = Math.floor(sorted.length / 2)
-  return sorted.length % 2 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2
-}
-
 function dirOfAtr(eod: number): Direction {
   if (eod > FLAT_THRESHOLD_ATR) return 'up'
   if (eod < -FLAT_THRESHOLD_ATR) return 'down'
@@ -110,30 +103,61 @@ function computeActualOutcome(result: ScanResult): { dir: Direction; eodAtr: num
   return { dir: dirOfAtr(eodAtr), eodAtr }
 }
 
-/** "Predicted" direction = sign of median(eod_move_atr) across the top-K
- *  anchored analogs. Direction-aware framing so a SELL signal prediction
- *  flips: if the analog crowd predicts the price went DOWN after the
- *  anchor, that's a successful SELL. */
+/** "Predicted" outcome aggregated across top-K analogs, weighted by
+ *  1/(dtw + ε) so closer matches count more than loose ones. Match #1
+ *  with DTW 0.6 carries roughly 2× the weight of match #5 with DTW 1.5.
+ *
+ *  Two derivations from the same weights:
+ *    • predictedEodAtr = weighted mean of eod_move_atr across matches
+ *    • predictedDir    = sign of weighted vote (+1 per "up" analog
+ *      scaled by its weight, −1 per "down")
+ *
+ *  Equal-weighted (median) was the previous behavior; with five votes
+ *  it gave equal voice to a tight twin (0.6) and a loose match (1.5),
+ *  which dilutes the matcher's signal. */
+const DTW_EPSILON = 0.1   // floor on weight denominator (a perfect match has dtw≈0)
+
 function predictForResult(result: ScanResult): {
   dir: Direction
   eodAtr: number
   hitCount: number
   considered: number
   meanDtw: number
+  weightSum: number
 } | null {
   const matches: AnalogMatch[] | undefined = result.analogs?.anchored?.matches
   if (!matches || matches.length === 0) return null
-  const eods = matches.map((m) => m.outcome.eod_move_atr)
-  const med = median(eods)
-  // Direction the analog crowd points to from the trader's perspective.
-  // For a BUY signal we want the analog crowd to say "price rose", for
-  // SELL we want "price fell". Recording raw direction here; the caller
-  // judges correct/incorrect against the actual.
-  const dir = dirOfAtr(med)
+
+  let weightSum = 0
+  let weightedEod = 0
+  let weightedVote = 0      // +w for up, −w for down, 0 for flat
+  let dtwSum = 0
+
+  for (const m of matches) {
+    const w = 1 / (m.dtw + DTW_EPSILON)
+    weightSum += w
+    weightedEod += w * m.outcome.eod_move_atr
+    const d = dirOfAtr(m.outcome.eod_move_atr)
+    if (d === 'up') weightedVote += w
+    else if (d === 'down') weightedVote -= w
+    dtwSum += m.dtw
+  }
+
+  const eodAtr = weightedEod / weightSum
+  // Use the weighted vote, NOT the sign of weightedEod — a single huge
+  // outlier outcome shouldn't flip the direction call when the vote is
+  // a tie.
+  let dir: Direction
+  const voteThreshold = weightSum * 0.05  // need a clear majority, not a tie
+  if (weightedVote > voteThreshold) dir = 'up'
+  else if (weightedVote < -voteThreshold) dir = 'down'
+  else dir = 'flat'
+
   const considered = matches.length
   const hitCount = matches.filter((m) => dirOfAtr(m.outcome.eod_move_atr) === dir).length
-  const meanDtw = matches.reduce((acc, m) => acc + m.dtw, 0) / matches.length
-  return { dir, eodAtr: med, hitCount, considered, meanDtw }
+  const meanDtw = dtwSum / matches.length
+
+  return { dir, eodAtr, hitCount, considered, meanDtw, weightSum }
 }
 
 /** Two-sided binomial test against p=0.5 using the normal approximation.
