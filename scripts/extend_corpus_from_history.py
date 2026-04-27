@@ -108,13 +108,15 @@ def _ema20(closes: list[float]) -> list[float]:
 
 
 def _bars_to_bundle(bars: list[dict]) -> dict:
-    """Convert chart.bars (Bar = {t, o, h, l, c}) → corpus shape bundle."""
-    closes = [float(b["c"]) for b in bars]
-    ema = _ema20(closes)
+    """Convert chart.bars (Bar = {t, o, h, l, c}) → corpus shape bundle.
+    Rounds to 4dp to match the backfill schema — keeps corpus.json small
+    at scale without measurably affecting DTW match quality."""
+    closes = [round(float(b["c"]), 4) for b in bars]
+    ema = [round(v, 4) for v in _ema20(closes)]
     return {
-        "open":  [float(b["o"]) for b in bars],
-        "high":  [float(b["h"]) for b in bars],
-        "low":   [float(b["l"]) for b in bars],
+        "open":  [round(float(b["o"]), 4) for b in bars],
+        "high":  [round(float(b["h"]), 4) for b in bars],
+        "low":   [round(float(b["l"]), 4) for b in bars],
         "close": closes,
         "ema20": ema,
         "times": [datetime.fromtimestamp(int(b["t"])).strftime("%H:%M") for b in bars],
@@ -243,15 +245,14 @@ def _build_entry(date: str, ticker: str, bars: list[dict]) -> dict | None:
         "slug": f"{date}_{ticker}",
         "first_6_bars": first_6,
         "first_6_labels": first_6_labels,
-        "full_session": bundle,
+        # Slim entries: skip full_session to keep corpus.json shippable
+        # at scale. The page falls back to first_6_bars when full_session
+        # is null. Mirrors the databento backfill schema.
+        "full_session": None,
         "outcome": outcome,
-        # Source/metadata fields that exist in the strong-trend-derived
-        # corpus but don't apply to history-derived entries.
         "trades_count": 0,
         "trades_directions": [],
         "opening_setups": [],
-        # PNG paths — not rendered for history entries. The /history
-        # Analogs tab falls back to SpatialOverlay when these are null.
         "first_6_chart": None,
         "full_session_chart": None,
         "source": "history",
@@ -354,7 +355,8 @@ def main() -> int:
     corpus["entries"] = all_entries
     corpus["built_at"] = datetime.now().isoformat(timespec="seconds")
 
-    CORPUS_PATH.write_text(json.dumps(corpus, indent=2))
+    # Compact JSON — same rationale as the databento backfill.
+    CORPUS_PATH.write_text(json.dumps(corpus, separators=(",", ":")))
     after = len(corpus["entries"])
     print(f"Wrote {CORPUS_PATH} ({before} → {after} entries, +{after - before})")
     return 0

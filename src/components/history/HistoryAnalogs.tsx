@@ -50,7 +50,9 @@ type Entry = {
   first_6_chart: string | null
   full_session_chart: string | null
   first_6_bars: BarsBundle
-  full_session: BarsBundle
+  // Backfill entries omit full_session to keep corpus.json shippable.
+  // Page falls back to first_6_bars when this is null/undefined.
+  full_session: BarsBundle | null
   first_6_labels?: BarLabel[]
   source?: string
 }
@@ -378,19 +380,21 @@ export function HistoryAnalogs() {
             )}
           </div>
 
-          <div>
-            <p className="text-xs text-sub mb-1">Full RTH session — what happened after</p>
-            {selected.full_session_chart ? (
-              <img
-                src={`/analogs/${selected.slug}/${selected.full_session_chart}`}
-                alt={`${selected.ticker} ${selected.date} full session`}
-                className="w-full h-auto rounded border border-border"
-              />
-            ) : (
-              <BarsCandleSvg bars={selected.full_session} height={220}
-                highlightFirstN={corpus?.n_open_bars ?? 6} />
-            )}
-          </div>
+          {(selected.full_session_chart || selected.full_session) && (
+            <div>
+              <p className="text-xs text-sub mb-1">Full RTH session — what happened after</p>
+              {selected.full_session_chart ? (
+                <img
+                  src={`/analogs/${selected.slug}/${selected.full_session_chart}`}
+                  alt={`${selected.ticker} ${selected.date} full session`}
+                  className="w-full h-auto rounded border border-border"
+                />
+              ) : selected.full_session ? (
+                <BarsCandleSvg bars={selected.full_session} height={220}
+                  highlightFirstN={corpus?.n_open_bars ?? 6} />
+              ) : null}
+            </div>
+          )}
 
           <div className="pt-4">
             <div className="flex items-baseline justify-between gap-3 mb-3">
@@ -456,16 +460,20 @@ export function HistoryAnalogs() {
                     ) : (
                       <BarsCandleSvg bars={e.first_6_bars} height={150} />
                     )}
-                    <p className="text-[11px] text-sub mb-1 mt-3">full session — what happened next</p>
-                    {e.full_session_chart ? (
-                      <img
-                        src={`/analogs/${m.slug}/${e.full_session_chart}`}
-                        alt={`${e.ticker} ${e.date} full session`}
-                        className="w-full h-auto rounded border border-border"
-                      />
-                    ) : (
-                      <BarsCandleSvg bars={e.full_session} height={180}
-                        highlightFirstN={corpus?.n_open_bars ?? 6} />
+                    {(e.full_session_chart || e.full_session) && (
+                      <>
+                        <p className="text-[11px] text-sub mb-1 mt-3">full session — what happened next</p>
+                        {e.full_session_chart ? (
+                          <img
+                            src={`/analogs/${m.slug}/${e.full_session_chart}`}
+                            alt={`${e.ticker} ${e.date} full session`}
+                            className="w-full h-auto rounded border border-border"
+                          />
+                        ) : e.full_session ? (
+                          <BarsCandleSvg bars={e.full_session} height={180}
+                            highlightFirstN={corpus?.n_open_bars ?? 6} />
+                        ) : null}
+                      </>
                     )}
                     <div className="mt-3">
                       <p className="text-[11px] text-sub mb-1">
