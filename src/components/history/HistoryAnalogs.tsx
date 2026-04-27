@@ -424,20 +424,9 @@ export function HistoryAnalogs() {
           </header>
 
           <div>
-            <p className="text-xs text-sub mb-1">First {corpus?.n_open_bars} bars (the open you matched on)</p>
-            {selected.first_6_chart ? (
-              <img
-                src={`/analogs/${selected.slug}/${selected.first_6_chart}`}
-                alt={`${selected.ticker} ${selected.date} open`}
-                className="w-full h-auto rounded border border-border"
-              />
-            ) : (
-              <BarsCandleSvg bars={selected.first_6_bars} height={180} />
-            )}
-          </div>
-
-          <div>
-            <p className="text-xs text-sub mb-1">Full RTH session — what happened after</p>
+            <p className="text-xs text-sub mb-1">
+              Full RTH session — first {corpus?.n_open_bars} bars (the open) shaded
+            </p>
             {selected.full_session_chart ? (
               <img
                 src={`/analogs/${selected.slug}/${selected.full_session_chart}`}
@@ -515,17 +504,9 @@ export function HistoryAnalogs() {
                         )}
                       </p>
                     </header>
-                    <p className="text-[11px] text-sub mb-1">first {corpus?.n_open_bars} bars</p>
-                    {e.first_6_chart ? (
-                      <img
-                        src={`/analogs/${m.slug}/${e.first_6_chart}`}
-                        alt={`${e.ticker} ${e.date} open`}
-                        className="w-full h-auto rounded border border-border"
-                      />
-                    ) : (
-                      <BarsCandleSvg bars={e.first_6_bars} height={150} />
-                    )}
-                    <p className="text-[11px] text-sub mb-1 mt-3">full session — what happened next</p>
+                    <p className="text-[11px] text-sub mb-1">
+                      full session — first {corpus?.n_open_bars} bars (the open) shaded
+                    </p>
                     {e.full_session_chart ? (
                       <img
                         src={`/analogs/${m.slug}/${e.full_session_chart}`}
