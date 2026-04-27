@@ -226,6 +226,13 @@ export function HistoryAnalogs() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [directionMode, setDirectionMode] = useState<DirectionMode>('include_flips')
+  // Lazy-loaded full RTH session bars per slug. corpus.json ships slim
+  // (no full_session) for backfill entries; we fetch the per-slug
+  // session.json file only when an entry is being rendered. The page
+  // load cost stays small (4.4 MB → ~7KB per opened entry).
+  const [sessionCache, setSessionCache] = useState<Map<string, BarsBundle>>(
+    () => new Map()
+  )
 
   useEffect(() => {
     Promise.all([
@@ -264,6 +271,55 @@ export function HistoryAnalogs() {
   }, [allSelectedMatches, directionMode])
   const flippedCount = allSelectedMatches.filter((m) => m.flipped).length
   const sameCount    = allSelectedMatches.filter((m) => !m.flipped).length
+
+  // Lazy-fetch session.json for the selected entry + its top matches.
+  // We fire one fetch per slug that's missing a session AND not already
+  // inline on the entry. Cached in sessionCache by slug — re-renders
+  // pull from cache without re-fetching.
+  useEffect(() => {
+    if (!corpus) return
+    const slugsToFetch = new Set<string>()
+    const consider = (slug: string | null | undefined) => {
+      if (!slug) return
+      if (sessionCache.has(slug)) return
+      const e = entryBySlug.get(slug)
+      if (!e) return
+      if (e.full_session) return // already inline (original 43 entries)
+      slugsToFetch.add(slug)
+    }
+    consider(selectedSlug)
+    for (const m of selectedMatches) consider(m.slug)
+    if (slugsToFetch.size === 0) return
+
+    let cancelled = false
+    Promise.all(
+      [...slugsToFetch].map((slug) =>
+        fetch(`/analogs/${slug}/session.json`, { cache: 'force-cache' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((bundle) => [slug, bundle as BarsBundle | null] as const)
+          .catch(() => [slug, null] as const)
+      )
+    ).then((results) => {
+      if (cancelled) return
+      setSessionCache((prev) => {
+        const next = new Map(prev)
+        for (const [slug, bundle] of results) {
+          if (bundle) next.set(slug, bundle)
+        }
+        return next
+      })
+    })
+    return () => { cancelled = true }
+  }, [corpus, selectedSlug, selectedMatches, entryBySlug, sessionCache])
+
+  /** Resolve full session bars for a slug: prefer the inline field on the
+   *  entry (the original 43 strong-trend entries have it), fall back to
+   *  the lazy-loaded cache. */
+  const sessionFor = (slug: string): BarsBundle | null => {
+    const e = entryBySlug.get(slug)
+    if (e?.full_session) return e.full_session
+    return sessionCache.get(slug) ?? null
+  }
 
   return (
     <div>
@@ -380,21 +436,30 @@ export function HistoryAnalogs() {
             )}
           </div>
 
-          {(selected.full_session_chart || selected.full_session) && (
-            <div>
-              <p className="text-xs text-sub mb-1">Full RTH session — what happened after</p>
-              {selected.full_session_chart ? (
-                <img
-                  src={`/analogs/${selected.slug}/${selected.full_session_chart}`}
-                  alt={`${selected.ticker} ${selected.date} full session`}
-                  className="w-full h-auto rounded border border-border"
-                />
-              ) : selected.full_session ? (
-                <BarsCandleSvg bars={selected.full_session} height={220}
-                  highlightFirstN={corpus?.n_open_bars ?? 6} />
-              ) : null}
-            </div>
-          )}
+          <div>
+            <p className="text-xs text-sub mb-1">Full RTH session — what happened after</p>
+            {selected.full_session_chart ? (
+              <img
+                src={`/analogs/${selected.slug}/${selected.full_session_chart}`}
+                alt={`${selected.ticker} ${selected.date} full session`}
+                className="w-full h-auto rounded border border-border"
+              />
+            ) : (() => {
+              const session = sessionFor(selected.slug)
+              if (session) {
+                return (
+                  <BarsCandleSvg bars={session} height={220}
+                    highlightFirstN={corpus?.n_open_bars ?? 6} />
+                )
+              }
+              return (
+                <div className="border border-border rounded p-4 text-center text-xs text-sub"
+                     style={{ background: '#1c1815' }}>
+                  Loading full session…
+                </div>
+              )
+            })()}
+          </div>
 
           <div className="pt-4">
             <div className="flex items-baseline justify-between gap-3 mb-3">
@@ -460,21 +525,28 @@ export function HistoryAnalogs() {
                     ) : (
                       <BarsCandleSvg bars={e.first_6_bars} height={150} />
                     )}
-                    {(e.full_session_chart || e.full_session) && (
-                      <>
-                        <p className="text-[11px] text-sub mb-1 mt-3">full session — what happened next</p>
-                        {e.full_session_chart ? (
-                          <img
-                            src={`/analogs/${m.slug}/${e.full_session_chart}`}
-                            alt={`${e.ticker} ${e.date} full session`}
-                            className="w-full h-auto rounded border border-border"
-                          />
-                        ) : e.full_session ? (
-                          <BarsCandleSvg bars={e.full_session} height={180}
+                    <p className="text-[11px] text-sub mb-1 mt-3">full session — what happened next</p>
+                    {e.full_session_chart ? (
+                      <img
+                        src={`/analogs/${m.slug}/${e.full_session_chart}`}
+                        alt={`${e.ticker} ${e.date} full session`}
+                        className="w-full h-auto rounded border border-border"
+                      />
+                    ) : (() => {
+                      const session = sessionFor(e.slug)
+                      if (session) {
+                        return (
+                          <BarsCandleSvg bars={session} height={180}
                             highlightFirstN={corpus?.n_open_bars ?? 6} />
-                        ) : null}
-                      </>
-                    )}
+                        )
+                      }
+                      return (
+                        <div className="border border-border rounded p-3 text-center text-[11px] text-sub"
+                             style={{ background: '#1c1815' }}>
+                          Loading full session…
+                        </div>
+                      )
+                    })()}
                     <div className="mt-3">
                       <p className="text-[11px] text-sub mb-1">
                         Spatial overlay — query (green/red) vs match (blue/purple), normalized to

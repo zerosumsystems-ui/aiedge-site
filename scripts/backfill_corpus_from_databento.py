@@ -30,6 +30,7 @@ from pathlib import Path
 import pandas as pd
 
 CORPUS_PATH = Path(__file__).resolve().parent.parent / "public" / "analogs" / "corpus.json"
+ANALOGS_ROOT = Path(__file__).resolve().parent.parent / "public" / "analogs"
 DATA_ROOT = Path.home() / "data" / "databento"
 
 # Picked for liquidity + diversity of intraday behavior. Not exhaustive —
@@ -210,6 +211,12 @@ def _build_entry(date_str: str, ticker: str, df5: pd.DataFrame) -> dict | None:
     if outcome.get("insufficient_data"):
         return None
     first_6 = _trim(full, N_OPEN_BARS)
+    # Write the full session to a per-slug file so the page can lazy-fetch
+    # it on click. corpus.json itself stays slim.
+    slug = f"{date_str}_{ticker}"
+    session_dir = ANALOGS_ROOT / slug
+    session_dir.mkdir(parents=True, exist_ok=True)
+    (session_dir / "session.json").write_text(json.dumps(full, separators=(",", ":")))
     # Slim entries: keep first_6_bars + first_6_labels + outcome (everything
     # the matcher and the picker UI need); skip full_session so corpus.json
     # ships to the client at a reasonable size. The original 43 strong-trend
@@ -218,7 +225,7 @@ def _build_entry(date_str: str, ticker: str, df5: pd.DataFrame) -> dict | None:
     return {
         "date": date_str,
         "ticker": ticker,
-        "slug": f"{date_str}_{ticker}",
+        "slug": slug,
         "first_6_bars": first_6,
         "first_6_labels": _compute_first_6_labels(full),
         "full_session": None,

@@ -51,12 +51,15 @@ jobs:
       - name: Extend analog corpus from new capture
         run: python3 scripts/extend_corpus_from_history.py
 
-      - name: Commit corpus update if changed
+      - name: Commit corpus + session files if changed
         run: |
-          if [[ -n "$(git status --porcelain public/analogs/corpus.json)" ]]; then
+          if [[ -n "$(git status --porcelain public/analogs/)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
+            # Stage the slim corpus.json + any new per-slug session.json
+            # files dropped by the ingest script.
             git add public/analogs/corpus.json
+            git add 'public/analogs/*/session.json' || true
             git commit -m "chore(corpus): auto-extend from EOD capture $(date -u +%Y-%m-%d)"
             git push origin HEAD:main
             echo "corpus updated and pushed"

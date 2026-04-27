@@ -37,6 +37,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 CORPUS_PATH = Path(__file__).resolve().parent.parent / "public" / "analogs" / "corpus.json"
+ANALOGS_ROOT = Path(__file__).resolve().parent.parent / "public" / "analogs"
 DEFAULT_LOCAL_DIR = Path.home() / "aiedge-history"
 
 N_OPEN_BARS = 6
@@ -239,10 +240,17 @@ def _build_entry(date: str, ticker: str, bars: list[dict]) -> dict | None:
     if outcome.get("insufficient_data"):
         return None
     first_6_labels = _compute_first_6_labels(bundle)
+    # Per-slug session.json so the page can render "what happened next"
+    # without bloating corpus.json. Same convention as the databento
+    # backfill: small file, lazy-fetched on click.
+    slug = f"{date}_{ticker}"
+    session_dir = ANALOGS_ROOT / slug
+    session_dir.mkdir(parents=True, exist_ok=True)
+    (session_dir / "session.json").write_text(json.dumps(bundle, separators=(",", ":")))
     return {
         "date": date,
         "ticker": ticker,
-        "slug": f"{date}_{ticker}",
+        "slug": slug,
         "first_6_bars": first_6,
         "first_6_labels": first_6_labels,
         # Slim entries: skip full_session to keep corpus.json shippable
