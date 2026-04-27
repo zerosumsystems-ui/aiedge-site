@@ -4,18 +4,23 @@ import { Suspense } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { HistorySnapshots } from '@/components/history/HistorySnapshots'
 import { HistoryAnalogs } from '@/components/history/HistoryAnalogs'
+import { HistoryAccuracy } from '@/components/history/HistoryAccuracy'
 
-type Tab = 'snapshots' | 'analogs'
+type Tab = 'snapshots' | 'analogs' | 'accuracy'
 
 const TABS: { id: Tab; label: string; sublabel: string }[] = [
   { id: 'snapshots', label: 'Snapshots',
     sublabel: 'End-of-day scan results, captured nightly.' },
   { id: 'analogs',   label: 'Analogs',
     sublabel: 'Past mornings whose first 6 bars match a chosen day.' },
+  { id: 'accuracy',  label: 'Accuracy',
+    sublabel: 'Did the analog matches actually predict what happened?' },
 ]
 
 function parseTab(raw: string | null): Tab {
-  return raw === 'analogs' ? 'analogs' : 'snapshots'
+  if (raw === 'analogs') return 'analogs'
+  if (raw === 'accuracy') return 'accuracy'
+  return 'snapshots'
 }
 
 export default function HistoryPage() {
@@ -76,7 +81,9 @@ function HistoryPageInner() {
 
       <p className="text-xs text-sub mb-4">{active.sublabel}</p>
 
-      {tab === 'snapshots' ? <HistorySnapshots /> : <HistoryAnalogs />}
+      {tab === 'snapshots' ? <HistorySnapshots />
+        : tab === 'analogs' ? <HistoryAnalogs />
+        : <HistoryAccuracy />}
     </div>
   )
 }
