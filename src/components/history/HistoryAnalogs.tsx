@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { SpatialOverlay } from '@/components/charts/SpatialOverlay'
-import { MultiMatchConsensus } from '@/components/charts/MultiMatchConsensus'
+import { PostAnchorEvolution } from '@/components/charts/PostAnchorEvolution'
 import { BrooksBarStrip } from '@/components/charts/BrooksBarStrip'
 import { EmaRelativeChart } from '@/components/charts/EmaRelativeChart'
 
@@ -478,26 +478,53 @@ export function HistoryAnalogs() {
               </p>
             )}
 
-            {/* Multi-match consensus — query + all 5 matches' close-lines
-                stacked. Tight clumping = the analog crowd agrees on the
-                next move shape; a wide fan = they don't. Useful as the
-                first thing the user sees before drilling into each match
-                individually. */}
-            {selectedMatches.length > 1 && (
-              <div className="mb-6">
-                <p className="text-[11px] text-sub mb-1">
-                  Consensus shape — query candles, top {selectedMatches.length} match close-lines.
-                  Tight clumping means the analog crowd agrees on what the morning becomes.
-                </p>
-                <MultiMatchConsensus
-                  query={selected.first_6_bars}
-                  matches={selectedMatches.map((m) => {
-                    const e = entryBySlug.get(m.slug)
-                    return e ? { shape: e.first_6_bars, flipped: m.flipped, dtw: m.dtw } : null
-                  }).filter((x): x is { shape: typeof selected.first_6_bars; flipped: boolean; dtw: number } => x !== null)}
-                />
-              </div>
-            )}
+            {/* Post-anchor evolution — query candles for the open, plus
+                each match's continuation from the anchor through EOD,
+                plotted in ATR units from the anchor close. The visual
+                answers the actual question: "given this morning, what
+                does the analog crowd say happens next?" Tight clumping
+                past the anchor = real consensus on the next move; wide
+                fan = matches share a morning shape but diverge afterward
+                and the matcher can't tell you the outcome. */}
+            {selectedMatches.length > 1 && (() => {
+              const evolutionMatches = selectedMatches
+                .map((m) => {
+                  const e = entryBySlug.get(m.slug)
+                  if (!e) return null
+                  const session = sessionFor(m.slug)
+                  if (!session) return null
+                  return {
+                    session,
+                    flipped: m.flipped,
+                    dtw: m.dtw,
+                    ticker: e.ticker,
+                    date: e.date,
+                  }
+                })
+                .filter((x): x is NonNullable<typeof x> => x !== null)
+              if (evolutionMatches.length === 0) {
+                return (
+                  <div className="mb-6 border border-border rounded p-4 text-center text-xs text-sub"
+                       style={{ background: '#1c1815' }}>
+                    Loading match sessions to render the post-anchor evolution chart…
+                  </div>
+                )
+              }
+              return (
+                <div className="mb-6">
+                  <p className="text-[11px] text-sub mb-1">
+                    Post-anchor evolution — query candles for the open, then each
+                    match&apos;s continuation through end-of-day in ATR units. Tight
+                    clumping past the anchor = real consensus on the next move;
+                    fan-out = matches share a morning but diverge afterward.
+                  </p>
+                  <PostAnchorEvolution
+                    queryShape={selected.first_6_bars}
+                    matches={evolutionMatches}
+                  />
+                </div>
+              )
+            })()}
             <div className="space-y-8">
               {selectedMatches.map((m) => {
                 const e = entryBySlug.get(m.slug)
