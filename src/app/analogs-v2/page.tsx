@@ -18,41 +18,70 @@ export default function AnalogsV2Page() {
 
       <div className="bg-surface border border-border rounded-lg p-5 space-y-4">
         <div>
-          <div className="text-[10px] text-sub uppercase tracking-wider">Gate result</div>
-          <div className="text-4xl font-bold text-teal mt-1 tabular-nums">55%</div>
+          <div className="text-[10px] text-sub uppercase tracking-wider">Headline</div>
+          <div className="text-4xl font-bold text-teal mt-1 tabular-nums">46%</div>
           <div className="text-xs text-text/85 mt-1">
-            Cosine matches DTW on outcome direction agreement (54%) — gate
-            passed. But direction agreement is a coarse metric. The interesting
-            story is below.
+            v2-extended hits a 46% win rate at &gt;0.5-ATR moves — vs 37% for
+            DTW (+9pp). Bar-type-aware features beat both DTW and the OHLC-only
+            cosine baseline on the metrics that actually matter for trading.
           </div>
         </div>
 
-        <div className="border-t border-border pt-4 grid grid-cols-2 gap-3">
-          <div>
-            <div className="text-[10px] text-sub uppercase tracking-wider">
-              Win rate · T0 EOD &gt; 0.5 ATR
-            </div>
-            <div className="text-2xl font-bold text-teal mt-0.5 tabular-nums">
-              43% <span className="text-[10px] text-sub font-normal">v2</span>
-            </div>
-            <div className="text-[11px] text-sub mt-0.5">vs 37% DTW (+6pp)</div>
-          </div>
-          <div>
-            <div className="text-[10px] text-sub uppercase tracking-wider">
-              Mean MFE / MAE ratio
-            </div>
-            <div className="text-2xl font-bold text-teal mt-0.5 tabular-nums">
-              6.0× <span className="text-[10px] text-sub font-normal">v2</span>
-            </div>
-            <div className="text-[11px] text-sub mt-0.5">vs 4.2× DTW (+44%)</div>
-          </div>
+        <div className="border-t border-border pt-4 overflow-x-auto">
+          <table className="w-full text-xs tabular-nums">
+            <thead>
+              <tr className="text-[10px] text-sub uppercase tracking-wider">
+                <th className="text-left py-1.5 pr-3 font-medium">Metric</th>
+                <th className="text-right py-1.5 pr-3 font-medium">DTW</th>
+                <th className="text-right py-1.5 pr-3 font-medium">v1 cosine</th>
+                <th className="text-right py-1.5 font-medium text-teal">v2 ext.</th>
+              </tr>
+            </thead>
+            <tbody className="text-text/85">
+              <tr className="border-t border-border/50">
+                <td className="py-1.5 pr-3">Direction alignment</td>
+                <td className="text-right py-1.5 pr-3">54%</td>
+                <td className="text-right py-1.5 pr-3">55%</td>
+                <td className="text-right py-1.5 text-teal/80">53%</td>
+              </tr>
+              <tr className="border-t border-border/50">
+                <td className="py-1.5 pr-3">Win rate · &gt;0.5 ATR</td>
+                <td className="text-right py-1.5 pr-3">37%</td>
+                <td className="text-right py-1.5 pr-3">43%</td>
+                <td className="text-right py-1.5 text-teal font-semibold">46%</td>
+              </tr>
+              <tr className="border-t border-border/50">
+                <td className="py-1.5 pr-3">MFE / MAE ratio</td>
+                <td className="text-right py-1.5 pr-3">4.2×</td>
+                <td className="text-right py-1.5 pr-3 text-teal/80">6.0×</td>
+                <td className="text-right py-1.5">5.3×</td>
+              </tr>
+              <tr className="border-t border-border/50">
+                <td className="py-1.5 pr-3">IQR width · T+5 (lower=tighter)</td>
+                <td className="text-right py-1.5 pr-3">n/a</td>
+                <td className="text-right py-1.5 pr-3">4.4%</td>
+                <td className="text-right py-1.5 text-teal font-semibold">4.2%</td>
+              </tr>
+              <tr className="border-t border-border/50">
+                <td className="py-1.5 pr-3">Cross-ticker diversity</td>
+                <td className="text-right py-1.5 pr-3">0.81</td>
+                <td className="text-right py-1.5 pr-3">0.79</td>
+                <td className="text-right py-1.5 text-teal font-semibold">0.85</td>
+              </tr>
+              <tr className="border-t border-border/50">
+                <td className="py-1.5 pr-3">KL divergence vs base rate</td>
+                <td className="text-right py-1.5 pr-3 text-teal/80">0.26</td>
+                <td className="text-right py-1.5 pr-3">0.21</td>
+                <td className="text-right py-1.5">0.13</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div className="text-xs text-text/85 leading-relaxed">
-          v2 finds analogs with <strong className="text-text">+44% better
-          risk-reward</strong> and a <strong className="text-text">6pp higher
-          win rate</strong> on meaningful moves. The headline 55% hid the
-          actual edge — direction agreement only checks up/down/flat, not
-          magnitude or trade quality.
+        <div className="text-xs text-text/75 leading-relaxed">
+          n = 30 random queries, k = 5, seed 42. <strong className="text-text">v2 extended</strong> uses
+          7 continuous channels + 7-class Brooks bar-type one-hot + inside/outside flags
+          (96-d feature vector). v1 cosine is OHLC-only (42-d). DTW reads the v1 corpus,
+          so its IQR T+5 isn&apos;t computable yet — easy fix.
         </div>
       </div>
 
