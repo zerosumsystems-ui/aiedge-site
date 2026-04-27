@@ -12,6 +12,7 @@
  *  is the first opportunity). */
 
 import { useEffect, useState } from 'react'
+import { CorpusValidation } from './CorpusValidation'
 
 type Direction = 'up' | 'down' | 'flat'
 
@@ -102,19 +103,42 @@ export function HistoryAccuracy() {
   }
   if (!data || data.total === 0) {
     return (
-      <div className="py-12 text-center text-sm text-sub">
-        <p className="mb-2">No analog-tagged detections captured yet.</p>
-        <p className="text-xs">
-          Scanner cards started attaching analogs after the most recent merge.
-          The first weekday EOD capture with live data is when this view starts
-          populating.
-        </p>
+      <div className="space-y-6">
+        {/* Even with no live data yet, the historical leave-one-out
+            validation has plenty to say about whether the matcher
+            actually predicts. */}
+        <CorpusValidation />
+        <div className="py-8 text-center text-sm text-sub border-t border-border">
+          <p className="mb-2 font-semibold">Live tracking — not yet populated</p>
+          <p className="text-xs max-w-md mx-auto">
+            No analog-tagged detections captured yet. Scanner cards
+            started attaching analogs after the most recent merge.
+            The first weekday EOD capture with live data is when the
+            live tally starts populating below the historical
+            validation above.
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
+      {/* Historical validation always shown — the leave-one-out
+          analysis across all 2,723 corpus sessions is the strongest
+          evidence we have until live data accumulates. */}
+      <CorpusValidation />
+
+      <div className="border-t border-border pt-4">
+        <h3 className="text-sm font-semibold text-text mb-1">
+          Live tracking — actual scanner detections going forward
+        </h3>
+        <p className="text-[11px] text-sub mb-3">
+          Real-time accuracy of analog predictions on live scanner cards as
+          new detections get captured each weekday EOD.
+        </p>
+      </div>
+
       {/* Headline numbers */}
       <section>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
