@@ -11,6 +11,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { SpatialOverlay } from '@/components/charts/SpatialOverlay'
+import { MultiMatchConsensus } from '@/components/charts/MultiMatchConsensus'
+import { BrooksBarStrip } from '@/components/charts/BrooksBarStrip'
+import { EmaRelativeChart } from '@/components/charts/EmaRelativeChart'
 
 type Outcome = {
   open_direction: 'up' | 'down' | 'flat'
@@ -474,6 +477,27 @@ export function HistoryAnalogs() {
                 showing vertically mirrored shapes instead.
               </p>
             )}
+
+            {/* Multi-match consensus — query + all 5 matches' close-lines
+                stacked. Tight clumping = the analog crowd agrees on the
+                next move shape; a wide fan = they don't. Useful as the
+                first thing the user sees before drilling into each match
+                individually. */}
+            {selectedMatches.length > 1 && (
+              <div className="mb-6">
+                <p className="text-[11px] text-sub mb-1">
+                  Consensus shape — query candles, top {selectedMatches.length} match close-lines.
+                  Tight clumping means the analog crowd agrees on what the morning becomes.
+                </p>
+                <MultiMatchConsensus
+                  query={selected.first_6_bars}
+                  matches={selectedMatches.map((m) => {
+                    const e = entryBySlug.get(m.slug)
+                    return e ? { shape: e.first_6_bars, flipped: m.flipped } : null
+                  }).filter((x): x is { shape: typeof selected.first_6_bars; flipped: boolean } => x !== null)}
+                />
+              </div>
+            )}
             <div className="space-y-8">
               {selectedMatches.map((m) => {
                 const e = entryBySlug.get(m.slug)
@@ -525,10 +549,33 @@ export function HistoryAnalogs() {
                     <div className="mt-3">
                       <p className="text-[11px] text-sub mb-1">
                         Spatial overlay — query (green/red) vs match (blue/purple), normalized to
-                        [0,1] on the same axes. The closer the shapes line up, the higher the DTW
-                        score.
+                        [0,1] on the same axes. Dashed lines show the DTW warp path: each one
+                        connects a query bar to the match bar it aligned to (skipped when they
+                        line up 1:1). Off-diagonal lines = the time axis stretched.
                       </p>
                       <SpatialOverlay
+                        query={selected.first_6_bars}
+                        match={e.first_6_bars}
+                        flippedMatch={m.flipped}
+                        showWarpPath
+                      />
+                    </div>
+                    {selected.first_6_labels && e.first_6_labels && (
+                      <div className="mt-3">
+                        <BrooksBarStrip
+                          queryLabels={selected.first_6_labels}
+                          matchLabels={e.first_6_labels}
+                          flippedMatch={m.flipped}
+                        />
+                      </div>
+                    )}
+                    <div className="mt-3">
+                      <p className="text-[11px] text-sub mb-1">
+                        EMA-relative — close minus EMA20 each bar, in ATR units. Drift removed,
+                        intra-trend wiggle isolated. Lines tracking together = the close-vs-MA
+                        behavior was the same shape, even at different absolute price moves.
+                      </p>
+                      <EmaRelativeChart
                         query={selected.first_6_bars}
                         match={e.first_6_bars}
                         flippedMatch={m.flipped}
