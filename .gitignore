@@ -46,3 +46,8 @@ __pycache__/
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Local dev / temp preview artifacts
+public/preview.html
+public/analogs-v2/mobile_view.png
+public/analogs-v2/desktop_view.png
