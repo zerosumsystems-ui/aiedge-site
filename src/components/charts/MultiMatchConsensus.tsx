@@ -28,32 +28,36 @@ export function MultiMatchConsensus({ query, matches, nBars }: ConsensusProps) {
   const n = nBars ?? query.open.length
   if (n < 2 || matches.length === 0) return null
 
-  const flipMatch = (m: AnalogShape, isFlipped: boolean): AnalogShape => {
-    if (!isFlipped) return m
-    return {
-      open: m.open, ema20: m.ema20,
-      // Vertical mirror: high↔low swap and y → 1-y handled at normalize.
-      high: m.low, low: m.high, close: m.close,
-    }
+  // Per-series normalization. Joint min/max across all series squashed
+  // each chart's variation to a flat line whenever absolute price scales
+  // differed (AAPL ~$200 vs SPY ~$500). For shape comparison we want
+  // every series occupying the same [0, 1] vertical band so the wiggle
+  // is visible — same convention SpatialOverlay uses for one-vs-one.
+  const normCloses = (closes: number[], flipY: boolean): number[] => {
+    const sub = closes.slice(0, n)
+    const lo = Math.min(...sub)
+    const hi = Math.max(...sub)
+    const span = (hi - lo) || 1
+    return sub.map((v) => {
+      const t = (v - lo) / span
+      return flipY ? 1 - t : t
+    })
   }
-
-  // Joint normalization across query + all matches.
-  const allValues: number[] = []
-  for (const arr of [query.open, query.high, query.low, query.close, query.ema20]) {
-    for (const v of arr.slice(0, n)) allValues.push(v)
-  }
-  for (const { shape, flipped } of matches) {
-    const m = flipMatch(shape, flipped)
-    for (const arr of [m.open, m.high, m.low, m.close, m.ema20]) {
-      for (const v of arr.slice(0, n)) allValues.push(v)
-    }
-  }
-  const min = Math.min(...allValues)
-  const max = Math.max(...allValues)
-  const span = (max - min) || 1
-  const normalize = (v: number, flipY = false) => {
-    const t = (v - min) / span
-    return flipY ? 1 - t : t
+  // For the query candles we need OHLC normalized together so the candle
+  // bodies and wicks stay proportional. Joint within-query min/max.
+  const queryAll = [
+    ...query.open.slice(0, n), ...query.high.slice(0, n),
+    ...query.low.slice(0, n),  ...query.close.slice(0, n),
+  ]
+  const qLo = Math.min(...queryAll)
+  const qHi = Math.max(...queryAll)
+  const qSpan = (qHi - qLo) || 1
+  const normQ = (v: number) => (v - qLo) / qSpan
+  const Q = {
+    o: query.open.slice(0, n).map(normQ),
+    h: query.high.slice(0, n).map(normQ),
+    l: query.low.slice(0, n).map(normQ),
+    c: query.close.slice(0, n).map(normQ),
   }
 
   const usableW = W - PAD_X * 2
@@ -87,10 +91,12 @@ export function MultiMatchConsensus({ query, matches, nBars }: ConsensusProps) {
 
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet"
            className="block max-w-full">
-        {/* Match close-lines first so query candles sit on top. */}
+        {/* Match close-lines first so query candles sit on top. Each
+            match is normalized to its own [0, 1] band — different
+            instruments at different absolute prices end up readable
+            on the same axis. */}
         {matches.map(({ shape, flipped }, mi) => {
-          const m = flipMatch(shape, flipped)
-          const closes = m.close.slice(0, n).map((v) => normalize(v, flipped))
+          const closes = normCloses(shape.close, flipped)
           const path = closes
             .map((y, i) => `${i === 0 ? 'M' : 'L'} ${xCenter(i)} ${yPx(y)}`)
             .join(' ')
@@ -99,8 +105,6 @@ export function MultiMatchConsensus({ query, matches, nBars }: ConsensusProps) {
             <g key={`match-${mi}`}>
               <path d={path} fill="none" stroke={color}
                 strokeWidth={1.5} strokeOpacity={0.55} />
-              {/* Small dots at each bar so the user can locate the
-                  per-bar agreement, not just the curve shape. */}
               {closes.map((y, i) => (
                 <circle key={`mp-${mi}-${i}`} cx={xCenter(i)} cy={yPx(y)} r={1.8}
                   fill={color} fillOpacity={0.55} />
@@ -109,16 +113,15 @@ export function MultiMatchConsensus({ query, matches, nBars }: ConsensusProps) {
           )
         })}
 
-        {/* Query candles on top, full opacity. */}
+        {/* Query candles on top, full opacity. Already normalized to
+            its own [0, 1] band so it sits on the same axis as the
+            match lines. */}
         {Array.from({ length: n }).map((_, i) => {
-          const o = normalize(query.open[i])
-          const h = normalize(query.high[i])
-          const l = normalize(query.low[i])
-          const c = normalize(query.close[i])
-          const isUp = c >= o
+          const isUp = Q.c[i] >= Q.o[i]
           const col = isUp ? QUERY_UP : QUERY_DN
           const x = xCenter(i)
-          const yH = yPx(h), yL = yPx(l), yO = yPx(o), yC = yPx(c)
+          const yH = yPx(Q.h[i]), yL = yPx(Q.l[i])
+          const yO = yPx(Q.o[i]), yC = yPx(Q.c[i])
           const yTop = Math.min(yO, yC), yBot = Math.max(yO, yC)
           return (
             <g key={`q-${i}`}>
