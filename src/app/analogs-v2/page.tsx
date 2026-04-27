@@ -18,12 +18,13 @@ export default function AnalogsV2Page() {
 
       <div className="bg-surface border border-border rounded-lg p-5 space-y-4">
         <div>
-          <div className="text-[10px] text-sub uppercase tracking-wider">Headline</div>
-          <div className="text-4xl font-bold text-teal mt-1 tabular-nums">46%</div>
+          <div className="text-[10px] text-sub uppercase tracking-wider">Headline · win rate at meaningful moves</div>
+          <div className="text-4xl font-bold text-teal mt-1 tabular-nums">46.5%</div>
           <div className="text-xs text-text/85 mt-1">
-            v2-extended hits a 46% win rate at &gt;0.5-ATR moves — vs 37% for
-            DTW (+9pp). Bar-type-aware features beat both DTW and the OHLC-only
-            cosine baseline on the metrics that actually matter for trading.
+            v2 Brooks-precise (book-grounded definitions + volume) — vs 42.5%
+            for DTW (+4pp). Direction alignment plateaus around 47–55% across
+            all five hand-engineered methods we tried. The big direction lift
+            comes from Phase 2 — a contrastive encoder trained on outcomes.
           </div>
         </div>
 
@@ -31,57 +32,72 @@ export default function AnalogsV2Page() {
           <table className="w-full text-xs tabular-nums">
             <thead>
               <tr className="text-[10px] text-sub uppercase tracking-wider">
-                <th className="text-left py-1.5 pr-3 font-medium">Metric</th>
-                <th className="text-right py-1.5 pr-3 font-medium">DTW</th>
-                <th className="text-right py-1.5 pr-3 font-medium">v1 cosine</th>
-                <th className="text-right py-1.5 font-medium text-teal">v2 ext.</th>
+                <th className="text-left py-1.5 pr-2 font-medium">Metric</th>
+                <th className="text-right py-1.5 pr-2 font-medium">DTW</th>
+                <th className="text-right py-1.5 pr-2 font-medium">v1</th>
+                <th className="text-right py-1.5 pr-2 font-medium">v2 ext</th>
+                <th className="text-right py-1.5 pr-2 font-medium">v2 Bk</th>
+                <th className="text-right py-1.5 font-medium text-teal">v2 Bk+Vol</th>
               </tr>
             </thead>
             <tbody className="text-text/85">
               <tr className="border-t border-border/50">
-                <td className="py-1.5 pr-3">Direction alignment</td>
-                <td className="text-right py-1.5 pr-3">54%</td>
-                <td className="text-right py-1.5 pr-3">55%</td>
-                <td className="text-right py-1.5 text-teal/80">53%</td>
+                <td className="py-1.5 pr-2">Direction align</td>
+                <td className="text-right py-1.5 pr-2 text-teal/80">53%</td>
+                <td className="text-right py-1.5 pr-2">55%</td>
+                <td className="text-right py-1.5 pr-2">50%</td>
+                <td className="text-right py-1.5 pr-2">48%</td>
+                <td className="text-right py-1.5">48%</td>
               </tr>
               <tr className="border-t border-border/50">
-                <td className="py-1.5 pr-3">Win rate · &gt;0.5 ATR</td>
-                <td className="text-right py-1.5 pr-3">37%</td>
-                <td className="text-right py-1.5 pr-3">43%</td>
-                <td className="text-right py-1.5 text-teal font-semibold">46%</td>
+                <td className="py-1.5 pr-2">Win rate &gt;0.5 ATR</td>
+                <td className="text-right py-1.5 pr-2">42%</td>
+                <td className="text-right py-1.5 pr-2">43%</td>
+                <td className="text-right py-1.5 pr-2">45%</td>
+                <td className="text-right py-1.5 pr-2">47%</td>
+                <td className="text-right py-1.5 text-teal font-semibold">47%</td>
               </tr>
               <tr className="border-t border-border/50">
-                <td className="py-1.5 pr-3">MFE / MAE ratio</td>
-                <td className="text-right py-1.5 pr-3">4.2×</td>
-                <td className="text-right py-1.5 pr-3 text-teal/80">6.0×</td>
-                <td className="text-right py-1.5">5.3×</td>
+                <td className="py-1.5 pr-2">MFE / MAE</td>
+                <td className="text-right py-1.5 pr-2 text-teal/80">5.3×</td>
+                <td className="text-right py-1.5 pr-2 text-teal font-semibold">6.0×</td>
+                <td className="text-right py-1.5 pr-2">5.0×</td>
+                <td className="text-right py-1.5 pr-2">4.8×</td>
+                <td className="text-right py-1.5">5.0×</td>
               </tr>
               <tr className="border-t border-border/50">
-                <td className="py-1.5 pr-3">IQR width · T+5 (lower=tighter)</td>
-                <td className="text-right py-1.5 pr-3">n/a</td>
-                <td className="text-right py-1.5 pr-3">4.4%</td>
-                <td className="text-right py-1.5 text-teal font-semibold">4.2%</td>
+                <td className="py-1.5 pr-2">IQR T+5 (lower better)</td>
+                <td className="text-right py-1.5 pr-2">n/a</td>
+                <td className="text-right py-1.5 pr-2">4.4%</td>
+                <td className="text-right py-1.5 pr-2 text-teal font-semibold">3.8%</td>
+                <td className="text-right py-1.5 pr-2">4.1%</td>
+                <td className="text-right py-1.5">4.2%</td>
               </tr>
               <tr className="border-t border-border/50">
-                <td className="py-1.5 pr-3">Cross-ticker diversity</td>
-                <td className="text-right py-1.5 pr-3">0.81</td>
-                <td className="text-right py-1.5 pr-3">0.79</td>
-                <td className="text-right py-1.5 text-teal font-semibold">0.85</td>
+                <td className="py-1.5 pr-2">Diversity</td>
+                <td className="text-right py-1.5 pr-2 text-teal font-semibold">0.83</td>
+                <td className="text-right py-1.5 pr-2">0.79</td>
+                <td className="text-right py-1.5 pr-2">0.83</td>
+                <td className="text-right py-1.5 pr-2">0.83</td>
+                <td className="text-right py-1.5">0.82</td>
               </tr>
               <tr className="border-t border-border/50">
-                <td className="py-1.5 pr-3">KL divergence vs base rate</td>
-                <td className="text-right py-1.5 pr-3 text-teal/80">0.26</td>
-                <td className="text-right py-1.5 pr-3">0.21</td>
-                <td className="text-right py-1.5">0.13</td>
+                <td className="py-1.5 pr-2">KL vs base</td>
+                <td className="text-right py-1.5 pr-2 text-teal font-semibold">0.26</td>
+                <td className="text-right py-1.5 pr-2">0.24</td>
+                <td className="text-right py-1.5 pr-2">0.24</td>
+                <td className="text-right py-1.5 pr-2">0.23</td>
+                <td className="text-right py-1.5">0.21</td>
               </tr>
             </tbody>
           </table>
         </div>
         <div className="text-xs text-text/75 leading-relaxed">
-          n = 30 random queries, k = 5, seed 42. <strong className="text-text">v2 extended</strong> uses
-          7 continuous channels + 7-class Brooks bar-type one-hot + inside/outside flags
-          (96-d feature vector). v1 cosine is OHLC-only (42-d). DTW reads the v1 corpus,
-          so its IQR T+5 isn&apos;t computable yet — easy fix.
+          n = 300 random queries, k = 5, seed 42. <strong className="text-text">v1</strong> = OHLC-only cosine (42-d).
+          <strong className="text-text"> v2 ext</strong> = + naive bar-type one-hot (96-d).{' '}
+          <strong className="text-text">v2 Bk</strong> = + Brooks-precise classifier from books 1+3 with
+          inside/outside/shaved/closes-at-extreme/large-bar flags (120-d).{' '}
+          <strong className="text-text">v2 Bk+Vol</strong> = + volume z-score (126-d).
         </div>
       </div>
 
