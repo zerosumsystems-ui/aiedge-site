@@ -14,6 +14,9 @@ import { SpatialOverlay } from '@/components/charts/SpatialOverlay'
 import { PostAnchorEvolution } from '@/components/charts/PostAnchorEvolution'
 import { BrooksBarStrip } from '@/components/charts/BrooksBarStrip'
 import { EmaRelativeChart } from '@/components/charts/EmaRelativeChart'
+import { MatchStats } from '@/components/history/MatchStats'
+import { AggregateStats } from '@/components/history/AggregateStats'
+import { computeMatchStats, computeAggregateStats } from '@/lib/match-stats'
 
 type Outcome = {
   open_direction: 'up' | 'down' | 'flat'
@@ -510,19 +513,33 @@ export function HistoryAnalogs() {
                   </div>
                 )
               }
+              // Per-match stats keyed by slug — computed once here so
+              // both the aggregate panel and per-match panels share
+              // a single derivation. ANCHOR_END_IDX is the 0-based
+              // last bar of the open (bar 6 → idx 5).
+              const ANCHOR_END_IDX = (corpus?.n_open_bars ?? 6) - 1
+              const perMatchStats = evolutionMatches.map((m) => {
+                const stats = computeMatchStats(m.session, ANCHOR_END_IDX, m.flipped)
+                return stats ? { slug: '', stats, dtw: m.dtw } : null
+              }).filter((x): x is NonNullable<typeof x> => x !== null)
+              const aggregate = computeAggregateStats(perMatchStats)
+
               return (
-                <div className="mb-6">
-                  <p className="text-[11px] text-sub mb-1">
-                    Post-anchor evolution — query candles for the open, then each
-                    match&apos;s continuation through end-of-day in ATR units. Tight
-                    clumping past the anchor = real consensus on the next move;
-                    fan-out = matches share a morning but diverge afterward.
-                  </p>
-                  <PostAnchorEvolution
-                    queryShape={selected.first_6_bars}
-                    matches={evolutionMatches}
-                  />
-                </div>
+                <>
+                  {aggregate && <AggregateStats stats={aggregate} />}
+                  <div className="mb-6">
+                    <p className="text-[11px] text-sub mb-1">
+                      Post-anchor evolution — query candles for the open, then each
+                      match&apos;s continuation through end-of-day in ATR units. Tight
+                      clumping past the anchor = real consensus on the next move;
+                      fan-out = matches share a morning but diverge afterward.
+                    </p>
+                    <PostAnchorEvolution
+                      queryShape={selected.first_6_bars}
+                      matches={evolutionMatches}
+                    />
+                  </div>
+                </>
               )
             })()}
             <div className="space-y-8">
@@ -608,6 +625,24 @@ export function HistoryAnalogs() {
                         flippedMatch={m.flipped}
                       />
                     </div>
+                    {/* Per-match stats — quantified outcome of this analog's
+                        full session: MFE / MAE / time-to-extremes, bar-
+                        checkpoint moves, target/stop probes. Same data
+                        the AggregateStats panel folds across all matches. */}
+                    {(() => {
+                      const session = sessionFor(m.slug)
+                      if (!session) return null
+                      const stats = computeMatchStats(
+                        session,
+                        (corpus?.n_open_bars ?? 6) - 1,
+                        m.flipped,
+                      )
+                      return stats ? (
+                        <div className="mt-3">
+                          <MatchStats stats={stats} />
+                        </div>
+                      ) : null
+                    })()}
                     {selected.first_6_labels && e.first_6_labels && (
                       <details className="mt-3 group">
                         <summary className="cursor-pointer text-xs text-sub hover:text-text select-none list-none flex items-center gap-1">
