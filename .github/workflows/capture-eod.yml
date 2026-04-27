@@ -1,7 +1,10 @@
 name: Capture EOD Scan Snapshot
 
 # Captures the final scanner output of each trading day and POSTs it to
-# /api/scan/history so /history on aiedge.trade is populated.
+# /api/scan/history so /history on aiedge.trade is populated. Then
+# extends public/analogs/corpus.json from the new snapshot so the analog
+# matcher (History → Analogs tab + scanner cards) gets one more day of
+# real-world examples per weekday with no manual curation.
 #
 # Why 21:30 UTC Mon–Fri:
 #   EDT (Mar–Nov): 5:30 PM ET — 90 min after US equity close (4:00 PM ET)
@@ -22,6 +25,10 @@ concurrency:
   group: capture-eod
   cancel-in-progress: false
 
+# Need write to commit the extended corpus.json back to main.
+permissions:
+  contents: write
+
 jobs:
   capture:
     runs-on: ubuntu-latest
@@ -37,3 +44,22 @@ jobs:
         env:
           SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
         run: python3 scripts/capture_eod.py https://www.aiedge.trade
+
+      # Each captured day adds one analog entry per ticker that finished
+      # a full RTH session. Idempotent — re-runs are no-ops if no new
+      # snapshot landed in ~/aiedge-history.
+      - name: Extend analog corpus from new capture
+        run: python3 scripts/extend_corpus_from_history.py
+
+      - name: Commit corpus update if changed
+        run: |
+          if [[ -n "$(git status --porcelain public/analogs/corpus.json)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add public/analogs/corpus.json
+            git commit -m "chore(corpus): auto-extend from EOD capture $(date -u +%Y-%m-%d)"
+            git push origin HEAD:main
+            echo "corpus updated and pushed"
+          else
+            echo "no corpus changes (re-run with same snapshot, or capture skipped)"
+          fi

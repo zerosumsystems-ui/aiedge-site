@@ -44,11 +44,85 @@ type Entry = {
   trades_count: number
   trades_directions: string[]
   opening_setups: string[]
-  first_6_chart: string
-  full_session_chart: string
+  // PNG paths are null on history-derived entries (we render an SVG
+  // fallback below). The 43 strong-trend trade-intake entries still
+  // ship rendered PNGs.
+  first_6_chart: string | null
+  full_session_chart: string | null
   first_6_bars: BarsBundle
   full_session: BarsBundle
   first_6_labels?: BarLabel[]
+  source?: string
+}
+
+/** Single-series SVG candle chart — fallback for history-derived entries
+ *  whose PNG charts weren't rendered offline. Same warm-dark palette as
+ *  the .png renderer in build_analogs_corpus.py for visual consistency. */
+function BarsCandleSvg({
+  bars, height = 220, highlightFirstN = 0,
+}: { bars: BarsBundle; height?: number; highlightFirstN?: number }) {
+  const W = 720
+  const H = height
+  const PAD_X = 14
+  const PAD_Y = 12
+  const n = bars.open.length
+  if (n === 0) return null
+
+  const all = [...bars.open, ...bars.high, ...bars.low, ...bars.close, ...bars.ema20]
+  const min = Math.min(...all)
+  const max = Math.max(...all)
+  const span = max - min || 1
+
+  const usableW = W - PAD_X * 2
+  const usableH = H - PAD_Y * 2
+  const xStep = usableW / n
+  const xCenter = (i: number) => PAD_X + xStep * (i + 0.5)
+  const yPx = (v: number) => PAD_Y + (1 - (v - min) / span) * usableH
+  const halfBody = Math.min(xStep * 0.32, 5)
+
+  const UP = '#34c79b'
+  const DN = '#e07060'
+  const WICK = '#b8aea0'
+  const EMA = '#7fa7d4'
+  const SHADE = '#2e2620'
+
+  const emaPath = bars.ema20
+    .map((v, i) => `${i === 0 ? 'M' : 'L'} ${xCenter(i)} ${yPx(v)}`)
+    .join(' ')
+
+  return (
+    <div className="border border-border rounded p-2" style={{ background: '#1c1815' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet"
+           className="block max-w-full">
+        {highlightFirstN > 0 && (
+          <rect x={PAD_X} y={PAD_Y} width={xStep * highlightFirstN}
+            height={usableH} fill={SHADE} opacity={0.85} />
+        )}
+        {bars.open.map((o, i) => {
+          const c = bars.close[i]
+          const isUp = c >= o
+          const col = isUp ? UP : DN
+          const x = xCenter(i)
+          const yH = yPx(bars.high[i])
+          const yL = yPx(bars.low[i])
+          const yO = yPx(o)
+          const yC = yPx(c)
+          const yTop = Math.min(yO, yC)
+          const yBot = Math.max(yO, yC)
+          return (
+            <g key={i}>
+              <line x1={x} x2={x} y1={yH} y2={yL}
+                stroke={WICK} strokeWidth={1} opacity={0.85} />
+              <rect x={x - halfBody} y={yTop}
+                width={halfBody * 2} height={Math.max(yBot - yTop, 1)}
+                fill={col} fillOpacity={0.85} stroke={col} />
+            </g>
+          )
+        })}
+        <path d={emaPath} fill="none" stroke={EMA} strokeWidth={1.5} opacity={0.85} />
+      </svg>
+    </div>
+  )
 }
 
 type Corpus = {
@@ -293,20 +367,29 @@ export function HistoryAnalogs() {
 
           <div>
             <p className="text-xs text-sub mb-1">First {corpus?.n_open_bars} bars (the open you matched on)</p>
-            <img
-              src={`/analogs/${selected.slug}/${selected.first_6_chart}`}
-              alt={`${selected.ticker} ${selected.date} open`}
-              className="w-full h-auto rounded border border-border"
-            />
+            {selected.first_6_chart ? (
+              <img
+                src={`/analogs/${selected.slug}/${selected.first_6_chart}`}
+                alt={`${selected.ticker} ${selected.date} open`}
+                className="w-full h-auto rounded border border-border"
+              />
+            ) : (
+              <BarsCandleSvg bars={selected.first_6_bars} height={180} />
+            )}
           </div>
 
           <div>
             <p className="text-xs text-sub mb-1">Full RTH session — what happened after</p>
-            <img
-              src={`/analogs/${selected.slug}/${selected.full_session_chart}`}
-              alt={`${selected.ticker} ${selected.date} full session`}
-              className="w-full h-auto rounded border border-border"
-            />
+            {selected.full_session_chart ? (
+              <img
+                src={`/analogs/${selected.slug}/${selected.full_session_chart}`}
+                alt={`${selected.ticker} ${selected.date} full session`}
+                className="w-full h-auto rounded border border-border"
+              />
+            ) : (
+              <BarsCandleSvg bars={selected.full_session} height={220}
+                highlightFirstN={corpus?.n_open_bars ?? 6} />
+            )}
           </div>
 
           <div className="pt-4">
@@ -364,17 +447,26 @@ export function HistoryAnalogs() {
                       </p>
                     </header>
                     <p className="text-[11px] text-sub mb-1">first {corpus?.n_open_bars} bars</p>
-                    <img
-                      src={`/analogs/${m.slug}/${e.first_6_chart}`}
-                      alt={`${e.ticker} ${e.date} open`}
-                      className="w-full h-auto rounded border border-border"
-                    />
+                    {e.first_6_chart ? (
+                      <img
+                        src={`/analogs/${m.slug}/${e.first_6_chart}`}
+                        alt={`${e.ticker} ${e.date} open`}
+                        className="w-full h-auto rounded border border-border"
+                      />
+                    ) : (
+                      <BarsCandleSvg bars={e.first_6_bars} height={150} />
+                    )}
                     <p className="text-[11px] text-sub mb-1 mt-3">full session — what happened next</p>
-                    <img
-                      src={`/analogs/${m.slug}/${e.full_session_chart}`}
-                      alt={`${e.ticker} ${e.date} full session`}
-                      className="w-full h-auto rounded border border-border"
-                    />
+                    {e.full_session_chart ? (
+                      <img
+                        src={`/analogs/${m.slug}/${e.full_session_chart}`}
+                        alt={`${e.ticker} ${e.date} full session`}
+                        className="w-full h-auto rounded border border-border"
+                      />
+                    ) : (
+                      <BarsCandleSvg bars={e.full_session} height={180}
+                        highlightFirstN={corpus?.n_open_bars ?? 6} />
+                    )}
                     <div className="mt-3">
                       <p className="text-[11px] text-sub mb-1">
                         Spatial overlay — query (green/red) vs match (blue/purple), normalized to
