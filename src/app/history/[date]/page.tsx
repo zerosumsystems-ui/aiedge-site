@@ -86,7 +86,7 @@ export default function HistoryDatePage({ params }: { params: Promise<{ date: st
       {/* Cards */}
       <div>
         {sorted.map((result) => (
-          <ScannerCard key={result.ticker} result={result} />
+          <ScannerCard key={result.ticker} result={result} scanDate={date} />
         ))}
       </div>
 

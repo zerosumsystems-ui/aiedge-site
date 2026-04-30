@@ -7,12 +7,9 @@ import { MobileNavDrawer } from './MobileNavDrawer'
 
 const NAV_ITEMS = [
   { href: '/', label: 'Scanner' },
-  { href: '/patterns', label: 'Patterns' },
   { href: '/history', label: 'History' },
-  { href: '/trades', label: 'Trades' },
   { href: '/journal', label: 'Journal' },
-  { href: '/review', label: 'Review' },
-  { href: '/routines', label: 'Routines' },
+  { href: '/training', label: 'Training' },
   { href: '/brooks', label: 'Brooks' },
 ]
 

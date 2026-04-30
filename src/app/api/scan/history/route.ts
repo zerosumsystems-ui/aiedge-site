@@ -2,6 +2,7 @@ import type { DailySnapshot, HistoryPayload } from '@/lib/types'
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
 import { requireSession } from '@/lib/auth/require-session'
 import { getSnapshot, setSnapshot } from '@/lib/snapshots'
+import { normalizeDailySnapshotSession } from '@/lib/scan-session'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
     if (!snap) {
       return Response.json({ error: 'No snapshot for that date' }, { status: 404, headers: CORS_HEADERS })
     }
-    return Response.json(snap, { headers: CORS_HEADERS })
+    return Response.json(normalizeDailySnapshotSession(snap), { headers: CORS_HEADERS })
   }
 
   // Return list of dates + summary stats (not full payloads)
@@ -52,13 +53,16 @@ export async function POST(request: Request) {
     // Accept either a single snapshot or a full sync payload
     if (body.snapshots) {
       // Full sync — replace all history
-      const payload: HistoryPayload = body
+      const payload: HistoryPayload = {
+        ...body,
+        snapshots: body.snapshots.map(normalizeDailySnapshotSession),
+      }
       await setSnapshot('scan-history', payload)
       return Response.json({ ok: true, total: payload.snapshots.length }, { status: 200, headers: CORS_HEADERS })
     }
 
     // Single snapshot — append/replace for that date
-    const snapshot: DailySnapshot = body
+    const snapshot: DailySnapshot = normalizeDailySnapshotSession(body)
     const payload = await getSnapshot<HistoryPayload>('scan-history', { ...EMPTY_PAYLOAD })
     const existing = payload.snapshots.findIndex((s) => s.date === snapshot.date)
     if (existing >= 0) {

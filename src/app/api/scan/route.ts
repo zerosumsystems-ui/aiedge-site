@@ -2,6 +2,7 @@ import type { ScanPayload } from '@/lib/types'
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
 import { requireSession } from '@/lib/auth/require-session'
 import { getSnapshot, setSnapshot } from '@/lib/snapshots'
+import { normalizeScanPayloadSession } from '@/lib/scan-session'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   const unauth = await requireSession(request)
   if (unauth) return unauth
   const payload = await getSnapshot<ScanPayload>('scan', EMPTY_PAYLOAD)
-  return Response.json(payload, { headers: CORS_HEADERS })
+  return Response.json(normalizeScanPayloadSession(payload), { headers: CORS_HEADERS })
 }
 
 export async function POST(request: Request) {
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   if (unauth) return unauth
   try {
     const payload: ScanPayload = await request.json()
-    await setSnapshot('scan', payload)
+    await setSnapshot('scan', normalizeScanPayloadSession(payload))
     return Response.json({ ok: true }, { status: 200, headers: CORS_HEADERS })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)

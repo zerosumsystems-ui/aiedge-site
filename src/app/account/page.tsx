@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { PasswordForm } from './PasswordForm'
 
@@ -12,7 +11,17 @@ export const dynamic = 'force-dynamic'
 export default async function AccountPage() {
   const supabase = await createClient()
   const { data } = await supabase.auth.getUser()
-  if (!data.user) redirect('/login?next=/account')
+
+  if (!data.user) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-10">
+        <h1 className="text-xl font-bold tracking-tight mb-1">Account</h1>
+        <p className="text-sm text-sub mb-8">
+          No active session. The site is public, so sign-in is optional.
+        </p>
+      </div>
+    )
+  }
 
   const createdAt = data.user.created_at
     ? new Date(data.user.created_at).toLocaleDateString('en-US', {

@@ -14,6 +14,7 @@ import {
   type UTCTimestamp,
   type SeriesMarker,
   type Time,
+  type LogicalRange,
 } from 'lightweight-charts'
 import type { ChartData, SignalDirection } from '@/lib/types'
 
@@ -21,6 +22,9 @@ interface Props {
   chart?: ChartData
   height?: number
   compact?: boolean           // hide volume + badges (used on ScannerCard)
+  hideScales?: boolean
+  fitContent?: boolean
+  logicalRange?: { from: number; to: number }
 }
 
 const TEAL = '#00C896'
@@ -52,11 +56,33 @@ const LEVEL_LABELS: Record<keyof typeof LEVEL_COLORS, string> = {
   premarketLow: 'PML',
 }
 
+const ET_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: false,
+})
+
+function formatEtTime(time: Time): string | null {
+  if (typeof time === 'number') {
+    return ET_TIME_FORMATTER.format(new Date(time * 1000))
+  }
+  if (typeof time === 'string') return time
+  return `${time.year}-${String(time.month).padStart(2, '0')}-${String(time.day).padStart(2, '0')}`
+}
+
 function markerShape(direction: SignalDirection): SeriesMarker<Time>['shape'] {
   return direction === 'long' ? 'arrowUp' : 'arrowDown'
 }
 
-export function LightweightChart({ chart, height = 360, compact = false }: Props) {
+export function LightweightChart({
+  chart,
+  height = 360,
+  compact = false,
+  hideScales = false,
+  fitContent = true,
+  logicalRange,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
 
@@ -75,18 +101,24 @@ export function LightweightChart({ chart, height = 360, compact = false }: Props
         fontFamily: 'var(--font-geist-sans), system-ui, sans-serif',
         attributionLogo: false,
       },
+      localization: {
+        timeFormatter: (time: Time) => formatEtTime(time) ?? '',
+      },
       grid: {
-        vertLines: { color: GRID },
-        horzLines: { color: GRID },
+        vertLines: { color: hideScales ? 'transparent' : GRID },
+        horzLines: { color: hideScales ? 'transparent' : GRID },
       },
       rightPriceScale: {
+        visible: !hideScales,
         borderColor: AXIS,
         scaleMargins: compact ? { top: 0.08, bottom: 0.08 } : { top: 0.08, bottom: 0.28 },
       },
       timeScale: {
+        visible: !hideScales,
         borderColor: AXIS,
         timeVisible: true,
         secondsVisible: false,
+        tickMarkFormatter: (time: Time) => formatEtTime(time),
       },
       crosshair: {
         mode: 1, // Magnet
@@ -250,7 +282,11 @@ export function LightweightChart({ chart, height = 360, compact = false }: Props
       }
     }
 
-    api.timeScale().fitContent()
+    if (logicalRange) {
+      api.timeScale().setVisibleLogicalRange(logicalRange as unknown as LogicalRange)
+    } else if (fitContent) {
+      api.timeScale().fitContent()
+    }
 
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -264,7 +300,7 @@ export function LightweightChart({ chart, height = 360, compact = false }: Props
       api.remove()
       chartRef.current = null
     }
-  }, [chart, height, compact])
+  }, [chart, height, compact, hideScales, fitContent, logicalRange])
 
   if (!chart || !chart.bars || chart.bars.length === 0) {
     return (

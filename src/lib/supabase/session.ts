@@ -2,26 +2,18 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isAllowed } from '@/lib/auth/allowlist'
 
-/**
- * Routes that never require a session. Anything else hitting the proxy
- * without a signed-in + allowlisted user gets redirected to /login.
- *
- * /api/* is excluded from the proxy matcher entirely (see src/proxy.ts)
- * so API auth is enforced per-route.
- */
-const PUBLIC_PREFIXES = ['/login', '/auth']
+const PROTECTED_PREFIXES = ['/journal', '/brooks']
 
-function isPublic(pathname: string) {
-  return PUBLIC_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   )
 }
 
 /**
- * Runs on every page request via src/proxy.ts. Refreshes the Supabase
- * session cookie if expired, then gates private routes. Returns a
- * response that MUST be returned from proxy — it may carry Set-Cookie
- * headers from the session refresh.
+ * Runs on every page request via src/proxy.ts. Refreshes the Supabase session
+ * cookie and gates `/journal` and `/brooks` behind sign-in. Other pages are
+ * public.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -49,31 +41,12 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANT: don't run any code between createServerClient and getUser.
   // A simple bug can cause session refresh to desync from the response.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const { pathname, search } = request.nextUrl
-
-  if (isPublic(pathname)) {
-    return supabaseResponse
-  }
-
-  // Gated route — require a signed-in, allowlisted user.
-  if (!user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.search = `?next=${encodeURIComponent(pathname + search)}`
-    return NextResponse.redirect(url)
-  }
-
-  if (!isAllowed(user.email)) {
-    // Signed in but email not on the allowlist. Sign them out and bounce.
-    await supabase.auth.signOut()
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.search = '?error=not_invited'
-    return NextResponse.redirect(url)
+  if (isProtectedPath(request.nextUrl.pathname) && !isAllowed(user?.email)) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search)
+    return NextResponse.redirect(loginUrl)
   }
 
   return supabaseResponse

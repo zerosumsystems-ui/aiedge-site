@@ -172,7 +172,7 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
             label="Current scanner state"
             hint={scanDate ? `From ${scanDate} scan` : undefined}
           />
-          <ScannerCard result={scanner} />
+          <ScannerCard result={scanner} scanDate={scanDate ?? ""} />
         </section>
       )}
 

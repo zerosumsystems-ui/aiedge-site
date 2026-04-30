@@ -1,6 +1,7 @@
 import type { JournalEntry, JournalPayload } from '@/lib/types'
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
-import { requireSession } from '@/lib/auth/require-session'
+import { createClient } from '@/lib/supabase/server'
+import { isAllowed } from '@/lib/auth/allowlist'
 import { getSnapshot, setSnapshot } from '@/lib/snapshots'
 
 export const dynamic = 'force-dynamic'
@@ -14,8 +15,14 @@ const CORS_HEADERS = {
 const EMPTY_PAYLOAD: JournalPayload = { entries: [], syncedAt: '', entryCount: 0 }
 
 export async function GET(request: Request) {
-  const unauth = await requireSession(request)
-  if (unauth) return unauth
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!isAllowed(user?.email)) {
+    return Response.json(
+      { error: 'unauthorized' },
+      { status: 401, headers: { ...CORS_HEADERS, 'Cache-Control': 'no-store' } }
+    )
+  }
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type')
   const date = searchParams.get('date')

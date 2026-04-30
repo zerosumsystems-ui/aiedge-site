@@ -1,5 +1,6 @@
 import type { Bar, ChartTimeframe } from '@/lib/types'
 import { requireSession } from '@/lib/auth/require-session'
+import { filterRegularSessionBars } from '@/lib/opening-features'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,9 @@ export const dynamic = 'force-dynamic'
  * render directly.
  *
  *   tf=auto         → we pick based on range length (details below)
- *   tf=5min|15min|1h|daily → explicit override
+ *   tf=1min|5min|15min|1h|daily → explicit override
+ *   session=open    → same-day RTH opening slice from 09:30 ET; use minutes=5..120
+ *   session=rth     → same-day regular session only (09:30-16:00 ET)
  *
  * Databento is our canonical market-data provider (see feedback_databento_only
  * in user memory). Uses the Historical REST API directly — no SDK, since the
@@ -62,6 +65,8 @@ function schemaToTimeframe(schema: DatabentoSchema): ChartTimeframe {
 
 function overrideToSchema(tf: ChartTimeframe): DatabentoSchema {
   switch (tf) {
+    case '1min':
+      return 'ohlcv-1m'
     case '5min':
     case '15min':
       return 'ohlcv-1m'
@@ -72,6 +77,82 @@ function overrideToSchema(tf: ChartTimeframe): DatabentoSchema {
       // Databento doesn't expose ohlcv-1w — fetch daily and aggregate here.
       return 'ohlcv-1d'
   }
+}
+
+function etOffsetHours(date: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    timeZoneName: 'shortOffset',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+  }).formatToParts(new Date(`${date}T12:00:00Z`))
+  const zone = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT-5'
+  const match = zone.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/)
+  if (!match) return -5
+  const hours = Number(match[1])
+  const minutes = Number(match[2] ?? 0)
+  return hours + Math.sign(hours) * (minutes / 60)
+}
+
+function etDateTimeToUtc(date: string, hour: number, minute: number): Date {
+  const [year, month, day] = date.split('-').map(Number)
+  const offset = etOffsetHours(date)
+  return new Date(Date.UTC(year, month - 1, day, hour - offset, minute))
+}
+
+function etDate(timestamp: number): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(timestamp * 1000))
+}
+
+function etMinutes(timestamp: number): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(timestamp * 1000))
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0)
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? 0)
+  return hour * 60 + minute
+}
+
+function filterSessionBars(bars: Bar[], date: string, session: string | null, openingMinutes: number): Bar[] {
+  const sameDayBars = bars.filter((bar) => etDate(bar.t) === date)
+  if (session === 'open') {
+    const openStart = 9 * 60 + 30
+    const openEnd = openStart + openingMinutes
+    return sameDayBars.filter((bar) => {
+      const minutes = etMinutes(bar.t)
+      return minutes >= openStart && minutes < openEnd
+    })
+  }
+  if (session === 'rth') {
+    return filterRegularSessionBars(sameDayBars)
+  }
+  return bars
+}
+
+function sessionFetchWindow(date: string, session: string | null, openingMinutes: number): { start: Date; end: Date } | null {
+  if (session === 'open') {
+    return {
+      start: etDateTimeToUtc(date, 9, 30),
+      end: etDateTimeToUtc(date, 9, 30 + openingMinutes),
+    }
+  }
+  if (session === 'rth') {
+    return {
+      start: etDateTimeToUtc(date, 9, 30),
+      end: etDateTimeToUtc(date, 16, 0),
+    }
+  }
+  return null
 }
 
 /**
@@ -180,7 +261,7 @@ export async function GET(request: Request) {
   if (!apiKey) {
     return Response.json(
       { error: 'DATABENTO_API_KEY not configured on the server' },
-      { status: 503 }
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
     )
   }
 
@@ -189,18 +270,20 @@ export async function GET(request: Request) {
   const from = searchParams.get('from')
   const to = searchParams.get('to')
   const tfParam = (searchParams.get('tf') ?? 'auto') as ChartTimeframe | 'auto'
+  const session = searchParams.get('session')
+  const openingMinutes = Math.min(Math.max(Number(searchParams.get('minutes') ?? 20) || 20, 5), 120)
 
   if (!ticker || !from || !to) {
     return Response.json(
       { error: 'ticker, from, to are required' },
-      { status: 400 }
+      { status: 400, headers: { 'Cache-Control': 'no-store' } }
     )
   }
 
   const fromDate = new Date(from)
   const toDate = new Date(to)
   if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
-    return Response.json({ error: 'invalid from/to' }, { status: 400 })
+    return Response.json({ error: 'invalid from/to' }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
   }
 
   // Context padding — 20% on each side for intraday, 5 days for daily.
@@ -215,14 +298,15 @@ export async function GET(request: Request) {
   // side with a 24h floor — callers pass YYYY-MM-DD (parsed as UTC midnight),
   // so a same-day intraday trade (from == to) would land entirely outside US
   // RTH without ≥24h of pad. The 78-bar cap below still keeps the chart tight.
+  const explicitSessionWindow = sessionFetchWindow(from, session, openingMinutes)
   const padMs =
     timeframe === 'weekly'
       ? 180 * 86_400_000
       : schema === 'ohlcv-1d'
         ? 5 * 86_400_000
         : Math.max((toDate.getTime() - fromDate.getTime()) * 0.2, 86_400_000)
-  const paddedFrom = new Date(fromDate.getTime() - padMs)
-  const paddedTo = new Date(Math.min(toDate.getTime() + padMs, Date.now()))
+  const paddedFrom = explicitSessionWindow?.start ?? new Date(fromDate.getTime() - padMs)
+  const paddedTo = explicitSessionWindow?.end ?? new Date(Math.min(toDate.getTime() + padMs, Date.now()))
 
   // Databento Historical API — HTTP Basic auth, key as username, empty pw.
   const url = new URL('https://hist.databento.com/v0/timeseries.get_range')
@@ -245,7 +329,7 @@ export async function GET(request: Request) {
       console.error(`[bars] databento ${resp.status}:`, body.slice(0, 500))
       return Response.json(
         { error: `databento ${resp.status}: ${body.slice(0, 300)}`, ticker, from, to },
-        { status: 502 }
+        { status: 502, headers: { 'Cache-Control': 'no-store' } }
       )
     }
 
@@ -265,29 +349,32 @@ export async function GET(request: Request) {
     }
 
     // Downsample for requested effective timeframe.
-    let bars = rawBars
+    let bars = filterSessionBars(rawBars, from, session, openingMinutes)
     let effectiveTimeframe: ChartTimeframe = timeframe
     if (schema === 'ohlcv-1m') {
-      if (timeframe === '15min') {
-        bars = downsample(rawBars, 15)
+      if (timeframe === '1min') {
+        effectiveTimeframe = '1min'
+      } else if (timeframe === '15min') {
+        bars = downsample(bars, 15)
         effectiveTimeframe = '15min'
       } else if (timeframe === '5min') {
-        bars = downsample(rawBars, 5)
+        bars = downsample(bars, 5)
         effectiveTimeframe = '5min'
       } else {
         effectiveTimeframe = '5min'
-        bars = downsample(rawBars, 5)
+        bars = downsample(bars, 5)
       }
     } else if (timeframe === 'weekly' && schema === 'ohlcv-1d') {
       bars = downsampleWeekly(rawBars)
       effectiveTimeframe = 'weekly'
     }
 
-    // Hard cap — 78 candles max per chart (one RTH session at 5-min bars).
+    // Hard cap — 78 candles max per full-session chart (one RTH session at 5-min bars).
     // More than this causes analysis paralysis on a fast Brooks read. See
     // user memory: feedback_chart_candle_cap. Tail keeps the most recent
-    // bars so the trade-exit context is preserved in round-trip charts.
-    const MAX_BARS = 78
+    // bars so the trade-exit context is preserved in round-trip charts. Opening
+    // 1-minute views can be longer so bar 18 has the full matching 90 minutes.
+    const MAX_BARS = session === 'open' ? openingMinutes : 78
     if (bars.length > MAX_BARS) {
       bars = bars.slice(-MAX_BARS)
     }
@@ -310,7 +397,7 @@ export async function GET(request: Request) {
     console.error(`[bars] ${ticker} ${from}→${to} @ ${schema} failed:`, message)
     return Response.json(
       { error: `bars fetch failed: ${message}`, ticker, from, to, timeframe },
-      { status: 502 }
+      { status: 502, headers: { 'Cache-Control': 'no-store' } }
     )
   }
 }

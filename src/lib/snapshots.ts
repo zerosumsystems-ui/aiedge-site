@@ -24,6 +24,7 @@ export type SnapshotKey =
   | 'scan'
   | 'scan-history'
   | 'filled_trades'
+  | 'training-aapl-opening-v1'
 
 export async function getSnapshot<T>(key: SnapshotKey, empty: T): Promise<T> {
   const supabase = createAdminClient()

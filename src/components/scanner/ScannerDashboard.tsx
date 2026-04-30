@@ -1,36 +1,18 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react"
-import { useRouter, useSearchParams, usePathname } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import type { ScanPayload } from "@/lib/types"
 import { ScannerCard } from "./ScannerCard"
-import { SortBar, sortResults, type SortKey } from "./SortBar"
 import {
-  FilterBar,
-  filterResults,
-  bpaFieldsMissing,
-  type SetupFilter,
-  type PhaseFilter,
-} from "./FilterBar"
-import { ScoringLegend } from "./ScoringLegend"
+  DayExtremeFilterBar,
+  buildExtremeBarOptions,
+  filterByExtremeBar,
+  parseExtremeBarFilter,
+  type ExtremeBarFilter,
+} from "./DayExtremeFilterBar"
 
-const SETUP_VALUES: SetupFilter[] = [
-  "all", "H1", "H2", "L1", "L2", "FL1", "FL2", "FH1", "FH2", "spike_channel", "failed_bo",
-]
-const PHASE_VALUES: PhaseFilter[] = [
-  "all", "trend_from_open", "spike_and_channel", "trading_range", "bull_channel",
-  "bear_channel", "trending_tr", "breakout", "undetermined",
-]
-
-function parseSetup(raw: string | null): SetupFilter {
-  if (!raw) return "all"
-  return (SETUP_VALUES as string[]).includes(raw) ? (raw as SetupFilter) : "all"
-}
-
-function parsePhase(raw: string | null): PhaseFilter {
-  if (!raw) return "all"
-  return (PHASE_VALUES as string[]).includes(raw) ? (raw as PhaseFilter) : "all"
-}
+const EMPTY_RESULTS: ScanPayload["results"] = []
 
 export function ScannerDashboard() {
   return (
@@ -46,29 +28,30 @@ function ScannerDashboardInner() {
   const searchParams = useSearchParams()
 
   const [data, setData] = useState<ScanPayload | null>(null)
-  const [sortKey, setSortKey] = useState<SortKey>("rank")
   const [loading, setLoading] = useState(true)
+  const extremeFilter = parseExtremeBarFilter(searchParams.get("extreme"))
 
-  // Filters — synced to URL query params (?setup=H2&phase=trading_range)
-  const setupFilter = parseSetup(searchParams.get("setup"))
-  const phaseFilter = parsePhase(searchParams.get("phase"))
-
-  const updateQuery = useCallback(
-    (patch: { setup?: SetupFilter; phase?: PhaseFilter }) => {
+  const updateExtremeFilter = useCallback(
+    (nextFilter: ExtremeBarFilter) => {
       const params = new URLSearchParams(searchParams.toString())
-      if (patch.setup !== undefined) {
-        if (patch.setup === "all") params.delete("setup")
-        else params.set("setup", patch.setup)
-      }
-      if (patch.phase !== undefined) {
-        if (patch.phase === "all") params.delete("phase")
-        else params.set("phase", patch.phase)
-      }
-      const qs = params.toString()
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+      params.delete("setup")
+      params.delete("phase")
+      if (nextFilter === "all") params.delete("extreme")
+      else params.set("extreme", nextFilter)
+      const queryString = params.toString()
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false })
     },
-    [router, pathname, searchParams],
+    [pathname, router, searchParams],
   )
+
+  useEffect(() => {
+    if (!searchParams.has("setup") && !searchParams.has("phase")) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("setup")
+    params.delete("phase")
+    const queryString = params.toString()
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false })
+  }, [pathname, router, searchParams])
 
   // ?demo=analogs swaps in a static fixture so the analog UI is verifiable
   // off-hours. Production reads from /api/scan as usual.
@@ -96,20 +79,14 @@ function ScannerDashboardInner() {
   }, [fetchData, demoMode])
 
   const hasData = Boolean(data && data.results.length > 0)
-  const results = data?.results ?? []
-
-  const sorted = useMemo(
-    () => (hasData ? sortResults(results, sortKey) : []),
-    [hasData, results, sortKey],
+  const results = data?.results ?? EMPTY_RESULTS
+  const filterOptions = useMemo(
+    () => buildExtremeBarOptions(results, extremeFilter),
+    [results, extremeFilter],
   )
-  const filtered = useMemo(
-    () => filterResults(sorted, setupFilter, phaseFilter),
-    [sorted, setupFilter, phaseFilter],
-  )
-
-  const backendPending = useMemo(
-    () => setupFilter !== "all" && bpaFieldsMissing(results),
-    [setupFilter, results],
+  const filteredResults = useMemo(
+    () => filterByExtremeBar(results, extremeFilter),
+    [results, extremeFilter],
   )
 
   if (loading) {
@@ -120,11 +97,8 @@ function ScannerDashboardInner() {
     )
   }
 
-  const filterActive = setupFilter !== "all" || phaseFilter !== "all"
-  const hiddenCount = sorted.length - filtered.length
-
   return (
-    <div className="max-w-5xl mx-auto px-3 py-3">
+    <div className="mx-auto max-w-[1600px] px-2 py-2 sm:px-3 sm:py-3">
       {/* Header */}
       <header className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-baseline sm:gap-0 mb-3 pb-2 border-b border-border">
         <h1 className="text-[17px] font-bold tracking-tight">Live Scanner{demoMode && (
@@ -137,56 +111,35 @@ function ScannerDashboardInner() {
         </div>
       </header>
 
-      {/* Stats */}
+      {/* Filter */}
       {hasData && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-sub mb-3">
-          <span className="whitespace-nowrap">📡 {data!.symbolsScanned.toLocaleString()} symbols</span>
-          <span className="whitespace-nowrap">✅ {data!.passedFilters} passed filters</span>
-          <span className="whitespace-nowrap">⏱ {data!.scanTime}</span>
-          <span className="whitespace-nowrap">Next: {data!.nextScan}</span>
-        </div>
-      )}
-
-      {/* Scoring legend */}
-      <ScoringLegend />
-
-      {/* Sort bar */}
-      {hasData && <SortBar onSort={setSortKey} activeKey={sortKey} />}
-
-      {/* Filter bar */}
-      {hasData && (
-        <FilterBar
-          setup={setupFilter}
-          phase={phaseFilter}
-          onSetupChange={(v) => updateQuery({ setup: v })}
-          onPhaseChange={(v) => updateQuery({ phase: v })}
-          onClear={() => updateQuery({ setup: "all", phase: "all" })}
-          showBackendPendingNote={backendPending}
+        <DayExtremeFilterBar
+          value={extremeFilter}
+          options={filterOptions}
+          totalCount={results.length}
+          filteredCount={filteredResults.length}
+          onChange={updateExtremeFilter}
+          onClear={() => updateExtremeFilter("all")}
         />
       )}
 
       {/* Cards */}
       {hasData ? (
-        filtered.length > 0 ? (
+        filteredResults.length > 0 ? (
           <div>
-            {filterActive && (
-              <div className="text-[11px] text-sub mb-2">
-                Showing {filtered.length} of {sorted.length}
-                {hiddenCount > 0 && <span className="opacity-70"> · {hiddenCount} hidden by filters</span>}
-              </div>
-            )}
-            {filtered.map((result) => (
-              <ScannerCard key={result.ticker} result={result} />
+            {filteredResults.map((result) => (
+              <ScannerCard key={result.ticker} result={result} scanDate={data?.date ?? ""} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 text-sub">
-            <p className="text-sm mb-2">No results match the current filters.</p>
+          <div className="py-12 text-center text-sub">
+            <p className="mb-2 text-sm">No cards match that day extreme.</p>
             <button
-              onClick={() => updateQuery({ setup: "all", phase: "all" })}
+              type="button"
+              onClick={() => updateExtremeFilter("all")}
               className="text-xs text-teal hover:underline"
             >
-              Clear filters
+              Clear filter
             </button>
           </div>
         )

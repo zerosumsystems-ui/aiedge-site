@@ -1,182 +1,226 @@
 "use client"
 
-import type { ScanResult } from "@/lib/types"
-import { ScoreBar } from "./ScoreBar"
-import { ComponentTiles } from "./ComponentTiles"
-import { SignalBadge } from "./SignalBadge"
-import { ScannerAnalogs } from "./ScannerAnalogs"
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import type { Bar, ChartData, ScanResult } from "@/lib/types"
 import { LightweightChart } from "@/components/charts/LightweightChart"
+import {
+  buildRegularSessionChart,
+  getRegularSessionOpeningBars,
+} from "@/lib/opening-features"
 
-const ADR_TIER_STYLES: Record<string, string> = {
-  cold: "text-sub bg-transparent",
-  warm: "text-teal bg-teal/10 border border-teal/25",
-  hot: "text-white bg-teal/35 border border-teal shadow-[0_0_0_1px_rgba(0,200,150,.2)]",
-  extreme: "text-white bg-teal border border-teal shadow-[0_0_12px_rgba(0,200,150,.4)]",
+const FULL_DAY_RANGE = { from: -1, to: 78 }
+const OPENING_WINDOW_OPTIONS = [2, 3, 4, 6, 8, 10, 12, 14, 16, 18]
+const MOBILE_BAR_WIDTH = 10
+const DESKTOP_BAR_WIDTH = 12.5
+const MOBILE_OPENING_MIN_WIDTH = 96
+const DESKTOP_OPENING_MIN_WIDTH = 140
+
+type BarsResponse = {
+  bars?: Bar[]
+  error?: string
 }
 
-const FILL_STYLES: Record<string, string> = {
-  held: "bg-teal/15 text-teal",
-  partial: "bg-[rgb(255,200,50)]/15 text-[#cca000]",
-  recovered: "bg-[rgb(100,180,255)]/15 text-[#5ba8e6]",
-  failed: "bg-[rgb(255,80,80)]/15 text-[#e05050]",
+function ChartPanel({
+  title,
+  detail,
+  chart,
+  height,
+  className = "",
+  hideScales = false,
+  logicalRange,
+}: {
+  title: string
+  detail: string
+  chart: ChartData
+  height: number
+  className?: string
+  hideScales?: boolean
+  logicalRange?: { from: number; to: number }
+}) {
+  return (
+    <section className={`min-w-0 space-y-1.5 ${className}`}>
+      <div className="flex h-4 min-w-0 items-baseline justify-between gap-1 overflow-hidden text-[9px] uppercase tracking-normal sm:text-[10px] sm:tracking-[0.12em]">
+        <h3 className="min-w-0 truncate font-semibold text-text">{title}</h3>
+        <span className="hidden shrink-0 text-sub tabular-nums sm:inline">{detail}</span>
+      </div>
+      <LightweightChart
+        chart={chart}
+        height={height}
+        compact
+        hideScales={hideScales}
+        fitContent={false}
+        logicalRange={logicalRange}
+      />
+    </section>
+  )
 }
 
-// HTF chip — see scanner aiedge/context/htf.py. "no_data" renders nothing.
-const HTF_STYLES: Record<string, string> = {
-  aligned: "bg-teal/10 text-teal border border-teal/35",
-  mixed: "bg-[rgb(245,200,66)]/10 text-[#f5c842] border border-[rgb(245,200,66)]/30",
-  opposed: "bg-red/10 text-red border border-red/35",
+function buildMinuteOpeningChart(bars: Bar[] | undefined, count: number): ChartData | null {
+  if (!bars?.length) return null
+  return { bars: bars.slice(0, count), timeframe: "1min" }
 }
 
-const HTF_TITLES: Record<string, string> = {
-  aligned: "Higher-timeframe aligned — daily + weekly bias match the setup direction.",
-  mixed: "Higher-timeframe mixed — one of daily/weekly aligns, the other is neutral or opposed.",
-  opposed: "Higher-timeframe opposed — both daily + weekly bias oppose the setup direction.",
+function buildOpeningFiveMinuteChart(chart: ChartData | undefined, count: number): ChartData | null {
+  const bars = getRegularSessionOpeningBars(chart, count)
+  if (!bars.length || !chart) return null
+  return { ...chart, bars, keyLevels: undefined, annotations: undefined }
 }
 
-function formatDayType(dt: string): string {
-  return dt.replace(/_/g, " ")
+function useMediaQuery(query: string) {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      const media = window.matchMedia(query)
+      media.addEventListener("change", onStoreChange)
+      return () => media.removeEventListener("change", onStoreChange)
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
+  )
 }
 
-function trendChip(ts: ScanResult["trendState"]) {
-  if (!ts || ts.direction === "none") return null
-  const arrow = ts.direction === "up" ? "↑" : "↓"
-  const toneClass = ts.direction === "up"
-    ? "bg-teal/10 text-teal border border-teal/35"
-    : "bg-red/10 text-red border border-red/35"
-  const structShort = ts.structure.replace(/^bull_|^bear_/, "").replace(/_/g, " ")
-  const strengthPct = Math.round(ts.strength * 100)
-  return { arrow, toneClass, structShort, strengthPct }
-}
+export function ScannerCard({ result, scanDate }: { result: ScanResult; scanDate: string }) {
+  const { ticker, chart } = result
+  const [minuteBars, setMinuteBars] = useState<Bar[] | null>(null)
+  const [minuteError, setMinuteError] = useState(false)
+  const [openingBars, setOpeningBars] = useState(4)
+  const isDesktop = useMediaQuery("(min-width: 768px)")
+  const chartHeight = isDesktop ? 300 : 250
+  const barWidth = isDesktop ? DESKTOP_BAR_WIDTH : MOBILE_BAR_WIDTH
+  const minuteCount = openingBars * 5
+  const openingMinWidth = isDesktop ? DESKTOP_OPENING_MIN_WIDTH : MOBILE_OPENING_MIN_WIDTH
+  const openingWidth = Math.max(Math.round(openingBars * barWidth), openingMinWidth)
 
-export function ScannerCard({ result }: { result: ScanResult }) {
-  const { ticker, rank, urgency, uncertainty, signal, dayType, cyclePhase, fillStatus,
-    htfAlignment, adr, adrRatio, adrMult, adrTier, movement, components, warning,
-    summary, chart, trendState, analogs } = result
+  const fullDayChart = useMemo(() => buildRegularSessionChart(chart), [chart])
+  const openingFiveMinuteChart = useMemo(() => buildOpeningFiveMinuteChart(chart, openingBars), [chart, openingBars])
+  const openingOneMinuteChart = useMemo(
+    () => buildMinuteOpeningChart(minuteBars ?? undefined, minuteCount),
+    [minuteBars, minuteCount],
+  )
+  const openingLogicalRange = useMemo(() => ({ from: -0.5, to: openingBars + 0.5 }), [openingBars])
+  const oneMinuteLogicalRange = useMemo(() => ({ from: -0.5, to: minuteCount + 0.5 }), [minuteCount])
 
-  const movementClass = movement === "NEW" ? "text-teal" :
-    movement.startsWith("+") ? "text-teal font-semibold" :
-    movement.startsWith("-") ? "text-red font-semibold" : "text-sub"
+  useEffect(() => {
+    if (!scanDate || !ticker) return
+    const controller = new AbortController()
+    setMinuteError(false)
+    setMinuteBars(null)
 
-  // Arrow matches direction: SELL → down, BUY → up. Non-directional signals skip the chip.
-  const htfArrow = signal === "SELL" ? "↓" : "↑"
-  const htfLabel = htfAlignment === "aligned"
-    ? `${htfArrow}D ${htfArrow}W`
-    : htfAlignment === "mixed"
-      ? "↕"
-      : htfAlignment === "opposed"
-        ? "✗"
-        : null
+    async function loadOpeningMinuteBars() {
+      try {
+        const params = new URLSearchParams({
+          ticker,
+          from: scanDate,
+          to: scanDate,
+          tf: "1min",
+          session: "open",
+          minutes: String(openingBars * 5),
+        })
+        const response = await fetch(`/api/bars?${params.toString()}`, {
+          cache: "default",
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error(`bars HTTP ${response.status}`)
+        const payload = (await response.json()) as BarsResponse
+        if (!payload.bars?.length) throw new Error(payload.error || "No 1m bars")
+        setMinuteBars(payload.bars.slice(0, openingBars * 5))
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error(`[scanner] ${ticker} 1m opening bars failed`, error)
+          setMinuteError(true)
+        }
+      }
+    }
 
-  const trend = trendChip(trendState)
+    void loadOpeningMinuteBars()
+    return () => controller.abort()
+  }, [openingBars, scanDate, ticker])
 
   return (
-    <details className="bg-surface border border-border rounded-lg mb-2 overflow-hidden group">
-      <summary className="list-none cursor-pointer p-2 sm:p-2.5 px-2 sm:px-3 grid grid-cols-[24px_minmax(0,1fr)_auto_auto] sm:grid-cols-[28px_minmax(80px,auto)_1fr_70px_auto] items-center gap-2 sm:gap-3 select-none [-webkit-tap-highlight-color:transparent] [&::-webkit-details-marker]:hidden">
-        {/* Rank */}
-        <div className="text-xs text-sub text-center">
-          <span className="text-[13px] font-semibold text-text">{rank}</span>
-        </div>
-
-        {/* Ticker block */}
+    <details open className="bg-surface border border-border rounded-lg mb-2 overflow-hidden group">
+      <summary className="list-none cursor-pointer px-2 py-1.5 sm:p-2.5 sm:px-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 select-none [-webkit-tap-highlight-color:transparent] [&::-webkit-details-marker]:hidden">
         <div className="min-w-0">
-          <div className="text-base font-bold tracking-tight">
-            {ticker}
-            {htfAlignment && htfLabel && (
-              <span
-                title={HTF_TITLES[htfAlignment]}
-                className={`inline-block align-middle ml-1.5 px-1.5 py-px rounded-full text-[10px] font-semibold tracking-wide ${HTF_STYLES[htfAlignment] || ""}`}
-              >
-                {htfLabel}
-              </span>
-            )}
+          <div className="flex min-w-0 items-center gap-2 text-sm font-bold tracking-tight sm:text-base">
+            <span className="truncate">{ticker}</span>
           </div>
-          <div className="text-[11px] text-sub whitespace-nowrap overflow-hidden text-ellipsis">
-            {formatDayType(dayType)}
-            {cyclePhase && (
-              <span className="inline-block ml-1.5 px-1.5 py-px border border-border rounded text-[9.5px] tracking-wide text-teal bg-teal/[.06]">
-                {cyclePhase}
-              </span>
-            )}
-            {trend && (
-              <span
-                title={`Canonical trend: ${trendState!.direction} · strength ${trend.strengthPct}% · ${trend.structShort} · confidence ${(trendState!.confidence * 100).toFixed(0)}%`}
-                className={`inline-block ml-1.5 px-1.5 py-px rounded text-[9.5px] font-semibold tracking-wide ${trend.toneClass}`}
-              >
-                {trend.arrow} {trend.strengthPct}% · {trend.structShort}
-              </span>
-            )}
-            {fillStatus && (
-              <span className={`inline-block text-[10px] px-[5px] py-px rounded ml-1 ${FILL_STYLES[fillStatus] || ""}`}>
-                {fillStatus} fill
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* ADR block — hidden on mobile, shown in body */}
-        <div className="hidden sm:block min-w-0 pl-1">
-          <div className="text-xs text-sub whitespace-nowrap truncate">${adr.toFixed(2)} ADR</div>
-          <div className="text-[11px] text-sub opacity-70 whitespace-nowrap">{adrRatio.toFixed(1)}× move</div>
-        </div>
-
-        {/* ADR multiple pill */}
-        <div className={`text-center py-1.5 px-2 rounded-md tabular-nums whitespace-nowrap min-w-[48px] sm:min-w-[50px] leading-tight ${ADR_TIER_STYLES[adrTier] || ADR_TIER_STYLES.cold}`}>
-          <div className="text-[14px] sm:text-[15px] font-bold tracking-tight">{adrMult.toFixed(2)}×</div>
-          <div className="text-[9px] opacity-65 tracking-widest">ADR</div>
-        </div>
-
-        {/* Scores */}
-        <div className="flex flex-col items-end gap-1.5 sm:gap-2">
-          <SignalBadge signal={signal} />
-          <ScoreBar label="URG" value={urgency} variant="urgency" />
-          <ScoreBar label="UNC" value={uncertainty} variant="uncertainty" />
         </div>
       </summary>
 
-      {/* Expanded content */}
       <div className="border-t border-border">
-        {/* ADR block on mobile (moved from summary) */}
-        <div className="sm:hidden px-3 pt-2 flex items-baseline gap-3 text-[11px] text-sub">
-          <span className="tabular-nums">${adr.toFixed(2)} ADR</span>
-          <span className="tabular-nums">{adrRatio.toFixed(1)}× move</span>
-        </div>
-
-        {/* Movement */}
-        <div className="px-3 py-2 flex items-center gap-2">
-          <span className={`text-[11px] ${movementClass}`}>{movement}</span>
-        </div>
-
-        {/* Component tiles */}
-        <ComponentTiles scores={components} />
-
-        {/* Warning */}
-        {warning && (
-          <div className="mx-3 mb-2 px-2.5 py-1.5 bg-orange/10 border-l-[3px] border-orange rounded text-xs text-orange">
-            ⚠ {warning}
-          </div>
-        )}
-
-        {/* Summary */}
-        {summary && (
-          <div className="px-3 pb-2.5 text-xs text-sub leading-relaxed">
-            {summary}
-          </div>
-        )}
-
-        {/* Chart */}
-        {chart && chart.bars && chart.bars.length > 0 ? (
-          <div className="px-3 pb-3">
-            <LightweightChart chart={chart} height={260} compact />
+        {fullDayChart ? (
+          <div className="px-2 py-2 sm:px-3">
+            <div className="mb-2 grid grid-cols-10 gap-1 sm:flex sm:items-center sm:gap-1.5 sm:overflow-x-auto">
+              {OPENING_WINDOW_OPTIONS.map((count) => (
+                <button
+                  key={count}
+                  type="button"
+                  onClick={() => setOpeningBars(count)}
+                  className={`min-h-10 min-w-0 rounded border px-1 text-[12px] font-bold tabular-nums transition-colors sm:min-h-11 sm:min-w-11 sm:px-2 ${
+                    openingBars === count
+                      ? "border-teal bg-teal/20 text-teal"
+                      : "border-border bg-bg text-sub"
+                  }`}
+                >
+                  {count}
+                </button>
+              ))}
+            </div>
+            <div className="min-w-0">
+              <div className="w-full">
+                <ChartPanel
+                  title="78x5m"
+                  detail={`9:30 · ${fullDayChart.bars.length}/78`}
+                  chart={fullDayChart}
+                  height={chartHeight}
+                  logicalRange={FULL_DAY_RANGE}
+                />
+              </div>
+            </div>
+            <div
+              className="mt-2 grid gap-2"
+              style={{ gridTemplateColumns: `${openingWidth}px minmax(0, 1fr)` }}
+            >
+              <div className="min-w-0">
+                {openingFiveMinuteChart && (
+                  <ChartPanel
+                    title={`${openingBars}x5m`}
+                    detail="9:30"
+                    chart={openingFiveMinuteChart}
+                    height={chartHeight}
+                    hideScales
+                    logicalRange={openingLogicalRange}
+                  />
+                )}
+              </div>
+              <div className="min-w-0">
+                {openingOneMinuteChart ? (
+                  <ChartPanel
+                    title={`${minuteCount}x1m`}
+                    detail="9:30"
+                    chart={openingOneMinuteChart}
+                    height={chartHeight}
+                    hideScales
+                    logicalRange={oneMinuteLogicalRange}
+                  />
+                ) : (
+                  <section className="space-y-1.5">
+                    <div className="flex h-4 min-w-0 items-baseline justify-between gap-1 overflow-hidden text-[9px] uppercase tracking-normal sm:text-[10px] sm:tracking-[0.12em]">
+                      <h3 className="min-w-0 truncate font-semibold text-text">{minuteCount}x1m</h3>
+                      <span className="hidden shrink-0 text-sub sm:inline">{minuteError ? "unavailable" : "loading"}</span>
+                    </div>
+                    <div
+                      className="grid place-items-center rounded-lg border border-border bg-[#1A1A1A] text-[10px] uppercase tracking-[0.12em] text-sub"
+                      style={{ height: chartHeight }}
+                    >
+                      {minuteError ? "No 1m bars" : "Loading"}
+                    </div>
+                  </section>
+                )}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="py-4 px-3 text-xs text-sub text-center">No chart available</div>
         )}
-
-        {/* Closest historical analogs — DTW match block populated by the
-            scanner (aiedge/runners/scanner_analog_matcher.py). Renders only
-            when analogs are present in the payload. */}
-        {analogs && <ScannerAnalogs analogs={analogs} signal={signal} />}
       </div>
     </details>
   )

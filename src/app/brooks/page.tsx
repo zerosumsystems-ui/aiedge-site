@@ -73,7 +73,7 @@ function dtwStars(dtw: number): string {
 export default function BrooksPage() {
   const [manifest, setManifest] = useState<{ matches: ManifestMatch[] } | null>(null)
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
-  const [matchData, setMatchData] = useState<MatchData | null>(null)
+  const [matchState, setMatchState] = useState<{ slug: string; data: MatchData } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -95,15 +95,26 @@ export default function BrooksPage() {
 
   useEffect(() => {
     if (!selectedSlug) return
-    setMatchData(null)
+    let cancelled = false
+
     fetch(`/brooks-tour/${selectedSlug}/data.json`, { cache: 'no-store' })
       .then((r) => {
         if (!r.ok) throw new Error(`data HTTP ${r.status}`)
         return r.json()
       })
-      .then(setMatchData)
-      .catch((e) => setError(e.message))
+      .then((data: MatchData) => {
+        if (!cancelled) setMatchState({ slug: selectedSlug, data })
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [selectedSlug])
+
+  const matchData = matchState?.slug === selectedSlug ? matchState.data : null
 
   const sortedMatches = useMemo(() => {
     if (!manifest) return []

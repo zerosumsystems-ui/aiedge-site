@@ -1,0 +1,4707 @@
+{
+  "version": 3,
+  "generatedAt": "2026-04-30T15:09:26.716671+00:00",
+  "examples": [
+    {
+      "id": "aapl_opening_001_2019-01-23",
+      "symbol": "AAPL",
+      "date": "2019-01-23",
+      "decisionBar": 4,
+      "label": "trend_open_long",
+      "note": "Trend from the open long: four consecutive bull bars.",
+      "imageUrl": "/training/aapl-opening/charts/001_2019-01-23_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-01-23_2019-01-24.parquet",
+      "previousDay": "2019-01-22",
+      "yesterdayHigh": 156.71,
+      "yesterdayLow": 152.63,
+      "bars": [
+        {
+          "t": 1548253800,
+          "o": 154.12,
+          "h": 154.39,
+          "l": 153.88,
+          "c": 154.34,
+          "v": 439767
+        },
+        {
+          "t": 1548254100,
+          "o": 154.35,
+          "h": 154.59,
+          "l": 154.26,
+          "c": 154.35,
+          "v": 108650
+        },
+        {
+          "t": 1548254400,
+          "o": 154.39,
+          "h": 154.66,
+          "l": 154.31,
+          "c": 154.62,
+          "v": 94141
+        },
+        {
+          "t": 1548254700,
+          "o": 154.6,
+          "h": 155.0,
+          "l": 154.58,
+          "c": 154.96,
+          "v": 104473
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_002_2019-02-15",
+      "symbol": "AAPL",
+      "date": "2019-02-15",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/002_2019-02-15_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-02-15_2019-02-16.parquet",
+      "previousDay": "2019-02-14",
+      "yesterdayHigh": 171.26,
+      "yesterdayLow": 168.71,
+      "bars": [
+        {
+          "t": 1550241000,
+          "o": 171.22,
+          "h": 171.7,
+          "l": 171.0,
+          "c": 171.13,
+          "v": 2194679
+        },
+        {
+          "t": 1550241300,
+          "o": 171.14,
+          "h": 171.23,
+          "l": 170.49,
+          "c": 171.05,
+          "v": 117124
+        },
+        {
+          "t": 1550241600,
+          "o": 171.08,
+          "h": 171.08,
+          "l": 170.34,
+          "c": 170.38,
+          "v": 101923
+        },
+        {
+          "t": 1550241900,
+          "o": 170.4,
+          "h": 170.85,
+          "l": 170.13,
+          "c": 170.22,
+          "v": 125384
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_003_2019-04-01",
+      "symbol": "AAPL",
+      "date": "2019-04-01",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/003_2019-04-01_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-04-01_2019-04-02.parquet",
+      "previousDay": "2019-03-29",
+      "yesterdayHigh": 190.32,
+      "yesterdayLow": 188.54,
+      "bars": [
+        {
+          "t": 1554125400,
+          "o": 191.64,
+          "h": 191.66,
+          "l": 190.55,
+          "c": 190.75,
+          "v": 482169
+        },
+        {
+          "t": 1554125700,
+          "o": 190.77,
+          "h": 190.98,
+          "l": 190.29,
+          "c": 190.37,
+          "v": 145056
+        },
+        {
+          "t": 1554126000,
+          "o": 190.34,
+          "h": 190.59,
+          "l": 189.94,
+          "c": 190.36,
+          "v": 144779
+        },
+        {
+          "t": 1554126300,
+          "o": 190.35,
+          "h": 190.41,
+          "l": 190.07,
+          "c": 190.18,
+          "v": 90569
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_004_2019-04-05",
+      "symbol": "AAPL",
+      "date": "2019-04-05",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/004_2019-04-05_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-04-05_2019-04-06.parquet",
+      "previousDay": "2019-04-04",
+      "yesterdayHigh": 196.36,
+      "yesterdayLow": 194.58,
+      "bars": [
+        {
+          "t": 1554471000,
+          "o": 196.44,
+          "h": 196.6,
+          "l": 195.95,
+          "c": 196.46,
+          "v": 379564
+        },
+        {
+          "t": 1554471300,
+          "o": 196.51,
+          "h": 197.1,
+          "l": 196.33,
+          "c": 196.39,
+          "v": 181504
+        },
+        {
+          "t": 1554471600,
+          "o": 196.36,
+          "h": 196.78,
+          "l": 196.01,
+          "c": 196.54,
+          "v": 104785
+        },
+        {
+          "t": 1554471900,
+          "o": 196.58,
+          "h": 196.83,
+          "l": 196.47,
+          "c": 196.52,
+          "v": 55229
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_005_2019-05-01",
+      "symbol": "AAPL",
+      "date": "2019-05-01",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/005_2019-05-01_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-05-01_2019-05-02.parquet",
+      "previousDay": "2019-04-30",
+      "yesterdayHigh": 213.0,
+      "yesterdayLow": 199.11,
+      "bars": [
+        {
+          "t": 1556717400,
+          "o": 209.86,
+          "h": 210.65,
+          "l": 209.23,
+          "c": 210.06,
+          "v": 1618090
+        },
+        {
+          "t": 1556717700,
+          "o": 210.12,
+          "h": 210.99,
+          "l": 209.25,
+          "c": 210.85,
+          "v": 491176
+        },
+        {
+          "t": 1556718000,
+          "o": 210.87,
+          "h": 211.93,
+          "l": 210.85,
+          "c": 211.73,
+          "v": 530703
+        },
+        {
+          "t": 1556718300,
+          "o": 211.73,
+          "h": 211.95,
+          "l": 211.51,
+          "c": 211.77,
+          "v": 327269
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_006_2019-05-24",
+      "symbol": "AAPL",
+      "date": "2019-05-24",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/006_2019-05-24_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-05-24_2019-05-25.parquet",
+      "previousDay": "2019-05-23",
+      "yesterdayHigh": 180.54,
+      "yesterdayLow": 177.81,
+      "bars": [
+        {
+          "t": 1558704600,
+          "o": 180.29,
+          "h": 181.66,
+          "l": 180.14,
+          "c": 181.66,
+          "v": 583072
+        },
+        {
+          "t": 1558704900,
+          "o": 181.67,
+          "h": 181.81,
+          "l": 181.34,
+          "c": 181.56,
+          "v": 174430
+        },
+        {
+          "t": 1558705200,
+          "o": 181.54,
+          "h": 182.0,
+          "l": 181.43,
+          "c": 181.99,
+          "v": 146881
+        },
+        {
+          "t": 1558705500,
+          "o": 181.99,
+          "h": 182.14,
+          "l": 181.33,
+          "c": 181.53,
+          "v": 186487
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_007_2019-06-19",
+      "symbol": "AAPL",
+      "date": "2019-06-19",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/007_2019-06-19_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-06-19_2019-06-20.parquet",
+      "previousDay": "2019-06-18",
+      "yesterdayHigh": 200.29,
+      "yesterdayLow": 194.63,
+      "bars": [
+        {
+          "t": 1560951000,
+          "o": 199.68,
+          "h": 199.73,
+          "l": 198.73,
+          "c": 198.8,
+          "v": 462904
+        },
+        {
+          "t": 1560951300,
+          "o": 198.77,
+          "h": 198.8,
+          "l": 198.04,
+          "c": 198.47,
+          "v": 121152
+        },
+        {
+          "t": 1560951600,
+          "o": 198.44,
+          "h": 198.54,
+          "l": 198.09,
+          "c": 198.15,
+          "v": 124951
+        },
+        {
+          "t": 1560951900,
+          "o": 198.17,
+          "h": 198.59,
+          "l": 197.86,
+          "c": 198.51,
+          "v": 98030
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_008_2019-07-01",
+      "symbol": "AAPL",
+      "date": "2019-07-01",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/008_2019-07-01_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-07-01_2019-07-02.parquet",
+      "previousDay": "2019-06-28",
+      "yesterdayHigh": 199.48,
+      "yesterdayLow": 197.05,
+      "bars": [
+        {
+          "t": 1561987800,
+          "o": 203.28,
+          "h": 203.8,
+          "l": 202.7,
+          "c": 203.36,
+          "v": 846311
+        },
+        {
+          "t": 1561988100,
+          "o": 203.37,
+          "h": 204.14,
+          "l": 203.35,
+          "c": 204.1,
+          "v": 259608
+        },
+        {
+          "t": 1561988400,
+          "o": 204.11,
+          "h": 204.49,
+          "l": 203.66,
+          "c": 203.93,
+          "v": 268979
+        },
+        {
+          "t": 1561988700,
+          "o": 203.93,
+          "h": 203.96,
+          "l": 203.19,
+          "c": 203.22,
+          "v": 251659
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_009_2019-08-06",
+      "symbol": "AAPL",
+      "date": "2019-08-06",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/009_2019-08-06_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-08-06_2019-08-07.parquet",
+      "previousDay": "2019-08-05",
+      "yesterdayHigh": 200.0,
+      "yesterdayLow": 187.07,
+      "bars": [
+        {
+          "t": 1565098200,
+          "o": 196.43,
+          "h": 198.07,
+          "l": 196.32,
+          "c": 197.68,
+          "v": 1068283
+        },
+        {
+          "t": 1565098500,
+          "o": 197.64,
+          "h": 197.66,
+          "l": 197.05,
+          "c": 197.05,
+          "v": 314241
+        },
+        {
+          "t": 1565098800,
+          "o": 197.03,
+          "h": 197.44,
+          "l": 196.32,
+          "c": 196.57,
+          "v": 281913
+        },
+        {
+          "t": 1565099100,
+          "o": 196.59,
+          "h": 196.72,
+          "l": 195.66,
+          "c": 196.3,
+          "v": 275086
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_010_2019-08-07",
+      "symbol": "AAPL",
+      "date": "2019-08-07",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/010_2019-08-07_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-08-07_2019-08-08.parquet",
+      "previousDay": "2019-08-06",
+      "yesterdayHigh": 198.07,
+      "yesterdayLow": 192.34,
+      "bars": [
+        {
+          "t": 1565184600,
+          "o": 195.49,
+          "h": 196.1,
+          "l": 194.88,
+          "c": 195.26,
+          "v": 680491
+        },
+        {
+          "t": 1565184900,
+          "o": 195.26,
+          "h": 196.2,
+          "l": 194.92,
+          "c": 196.06,
+          "v": 122523
+        },
+        {
+          "t": 1565185200,
+          "o": 196.07,
+          "h": 196.09,
+          "l": 195.06,
+          "c": 195.17,
+          "v": 106630
+        },
+        {
+          "t": 1565185500,
+          "o": 195.14,
+          "h": 195.19,
+          "l": 193.89,
+          "c": 194.38,
+          "v": 148007
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_011_2019-08-19",
+      "symbol": "AAPL",
+      "date": "2019-08-19",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/011_2019-08-19_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-08-19_2019-08-20.parquet",
+      "previousDay": "2019-08-16",
+      "yesterdayHigh": 207.16,
+      "yesterdayLow": 203.33,
+      "bars": [
+        {
+          "t": 1566221400,
+          "o": 210.69,
+          "h": 211.63,
+          "l": 210.05,
+          "c": 211.59,
+          "v": 735259
+        },
+        {
+          "t": 1566221700,
+          "o": 211.63,
+          "h": 212.35,
+          "l": 211.63,
+          "c": 212.21,
+          "v": 205671
+        },
+        {
+          "t": 1566222000,
+          "o": 212.19,
+          "h": 212.4,
+          "l": 211.9,
+          "c": 212.25,
+          "v": 120276
+        },
+        {
+          "t": 1566222300,
+          "o": 212.26,
+          "h": 212.6,
+          "l": 212.12,
+          "c": 212.54,
+          "v": 107288
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_012_2019-08-29",
+      "symbol": "AAPL",
+      "date": "2019-08-29",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/012_2019-08-29_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-08-29_2019-08-30.parquet",
+      "previousDay": "2019-08-28",
+      "yesterdayHigh": 205.74,
+      "yesterdayLow": 202.97,
+      "bars": [
+        {
+          "t": 1567085400,
+          "o": 208.6,
+          "h": 209.23,
+          "l": 208.4,
+          "c": 208.9,
+          "v": 566823
+        },
+        {
+          "t": 1567085700,
+          "o": 208.93,
+          "h": 209.07,
+          "l": 208.74,
+          "c": 208.83,
+          "v": 129394
+        },
+        {
+          "t": 1567086000,
+          "o": 208.83,
+          "h": 209.02,
+          "l": 208.19,
+          "c": 208.46,
+          "v": 147795
+        },
+        {
+          "t": 1567086300,
+          "o": 208.48,
+          "h": 208.75,
+          "l": 208.48,
+          "c": 208.65,
+          "v": 106933
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_013_2019-08-30",
+      "symbol": "AAPL",
+      "date": "2019-08-30",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/013_2019-08-30_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-08-30_2019-08-31.parquet",
+      "previousDay": "2019-08-29",
+      "yesterdayHigh": 209.32,
+      "yesterdayLow": 206.65,
+      "bars": [
+        {
+          "t": 1567171800,
+          "o": 210.12,
+          "h": 210.45,
+          "l": 209.57,
+          "c": 209.76,
+          "v": 449322
+        },
+        {
+          "t": 1567172100,
+          "o": 209.77,
+          "h": 209.85,
+          "l": 209.42,
+          "c": 209.63,
+          "v": 65043
+        },
+        {
+          "t": 1567172400,
+          "o": 209.62,
+          "h": 210.09,
+          "l": 209.62,
+          "c": 209.89,
+          "v": 109095
+        },
+        {
+          "t": 1567172700,
+          "o": 209.87,
+          "h": 209.9,
+          "l": 209.53,
+          "c": 209.55,
+          "v": 64662
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_014_2019-09-04",
+      "symbol": "AAPL",
+      "date": "2019-09-04",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/014_2019-09-04_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-09-04_2019-09-05.parquet",
+      "previousDay": "2019-09-03",
+      "yesterdayHigh": 207.19,
+      "yesterdayLow": 204.23,
+      "bars": [
+        {
+          "t": 1567603800,
+          "o": 208.39,
+          "h": 208.74,
+          "l": 208.0,
+          "c": 208.27,
+          "v": 400398
+        },
+        {
+          "t": 1567604100,
+          "o": 208.29,
+          "h": 208.46,
+          "l": 207.97,
+          "c": 208.13,
+          "v": 100978
+        },
+        {
+          "t": 1567604400,
+          "o": 208.14,
+          "h": 208.25,
+          "l": 207.78,
+          "c": 208.14,
+          "v": 109297
+        },
+        {
+          "t": 1567604700,
+          "o": 208.15,
+          "h": 208.46,
+          "l": 207.8,
+          "c": 207.84,
+          "v": 102422
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_015_2019-10-04",
+      "symbol": "AAPL",
+      "date": "2019-10-04",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/015_2019-10-04_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-10-04_2019-10-05.parquet",
+      "previousDay": "2019-10-03",
+      "yesterdayHigh": 220.98,
+      "yesterdayLow": 215.15,
+      "bars": [
+        {
+          "t": 1570195800,
+          "o": 225.71,
+          "h": 225.89,
+          "l": 224.26,
+          "c": 224.41,
+          "v": 716333
+        },
+        {
+          "t": 1570196100,
+          "o": 224.46,
+          "h": 225.46,
+          "l": 224.25,
+          "c": 225.4,
+          "v": 181685
+        },
+        {
+          "t": 1570196400,
+          "o": 225.39,
+          "h": 225.68,
+          "l": 224.52,
+          "c": 224.65,
+          "v": 152088
+        },
+        {
+          "t": 1570196700,
+          "o": 224.69,
+          "h": 224.88,
+          "l": 224.32,
+          "c": 224.41,
+          "v": 119614
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_016_2019-10-18",
+      "symbol": "AAPL",
+      "date": "2019-10-18",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/016_2019-10-18_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-10-18_2019-10-19.parquet",
+      "previousDay": "2019-10-17",
+      "yesterdayHigh": 236.14,
+      "yesterdayLow": 233.53,
+      "bars": [
+        {
+          "t": 1571405400,
+          "o": 234.36,
+          "h": 235.09,
+          "l": 234.36,
+          "c": 235.0,
+          "v": 1811185
+        },
+        {
+          "t": 1571405700,
+          "o": 235.06,
+          "h": 235.29,
+          "l": 234.84,
+          "c": 235.28,
+          "v": 75429
+        },
+        {
+          "t": 1571406000,
+          "o": 235.27,
+          "h": 235.33,
+          "l": 234.9,
+          "c": 235.2,
+          "v": 58304
+        },
+        {
+          "t": 1571406300,
+          "o": 235.19,
+          "h": 235.77,
+          "l": 235.16,
+          "c": 235.56,
+          "v": 77037
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_017_2019-11-12",
+      "symbol": "AAPL",
+      "date": "2019-11-12",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/017_2019-11-12_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2019-11-12_2019-11-13.parquet",
+      "previousDay": "2019-11-11",
+      "yesterdayHigh": 262.46,
+      "yesterdayLow": 258.19,
+      "bars": [
+        {
+          "t": 1573569000,
+          "o": 261.58,
+          "h": 261.94,
+          "l": 261.08,
+          "c": 261.46,
+          "v": 415940
+        },
+        {
+          "t": 1573569300,
+          "o": 261.47,
+          "h": 262.25,
+          "l": 261.45,
+          "c": 261.86,
+          "v": 146848
+        },
+        {
+          "t": 1573569600,
+          "o": 261.88,
+          "h": 262.25,
+          "l": 261.75,
+          "c": 261.94,
+          "v": 70599
+        },
+        {
+          "t": 1573569900,
+          "o": 261.93,
+          "h": 261.96,
+          "l": 261.39,
+          "c": 261.44,
+          "v": 93955
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_018_2020-01-02",
+      "symbol": "AAPL",
+      "date": "2020-01-02",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/018_2020-01-02_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-01-02_2020-01-03.parquet",
+      "previousDay": "2019-12-31",
+      "yesterdayHigh": 293.88,
+      "yesterdayLow": 289.53,
+      "bars": [
+        {
+          "t": 1577975400,
+          "o": 296.23,
+          "h": 296.92,
+          "l": 295.2,
+          "c": 296.9,
+          "v": 708140
+        },
+        {
+          "t": 1577975700,
+          "o": 296.9,
+          "h": 297.95,
+          "l": 296.9,
+          "c": 297.31,
+          "v": 190430
+        },
+        {
+          "t": 1577976000,
+          "o": 297.3,
+          "h": 297.7,
+          "l": 296.86,
+          "c": 297.1,
+          "v": 135058
+        },
+        {
+          "t": 1577976300,
+          "o": 297.13,
+          "h": 297.42,
+          "l": 296.81,
+          "c": 296.83,
+          "v": 108956
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_019_2020-01-28",
+      "symbol": "AAPL",
+      "date": "2020-01-28",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/019_2020-01-28_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-01-28_2020-01-29.parquet",
+      "previousDay": "2020-01-27",
+      "yesterdayHigh": 314.32,
+      "yesterdayLow": 305.91,
+      "bars": [
+        {
+          "t": 1580221800,
+          "o": 312.38,
+          "h": 314.03,
+          "l": 312.19,
+          "c": 313.36,
+          "v": 771633
+        },
+        {
+          "t": 1580222100,
+          "o": 313.36,
+          "h": 313.85,
+          "l": 312.88,
+          "c": 313.22,
+          "v": 133648
+        },
+        {
+          "t": 1580222400,
+          "o": 313.21,
+          "h": 313.55,
+          "l": 312.82,
+          "c": 313.53,
+          "v": 130670
+        },
+        {
+          "t": 1580222700,
+          "o": 313.49,
+          "h": 313.53,
+          "l": 312.67,
+          "c": 313.27,
+          "v": 90820
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_020_2020-02-04",
+      "symbol": "AAPL",
+      "date": "2020-02-04",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/020_2020-02-04_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-02-04_2020-02-05.parquet",
+      "previousDay": "2020-02-03",
+      "yesterdayHigh": 313.49,
+      "yesterdayLow": 302.22,
+      "bars": [
+        {
+          "t": 1580826600,
+          "o": 315.48,
+          "h": 316.65,
+          "l": 314.74,
+          "c": 316.65,
+          "v": 801663
+        },
+        {
+          "t": 1580826900,
+          "o": 316.62,
+          "h": 316.85,
+          "l": 315.3,
+          "c": 315.5,
+          "v": 170439
+        },
+        {
+          "t": 1580827200,
+          "o": 315.51,
+          "h": 315.89,
+          "l": 314.59,
+          "c": 314.68,
+          "v": 148056
+        },
+        {
+          "t": 1580827500,
+          "o": 314.74,
+          "h": 315.45,
+          "l": 314.74,
+          "c": 315.01,
+          "v": 117968
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_021_2020-03-03",
+      "symbol": "AAPL",
+      "date": "2020-03-03",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/021_2020-03-03_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-03-03_2020-03-04.parquet",
+      "previousDay": "2020-03-02",
+      "yesterdayHigh": 298.88,
+      "yesterdayLow": 272.5,
+      "bars": [
+        {
+          "t": 1583245800,
+          "o": 303.67,
+          "h": 303.93,
+          "l": 299.6,
+          "c": 300.03,
+          "v": 1825496
+        },
+        {
+          "t": 1583246100,
+          "o": 300.0,
+          "h": 300.08,
+          "l": 296.05,
+          "c": 297.25,
+          "v": 507156
+        },
+        {
+          "t": 1583246400,
+          "o": 297.3,
+          "h": 298.35,
+          "l": 296.43,
+          "c": 297.92,
+          "v": 351277
+        },
+        {
+          "t": 1583246700,
+          "o": 297.92,
+          "h": 298.13,
+          "l": 294.25,
+          "c": 295.14,
+          "v": 437979
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_022_2020-03-04",
+      "symbol": "AAPL",
+      "date": "2020-03-04",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/022_2020-03-04_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-03-04_2020-03-05.parquet",
+      "previousDay": "2020-03-03",
+      "yesterdayHigh": 304.15,
+      "yesterdayLow": 285.56,
+      "bars": [
+        {
+          "t": 1583332200,
+          "o": 296.51,
+          "h": 298.48,
+          "l": 295.85,
+          "c": 296.2,
+          "v": 1206793
+        },
+        {
+          "t": 1583332500,
+          "o": 296.2,
+          "h": 296.5,
+          "l": 294.45,
+          "c": 295.15,
+          "v": 413038
+        },
+        {
+          "t": 1583332800,
+          "o": 295.17,
+          "h": 296.43,
+          "l": 294.65,
+          "c": 295.93,
+          "v": 290112
+        },
+        {
+          "t": 1583333100,
+          "o": 295.9,
+          "h": 296.38,
+          "l": 294.6,
+          "c": 294.7,
+          "v": 242295
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_023_2020-03-13",
+      "symbol": "AAPL",
+      "date": "2020-03-13",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/023_2020-03-13_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-03-13_2020-03-14.parquet",
+      "previousDay": "2020-03-12",
+      "yesterdayHigh": 270.0,
+      "yesterdayLow": 235.51,
+      "bars": [
+        {
+          "t": 1584106200,
+          "o": 264.99,
+          "h": 265.56,
+          "l": 263.13,
+          "c": 265.05,
+          "v": 1841598
+        },
+        {
+          "t": 1584106500,
+          "o": 265.09,
+          "h": 265.18,
+          "l": 260.0,
+          "c": 260.05,
+          "v": 452525
+        },
+        {
+          "t": 1584106800,
+          "o": 260.04,
+          "h": 261.2,
+          "l": 255.78,
+          "c": 259.04,
+          "v": 608599
+        },
+        {
+          "t": 1584107100,
+          "o": 259.02,
+          "h": 260.1,
+          "l": 253.47,
+          "c": 257.46,
+          "v": 572560
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_024_2020-03-24",
+      "symbol": "AAPL",
+      "date": "2020-03-24",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/024_2020-03-24_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-03-24_2020-03-25.parquet",
+      "previousDay": "2020-03-23",
+      "yesterdayHigh": 238.06,
+      "yesterdayLow": 212.62,
+      "bars": [
+        {
+          "t": 1585056600,
+          "o": 236.77,
+          "h": 237.87,
+          "l": 235.39,
+          "c": 237.5,
+          "v": 1419220
+        },
+        {
+          "t": 1585056900,
+          "o": 237.55,
+          "h": 237.68,
+          "l": 234.3,
+          "c": 235.6,
+          "v": 418784
+        },
+        {
+          "t": 1585057200,
+          "o": 235.58,
+          "h": 236.06,
+          "l": 234.54,
+          "c": 235.34,
+          "v": 306369
+        },
+        {
+          "t": 1585057500,
+          "o": 235.47,
+          "h": 237.57,
+          "l": 235.31,
+          "c": 236.23,
+          "v": 243961
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_025_2020-03-25",
+      "symbol": "AAPL",
+      "date": "2020-03-25",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/025_2020-03-25_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-03-25_2020-03-26.parquet",
+      "previousDay": "2020-03-24",
+      "yesterdayHigh": 249.0,
+      "yesterdayLow": 231.21,
+      "bars": [
+        {
+          "t": 1585143000,
+          "o": 250.89,
+          "h": 255.0,
+          "l": 250.0,
+          "c": 254.53,
+          "v": 1323022
+        },
+        {
+          "t": 1585143300,
+          "o": 254.53,
+          "h": 257.95,
+          "l": 254.0,
+          "c": 257.83,
+          "v": 490381
+        },
+        {
+          "t": 1585143600,
+          "o": 257.83,
+          "h": 258.0,
+          "l": 254.34,
+          "c": 254.69,
+          "v": 392715
+        },
+        {
+          "t": 1585143900,
+          "o": 254.71,
+          "h": 254.83,
+          "l": 252.55,
+          "c": 252.72,
+          "v": 240590
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_026_2020-03-31",
+      "symbol": "AAPL",
+      "date": "2020-03-31",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/026_2020-03-31_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-03-31_2020-04-01.parquet",
+      "previousDay": "2020-03-30",
+      "yesterdayHigh": 255.49,
+      "yesterdayLow": 245.01,
+      "bars": [
+        {
+          "t": 1585661400,
+          "o": 255.45,
+          "h": 256.43,
+          "l": 254.27,
+          "c": 256.04,
+          "v": 638977
+        },
+        {
+          "t": 1585661700,
+          "o": 256.19,
+          "h": 256.74,
+          "l": 255.41,
+          "c": 256.13,
+          "v": 128138
+        },
+        {
+          "t": 1585662000,
+          "o": 256.16,
+          "h": 257.41,
+          "l": 256.15,
+          "c": 256.58,
+          "v": 152052
+        },
+        {
+          "t": 1585662300,
+          "o": 256.6,
+          "h": 256.9,
+          "l": 254.86,
+          "c": 255.03,
+          "v": 148508
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_027_2020-04-07",
+      "symbol": "AAPL",
+      "date": "2020-04-07",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/027_2020-04-07_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-04-07_2020-04-08.parquet",
+      "previousDay": "2020-04-06",
+      "yesterdayHigh": 263.11,
+      "yesterdayLow": 248.71,
+      "bars": [
+        {
+          "t": 1586266200,
+          "o": 270.8,
+          "h": 271.7,
+          "l": 267.19,
+          "c": 267.58,
+          "v": 1559006
+        },
+        {
+          "t": 1586266500,
+          "o": 267.59,
+          "h": 268.25,
+          "l": 266.51,
+          "c": 266.75,
+          "v": 258719
+        },
+        {
+          "t": 1586266800,
+          "o": 266.78,
+          "h": 267.76,
+          "l": 266.3,
+          "c": 267.74,
+          "v": 192963
+        },
+        {
+          "t": 1586267100,
+          "o": 267.75,
+          "h": 268.82,
+          "l": 267.75,
+          "c": 268.39,
+          "v": 151857
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_028_2020-04-09",
+      "symbol": "AAPL",
+      "date": "2020-04-09",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/028_2020-04-09_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-04-09_2020-04-10.parquet",
+      "previousDay": "2020-04-08",
+      "yesterdayHigh": 267.38,
+      "yesterdayLow": 257.2,
+      "bars": [
+        {
+          "t": 1586439000,
+          "o": 269.2,
+          "h": 269.44,
+          "l": 267.45,
+          "c": 267.75,
+          "v": 692116
+        },
+        {
+          "t": 1586439300,
+          "o": 267.81,
+          "h": 268.81,
+          "l": 267.55,
+          "c": 268.63,
+          "v": 183011
+        },
+        {
+          "t": 1586439600,
+          "o": 268.61,
+          "h": 270.0,
+          "l": 268.5,
+          "c": 269.86,
+          "v": 230611
+        },
+        {
+          "t": 1586439900,
+          "o": 269.84,
+          "h": 270.07,
+          "l": 268.63,
+          "c": 269.1,
+          "v": 143778
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_029_2020-04-16",
+      "symbol": "AAPL",
+      "date": "2020-04-16",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/029_2020-04-16_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-04-16_2020-04-17.parquet",
+      "previousDay": "2020-04-15",
+      "yesterdayHigh": 286.35,
+      "yesterdayLow": 279.34,
+      "bars": [
+        {
+          "t": 1587043800,
+          "o": 287.3,
+          "h": 288.2,
+          "l": 286.73,
+          "c": 286.78,
+          "v": 753536
+        },
+        {
+          "t": 1587044100,
+          "o": 286.82,
+          "h": 287.28,
+          "l": 286.35,
+          "c": 286.8,
+          "v": 123912
+        },
+        {
+          "t": 1587044400,
+          "o": 286.84,
+          "h": 287.33,
+          "l": 286.38,
+          "c": 286.51,
+          "v": 117110
+        },
+        {
+          "t": 1587044700,
+          "o": 286.53,
+          "h": 286.98,
+          "l": 286.15,
+          "c": 286.22,
+          "v": 90047
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_030_2020-05-05",
+      "symbol": "AAPL",
+      "date": "2020-05-05",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/030_2020-05-05_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-05-05_2020-05-06.parquet",
+      "previousDay": "2020-05-04",
+      "yesterdayHigh": 293.68,
+      "yesterdayLow": 286.32,
+      "bars": [
+        {
+          "t": 1588685400,
+          "o": 295.05,
+          "h": 297.08,
+          "l": 294.46,
+          "c": 296.43,
+          "v": 695285
+        },
+        {
+          "t": 1588685700,
+          "o": 296.48,
+          "h": 297.5,
+          "l": 296.03,
+          "c": 296.74,
+          "v": 179094
+        },
+        {
+          "t": 1588686000,
+          "o": 296.75,
+          "h": 297.74,
+          "l": 296.75,
+          "c": 296.96,
+          "v": 117541
+        },
+        {
+          "t": 1588686300,
+          "o": 296.98,
+          "h": 298.06,
+          "l": 296.83,
+          "c": 297.82,
+          "v": 122741
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_031_2020-05-07",
+      "symbol": "AAPL",
+      "date": "2020-05-07",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/031_2020-05-07_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-05-07_2020-05-08.parquet",
+      "previousDay": "2020-05-06",
+      "yesterdayHigh": 303.24,
+      "yesterdayLow": 298.87,
+      "bars": [
+        {
+          "t": 1588858200,
+          "o": 303.2,
+          "h": 305.17,
+          "l": 303.2,
+          "c": 304.93,
+          "v": 585339
+        },
+        {
+          "t": 1588858500,
+          "o": 304.93,
+          "h": 305.08,
+          "l": 303.57,
+          "c": 303.6,
+          "v": 188260
+        },
+        {
+          "t": 1588858800,
+          "o": 303.61,
+          "h": 304.65,
+          "l": 303.61,
+          "c": 304.13,
+          "v": 134935
+        },
+        {
+          "t": 1588859100,
+          "o": 304.13,
+          "h": 304.38,
+          "l": 303.58,
+          "c": 303.86,
+          "v": 107139
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_032_2020-05-18",
+      "symbol": "AAPL",
+      "date": "2020-05-18",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/032_2020-05-18_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-05-18_2020-05-19.parquet",
+      "previousDay": "2020-05-15",
+      "yesterdayHigh": 311.39,
+      "yesterdayLow": 299.74,
+      "bars": [
+        {
+          "t": 1589808600,
+          "o": 313.16,
+          "h": 313.29,
+          "l": 310.88,
+          "c": 311.05,
+          "v": 771295
+        },
+        {
+          "t": 1589808900,
+          "o": 311.06,
+          "h": 312.35,
+          "l": 310.33,
+          "c": 311.26,
+          "v": 184981
+        },
+        {
+          "t": 1589809200,
+          "o": 311.24,
+          "h": 312.43,
+          "l": 310.97,
+          "c": 311.75,
+          "v": 126431
+        },
+        {
+          "t": 1589809500,
+          "o": 311.8,
+          "h": 312.62,
+          "l": 311.12,
+          "c": 311.51,
+          "v": 119337
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_033_2020-05-29",
+      "symbol": "AAPL",
+      "date": "2020-05-29",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/033_2020-05-29_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-05-29_2020-05-30.parquet",
+      "previousDay": "2020-05-28",
+      "yesterdayHigh": 323.44,
+      "yesterdayLow": 314.53,
+      "bars": [
+        {
+          "t": 1590759000,
+          "o": 319.34,
+          "h": 320.0,
+          "l": 318.23,
+          "c": 318.25,
+          "v": 383635
+        },
+        {
+          "t": 1590759300,
+          "o": 318.26,
+          "h": 319.01,
+          "l": 318.06,
+          "c": 318.34,
+          "v": 110345
+        },
+        {
+          "t": 1590759600,
+          "o": 318.33,
+          "h": 318.7,
+          "l": 318.0,
+          "c": 318.53,
+          "v": 139263
+        },
+        {
+          "t": 1590759900,
+          "o": 318.54,
+          "h": 319.51,
+          "l": 318.2,
+          "c": 319.14,
+          "v": 104130
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_034_2020-06-22",
+      "symbol": "AAPL",
+      "date": "2020-06-22",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/034_2020-06-22_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-06-22_2020-06-23.parquet",
+      "previousDay": "2020-06-19",
+      "yesterdayHigh": 356.94,
+      "yesterdayLow": 345.14,
+      "bars": [
+        {
+          "t": 1592832600,
+          "o": 351.4,
+          "h": 353.6,
+          "l": 351.15,
+          "c": 353.45,
+          "v": 523054
+        },
+        {
+          "t": 1592832900,
+          "o": 353.5,
+          "h": 354.41,
+          "l": 352.49,
+          "c": 352.61,
+          "v": 179340
+        },
+        {
+          "t": 1592833200,
+          "o": 352.61,
+          "h": 353.39,
+          "l": 352.35,
+          "c": 353.04,
+          "v": 79857
+        },
+        {
+          "t": 1592833500,
+          "o": 352.99,
+          "h": 354.27,
+          "l": 352.68,
+          "c": 354.21,
+          "v": 138616
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_035_2020-06-23",
+      "symbol": "AAPL",
+      "date": "2020-06-23",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/035_2020-06-23_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-06-23_2020-06-24.parquet",
+      "previousDay": "2020-06-22",
+      "yesterdayHigh": 362.23,
+      "yesterdayLow": 350.0,
+      "bars": [
+        {
+          "t": 1592919000,
+          "o": 363.99,
+          "h": 364.26,
+          "l": 362.44,
+          "c": 363.03,
+          "v": 884303
+        },
+        {
+          "t": 1592919300,
+          "o": 363.03,
+          "h": 363.66,
+          "l": 362.28,
+          "c": 363.5,
+          "v": 187092
+        },
+        {
+          "t": 1592919600,
+          "o": 363.47,
+          "h": 364.5,
+          "l": 363.47,
+          "c": 364.46,
+          "v": 143437
+        },
+        {
+          "t": 1592919900,
+          "o": 364.45,
+          "h": 364.63,
+          "l": 363.93,
+          "c": 364.08,
+          "v": 131301
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_036_2020-07-17",
+      "symbol": "AAPL",
+      "date": "2020-07-17",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/036_2020-07-17_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-07-17_2020-07-18.parquet",
+      "previousDay": "2020-07-16",
+      "yesterdayHigh": 389.62,
+      "yesterdayLow": 383.02,
+      "bars": [
+        {
+          "t": 1594992600,
+          "o": 387.63,
+          "h": 388.49,
+          "l": 386.9,
+          "c": 387.57,
+          "v": 1093595
+        },
+        {
+          "t": 1594992900,
+          "o": 387.52,
+          "h": 387.88,
+          "l": 386.93,
+          "c": 387.12,
+          "v": 105555
+        },
+        {
+          "t": 1594993200,
+          "o": 387.04,
+          "h": 387.1,
+          "l": 385.54,
+          "c": 386.13,
+          "v": 141259
+        },
+        {
+          "t": 1594993500,
+          "o": 386.06,
+          "h": 386.66,
+          "l": 384.9,
+          "c": 385.4,
+          "v": 121228
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_037_2020-08-11",
+      "symbol": "AAPL",
+      "date": "2020-08-11",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/037_2020-08-11_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-08-11_2020-08-12.parquet",
+      "previousDay": "2020-08-10",
+      "yesterdayHigh": 455.1,
+      "yesterdayLow": 440.0,
+      "bars": [
+        {
+          "t": 1597152600,
+          "o": 447.7,
+          "h": 449.69,
+          "l": 444.81,
+          "c": 445.59,
+          "v": 817825
+        },
+        {
+          "t": 1597152900,
+          "o": 445.58,
+          "h": 449.68,
+          "l": 445.13,
+          "c": 449.29,
+          "v": 218813
+        },
+        {
+          "t": 1597153200,
+          "o": 449.27,
+          "h": 449.4,
+          "l": 447.8,
+          "c": 448.12,
+          "v": 131299
+        },
+        {
+          "t": 1597153500,
+          "o": 448.13,
+          "h": 449.85,
+          "l": 448.0,
+          "c": 448.92,
+          "v": 104824
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_038_2020-08-24",
+      "symbol": "AAPL",
+      "date": "2020-08-24",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/038_2020-08-24_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-08-24_2020-08-25.parquet",
+      "previousDay": "2020-08-21",
+      "yesterdayHigh": 499.47,
+      "yesterdayLow": 474.0,
+      "bars": [
+        {
+          "t": 1598275800,
+          "o": 514.78,
+          "h": 515.16,
+          "l": 510.34,
+          "c": 511.0,
+          "v": 2201966
+        },
+        {
+          "t": 1598276100,
+          "o": 511.0,
+          "h": 514.89,
+          "l": 510.94,
+          "c": 514.66,
+          "v": 506681
+        },
+        {
+          "t": 1598276400,
+          "o": 514.66,
+          "h": 514.91,
+          "l": 510.94,
+          "c": 511.28,
+          "v": 485261
+        },
+        {
+          "t": 1598276700,
+          "o": 511.37,
+          "h": 511.4,
+          "l": 507.62,
+          "c": 507.88,
+          "v": 600836
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_039_2020-09-02",
+      "symbol": "AAPL",
+      "date": "2020-09-02",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/039_2020-09-02_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-09-02_2020-09-03.parquet",
+      "previousDay": "2020-09-01",
+      "yesterdayHigh": 135.0,
+      "yesterdayLow": 130.55,
+      "bars": [
+        {
+          "t": 1599053400,
+          "o": 137.51,
+          "h": 137.98,
+          "l": 133.5,
+          "c": 135.26,
+          "v": 7812733
+        },
+        {
+          "t": 1599053700,
+          "o": 135.28,
+          "h": 135.3,
+          "l": 133.73,
+          "c": 133.79,
+          "v": 1285115
+        },
+        {
+          "t": 1599054000,
+          "o": 133.78,
+          "h": 134.88,
+          "l": 132.84,
+          "c": 134.88,
+          "v": 1335228
+        },
+        {
+          "t": 1599054300,
+          "o": 134.87,
+          "h": 135.05,
+          "l": 133.8,
+          "c": 134.06,
+          "v": 795646
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_040_2020-09-03",
+      "symbol": "AAPL",
+      "date": "2020-09-03",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/040_2020-09-03_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-09-03_2020-09-04.parquet",
+      "previousDay": "2020-09-02",
+      "yesterdayHigh": 138.55,
+      "yesterdayLow": 127.0,
+      "bars": [
+        {
+          "t": 1599139800,
+          "o": 126.94,
+          "h": 128.75,
+          "l": 126.27,
+          "c": 127.7,
+          "v": 4959918
+        },
+        {
+          "t": 1599140100,
+          "o": 127.75,
+          "h": 128.84,
+          "l": 127.42,
+          "c": 128.27,
+          "v": 754014
+        },
+        {
+          "t": 1599140400,
+          "o": 128.24,
+          "h": 128.24,
+          "l": 127.18,
+          "c": 127.75,
+          "v": 793323
+        },
+        {
+          "t": 1599140700,
+          "o": 127.75,
+          "h": 128.14,
+          "l": 127.28,
+          "c": 127.56,
+          "v": 692565
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_041_2020-09-09",
+      "symbol": "AAPL",
+      "date": "2020-09-09",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/041_2020-09-09_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-09-09_2020-09-10.parquet",
+      "previousDay": "2020-09-08",
+      "yesterdayHigh": 120.4,
+      "yesterdayLow": 110.59,
+      "bars": [
+        {
+          "t": 1599658200,
+          "o": 117.31,
+          "h": 117.75,
+          "l": 116.01,
+          "c": 116.94,
+          "v": 4127272
+        },
+        {
+          "t": 1599658500,
+          "o": 116.92,
+          "h": 116.96,
+          "l": 115.27,
+          "c": 115.6,
+          "v": 1179402
+        },
+        {
+          "t": 1599658800,
+          "o": 115.55,
+          "h": 116.64,
+          "l": 115.52,
+          "c": 116.41,
+          "v": 595182
+        },
+        {
+          "t": 1599659100,
+          "o": 116.41,
+          "h": 116.6,
+          "l": 115.65,
+          "c": 115.93,
+          "v": 704662
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_042_2020-09-14",
+      "symbol": "AAPL",
+      "date": "2020-09-14",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/042_2020-09-14_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-09-14_2020-09-15.parquet",
+      "previousDay": "2020-09-11",
+      "yesterdayHigh": 116.38,
+      "yesterdayLow": 110.03,
+      "bars": [
+        {
+          "t": 1600090200,
+          "o": 114.73,
+          "h": 114.82,
+          "l": 113.72,
+          "c": 113.78,
+          "v": 2168837
+        },
+        {
+          "t": 1600090500,
+          "o": 113.78,
+          "h": 114.36,
+          "l": 113.54,
+          "c": 114.24,
+          "v": 510964
+        },
+        {
+          "t": 1600090800,
+          "o": 114.23,
+          "h": 114.94,
+          "l": 114.16,
+          "c": 114.74,
+          "v": 568723
+        },
+        {
+          "t": 1600091100,
+          "o": 114.75,
+          "h": 115.71,
+          "l": 114.74,
+          "c": 115.47,
+          "v": 864035
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_043_2020-09-16",
+      "symbol": "AAPL",
+      "date": "2020-09-16",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/043_2020-09-16_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-09-16_2020-09-17.parquet",
+      "previousDay": "2020-09-15",
+      "yesterdayHigh": 118.87,
+      "yesterdayLow": 113.61,
+      "bars": [
+        {
+          "t": 1600263000,
+          "o": 115.17,
+          "h": 116.0,
+          "l": 114.89,
+          "c": 114.92,
+          "v": 2181957
+        },
+        {
+          "t": 1600263300,
+          "o": 114.94,
+          "h": 115.5,
+          "l": 114.86,
+          "c": 115.22,
+          "v": 458666
+        },
+        {
+          "t": 1600263600,
+          "o": 115.22,
+          "h": 115.42,
+          "l": 114.55,
+          "c": 114.6,
+          "v": 507787
+        },
+        {
+          "t": 1600263900,
+          "o": 114.6,
+          "h": 114.83,
+          "l": 114.37,
+          "c": 114.45,
+          "v": 368089
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_044_2020-09-24",
+      "symbol": "AAPL",
+      "date": "2020-09-24",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/044_2020-09-24_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-09-24_2020-09-25.parquet",
+      "previousDay": "2020-09-23",
+      "yesterdayHigh": 112.61,
+      "yesterdayLow": 105.57,
+      "bars": [
+        {
+          "t": 1600954200,
+          "o": 105.19,
+          "h": 106.66,
+          "l": 105.0,
+          "c": 105.83,
+          "v": 2669079
+        },
+        {
+          "t": 1600954500,
+          "o": 105.83,
+          "h": 107.09,
+          "l": 105.81,
+          "c": 106.58,
+          "v": 657145
+        },
+        {
+          "t": 1600954800,
+          "o": 106.585,
+          "h": 107.58,
+          "l": 106.43,
+          "c": 107.23,
+          "v": 518120
+        },
+        {
+          "t": 1600955100,
+          "o": 107.23,
+          "h": 108.48,
+          "l": 107.06,
+          "c": 108.38,
+          "v": 520193
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_045_2020-09-29",
+      "symbol": "AAPL",
+      "date": "2020-09-29",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/045_2020-09-29_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-09-29_2020-09-30.parquet",
+      "previousDay": "2020-09-28",
+      "yesterdayHigh": 115.5,
+      "yesterdayLow": 112.79,
+      "bars": [
+        {
+          "t": 1601386200,
+          "o": 114.52,
+          "h": 115.29,
+          "l": 114.41,
+          "c": 115.04,
+          "v": 1728519
+        },
+        {
+          "t": 1601386500,
+          "o": 115.05,
+          "h": 115.31,
+          "l": 114.75,
+          "c": 114.91,
+          "v": 366554
+        },
+        {
+          "t": 1601386800,
+          "o": 114.9,
+          "h": 115.03,
+          "l": 113.86,
+          "c": 114.01,
+          "v": 448578
+        },
+        {
+          "t": 1601387100,
+          "o": 114.01,
+          "h": 114.27,
+          "l": 113.95,
+          "c": 114.19,
+          "v": 253541
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_046_2020-10-05",
+      "symbol": "AAPL",
+      "date": "2020-10-05",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/046_2020-10-05_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-10-05_2020-10-06.parquet",
+      "previousDay": "2020-10-02",
+      "yesterdayHigh": 115.37,
+      "yesterdayLow": 112.23,
+      "bars": [
+        {
+          "t": 1601904600,
+          "o": 113.95,
+          "h": 114.14,
+          "l": 113.56,
+          "c": 114.12,
+          "v": 1665174
+        },
+        {
+          "t": 1601904900,
+          "o": 114.13,
+          "h": 114.29,
+          "l": 114.0,
+          "c": 114.19,
+          "v": 342439
+        },
+        {
+          "t": 1601905200,
+          "o": 114.19,
+          "h": 114.31,
+          "l": 113.975,
+          "c": 114.0,
+          "v": 318382
+        },
+        {
+          "t": 1601905500,
+          "o": 114.005,
+          "h": 114.205,
+          "l": 113.87,
+          "c": 113.99,
+          "v": 289593
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_047_2020-10-19",
+      "symbol": "AAPL",
+      "date": "2020-10-19",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/047_2020-10-19_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-10-19_2020-10-20.parquet",
+      "previousDay": "2020-10-16",
+      "yesterdayHigh": 122.09,
+      "yesterdayLow": 118.71,
+      "bars": [
+        {
+          "t": 1603114200,
+          "o": 119.96,
+          "h": 120.17,
+          "l": 119.34,
+          "c": 120.17,
+          "v": 1519034
+        },
+        {
+          "t": 1603114500,
+          "o": 120.18,
+          "h": 120.42,
+          "l": 119.71,
+          "c": 119.91,
+          "v": 329618
+        },
+        {
+          "t": 1603114800,
+          "o": 119.9,
+          "h": 120.185,
+          "l": 119.78,
+          "c": 120.15,
+          "v": 302052
+        },
+        {
+          "t": 1603115100,
+          "o": 120.15,
+          "h": 120.3,
+          "l": 119.95,
+          "c": 120.02,
+          "v": 263491
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_048_2020-11-04",
+      "symbol": "AAPL",
+      "date": "2020-11-04",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/048_2020-11-04_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-11-04_2020-11-05.parquet",
+      "previousDay": "2020-11-03",
+      "yesterdayHigh": 111.46,
+      "yesterdayLow": 108.73,
+      "bars": [
+        {
+          "t": 1604500200,
+          "o": 114.01,
+          "h": 114.47,
+          "l": 113.46,
+          "c": 113.85,
+          "v": 2473296
+        },
+        {
+          "t": 1604500500,
+          "o": 113.85,
+          "h": 114.04,
+          "l": 112.36,
+          "c": 112.75,
+          "v": 876036
+        },
+        {
+          "t": 1604500800,
+          "o": 112.75,
+          "h": 113.57,
+          "l": 112.72,
+          "c": 113.45,
+          "v": 626644
+        },
+        {
+          "t": 1604501100,
+          "o": 113.44,
+          "h": 113.57,
+          "l": 112.97,
+          "c": 113.05,
+          "v": 566809
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_049_2020-11-05",
+      "symbol": "AAPL",
+      "date": "2020-11-05",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/049_2020-11-05_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-11-05_2020-11-06.parquet",
+      "previousDay": "2020-11-04",
+      "yesterdayHigh": 116.0,
+      "yesterdayLow": 112.19,
+      "bars": [
+        {
+          "t": 1604586600,
+          "o": 117.93,
+          "h": 118.12,
+          "l": 116.87,
+          "c": 117.48,
+          "v": 2052980
+        },
+        {
+          "t": 1604586900,
+          "o": 117.47,
+          "h": 118.2,
+          "l": 117.25,
+          "c": 118.12,
+          "v": 627983
+        },
+        {
+          "t": 1604587200,
+          "o": 118.145,
+          "h": 118.6,
+          "l": 118.07,
+          "c": 118.58,
+          "v": 630416
+        },
+        {
+          "t": 1604587500,
+          "o": 118.57,
+          "h": 119.43,
+          "l": 118.55,
+          "c": 119.32,
+          "v": 868929
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_050_2020-11-09",
+      "symbol": "AAPL",
+      "date": "2020-11-09",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/050_2020-11-09_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-11-09_2020-11-10.parquet",
+      "previousDay": "2020-11-06",
+      "yesterdayHigh": 119.2,
+      "yesterdayLow": 116.13,
+      "bars": [
+        {
+          "t": 1604932200,
+          "o": 120.42,
+          "h": 121.69,
+          "l": 119.91,
+          "c": 119.91,
+          "v": 3731393
+        },
+        {
+          "t": 1604932500,
+          "o": 119.91,
+          "h": 120.23,
+          "l": 119.03,
+          "c": 119.1,
+          "v": 708114
+        },
+        {
+          "t": 1604932800,
+          "o": 119.09,
+          "h": 119.43,
+          "l": 118.48,
+          "c": 119.38,
+          "v": 684867
+        },
+        {
+          "t": 1604933100,
+          "o": 119.38,
+          "h": 120.55,
+          "l": 119.22,
+          "c": 120.25,
+          "v": 767318
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_051_2020-11-16",
+      "symbol": "AAPL",
+      "date": "2020-11-16",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/051_2020-11-16_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-11-16_2020-11-17.parquet",
+      "previousDay": "2020-11-13",
+      "yesterdayHigh": 120.12,
+      "yesterdayLow": 117.88,
+      "bars": [
+        {
+          "t": 1605537000,
+          "o": 118.85,
+          "h": 119.15,
+          "l": 118.15,
+          "c": 118.27,
+          "v": 2367776
+        },
+        {
+          "t": 1605537300,
+          "o": 118.25,
+          "h": 119.38,
+          "l": 118.19,
+          "c": 119.24,
+          "v": 486993
+        },
+        {
+          "t": 1605537600,
+          "o": 119.24,
+          "h": 119.93,
+          "l": 119.24,
+          "c": 119.92,
+          "v": 533008
+        },
+        {
+          "t": 1605537900,
+          "o": 119.93,
+          "h": 120.13,
+          "l": 119.74,
+          "c": 119.97,
+          "v": 499429
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_052_2020-12-10",
+      "symbol": "AAPL",
+      "date": "2020-12-10",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/052_2020-12-10_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2020-12-10_2020-12-11.parquet",
+      "previousDay": "2020-12-09",
+      "yesterdayHigh": 125.95,
+      "yesterdayLow": 120.88,
+      "bars": [
+        {
+          "t": 1607610600,
+          "o": 120.49,
+          "h": 121.89,
+          "l": 120.15,
+          "c": 121.22,
+          "v": 1509661
+        },
+        {
+          "t": 1607610900,
+          "o": 121.22,
+          "h": 121.67,
+          "l": 120.85,
+          "c": 121.63,
+          "v": 480383
+        },
+        {
+          "t": 1607611200,
+          "o": 121.62,
+          "h": 121.755,
+          "l": 121.275,
+          "c": 121.42,
+          "v": 371235
+        },
+        {
+          "t": 1607611500,
+          "o": 121.43,
+          "h": 121.94,
+          "l": 121.29,
+          "c": 121.93,
+          "v": 261337
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_053_2021-01-06",
+      "symbol": "AAPL",
+      "date": "2021-01-06",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/053_2021-01-06_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-01-06_2021-01-07.parquet",
+      "previousDay": "2021-01-05",
+      "yesterdayHigh": 131.74,
+      "yesterdayLow": 128.32,
+      "bars": [
+        {
+          "t": 1609943400,
+          "o": 127.72,
+          "h": 127.95,
+          "l": 126.56,
+          "c": 126.74,
+          "v": 3652385
+        },
+        {
+          "t": 1609943700,
+          "o": 126.75,
+          "h": 127.26,
+          "l": 126.64,
+          "c": 127.08,
+          "v": 753391
+        },
+        {
+          "t": 1609944000,
+          "o": 127.08,
+          "h": 127.57,
+          "l": 126.83,
+          "c": 127.44,
+          "v": 556674
+        },
+        {
+          "t": 1609944300,
+          "o": 127.45,
+          "h": 128.05,
+          "l": 127.28,
+          "c": 127.97,
+          "v": 409009
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_054_2021-02-01",
+      "symbol": "AAPL",
+      "date": "2021-02-01",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/054_2021-02-01_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-02-01_2021-02-02.parquet",
+      "previousDay": "2021-01-29",
+      "yesterdayHigh": 136.73,
+      "yesterdayLow": 130.21,
+      "bars": [
+        {
+          "t": 1612189800,
+          "o": 133.68,
+          "h": 134.73,
+          "l": 133.38,
+          "c": 134.67,
+          "v": 2526408
+        },
+        {
+          "t": 1612190100,
+          "o": 134.66,
+          "h": 134.8,
+          "l": 133.38,
+          "c": 133.62,
+          "v": 458632
+        },
+        {
+          "t": 1612190400,
+          "o": 133.63,
+          "h": 133.7,
+          "l": 132.93,
+          "c": 133.2,
+          "v": 425335
+        },
+        {
+          "t": 1612190700,
+          "o": 133.19,
+          "h": 133.23,
+          "l": 131.3,
+          "c": 131.4,
+          "v": 726915
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_055_2021-02-25",
+      "symbol": "AAPL",
+      "date": "2021-02-25",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/055_2021-02-25_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-02-25_2021-02-26.parquet",
+      "previousDay": "2021-02-24",
+      "yesterdayHigh": 127.48,
+      "yesterdayLow": 122.24,
+      "bars": [
+        {
+          "t": 1614263400,
+          "o": 124.64,
+          "h": 125.41,
+          "l": 124.22,
+          "c": 125.22,
+          "v": 1521607
+        },
+        {
+          "t": 1614263700,
+          "o": 125.23,
+          "h": 126.45,
+          "l": 125.22,
+          "c": 126.05,
+          "v": 734212
+        },
+        {
+          "t": 1614264000,
+          "o": 126.04,
+          "h": 126.1,
+          "l": 125.225,
+          "c": 125.23,
+          "v": 400588
+        },
+        {
+          "t": 1614264300,
+          "o": 125.24,
+          "h": 125.98,
+          "l": 125.2,
+          "c": 125.42,
+          "v": 286338
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_056_2021-03-01",
+      "symbol": "AAPL",
+      "date": "2021-03-01",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/056_2021-03-01_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-03-01_2021-03-02.parquet",
+      "previousDay": "2021-02-26",
+      "yesterdayHigh": 124.85,
+      "yesterdayLow": 119.74,
+      "bars": [
+        {
+          "t": 1614609000,
+          "o": 123.74,
+          "h": 124.0,
+          "l": 123.28,
+          "c": 123.28,
+          "v": 2264787
+        },
+        {
+          "t": 1614609300,
+          "o": 123.3,
+          "h": 123.5,
+          "l": 122.8,
+          "c": 123.3,
+          "v": 668558
+        },
+        {
+          "t": 1614609600,
+          "o": 123.3,
+          "h": 124.07,
+          "l": 123.3,
+          "c": 123.94,
+          "v": 442266
+        },
+        {
+          "t": 1614609900,
+          "o": 123.94,
+          "h": 124.22,
+          "l": 123.64,
+          "c": 123.75,
+          "v": 424571
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_057_2021-03-11",
+      "symbol": "AAPL",
+      "date": "2021-03-11",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/057_2021-03-11_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-03-11_2021-03-12.parquet",
+      "previousDay": "2021-03-10",
+      "yesterdayHigh": 122.17,
+      "yesterdayLow": 119.46,
+      "bars": [
+        {
+          "t": 1615473000,
+          "o": 122.31,
+          "h": 122.92,
+          "l": 121.79,
+          "c": 122.78,
+          "v": 1986531
+        },
+        {
+          "t": 1615473300,
+          "o": 122.77,
+          "h": 123.21,
+          "l": 122.51,
+          "c": 122.83,
+          "v": 703861
+        },
+        {
+          "t": 1615473600,
+          "o": 122.835,
+          "h": 123.09,
+          "l": 121.97,
+          "c": 122.01,
+          "v": 552899
+        },
+        {
+          "t": 1615473900,
+          "o": 122.0,
+          "h": 122.23,
+          "l": 121.81,
+          "c": 122.0,
+          "v": 325128
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_058_2021-03-22",
+      "symbol": "AAPL",
+      "date": "2021-03-22",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/058_2021-03-22_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-03-22_2021-03-23.parquet",
+      "previousDay": "2021-03-19",
+      "yesterdayHigh": 121.7,
+      "yesterdayLow": 119.68,
+      "bars": [
+        {
+          "t": 1616419800,
+          "o": 120.31,
+          "h": 121.66,
+          "l": 120.26,
+          "c": 121.6,
+          "v": 1895479
+        },
+        {
+          "t": 1616420100,
+          "o": 121.63,
+          "h": 121.78,
+          "l": 121.22,
+          "c": 121.53,
+          "v": 410338
+        },
+        {
+          "t": 1616420400,
+          "o": 121.55,
+          "h": 121.6,
+          "l": 121.09,
+          "c": 121.17,
+          "v": 345959
+        },
+        {
+          "t": 1616420700,
+          "o": 121.19,
+          "h": 121.47,
+          "l": 121.08,
+          "c": 121.46,
+          "v": 271189
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_059_2021-03-31",
+      "symbol": "AAPL",
+      "date": "2021-03-31",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/059_2021-03-31_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-03-31_2021-04-01.parquet",
+      "previousDay": "2021-03-30",
+      "yesterdayHigh": 120.83,
+      "yesterdayLow": 118.87,
+      "bars": [
+        {
+          "t": 1617197400,
+          "o": 121.63,
+          "h": 121.75,
+          "l": 121.16,
+          "c": 121.57,
+          "v": 1421502
+        },
+        {
+          "t": 1617197700,
+          "o": 121.56,
+          "h": 122.09,
+          "l": 121.505,
+          "c": 122.075,
+          "v": 592527
+        },
+        {
+          "t": 1617198000,
+          "o": 122.075,
+          "h": 122.41,
+          "l": 122.07,
+          "c": 122.1,
+          "v": 518563
+        },
+        {
+          "t": 1617198300,
+          "o": 122.11,
+          "h": 122.65,
+          "l": 122.11,
+          "c": 122.56,
+          "v": 498415
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_060_2021-05-10",
+      "symbol": "AAPL",
+      "date": "2021-05-10",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/060_2021-05-10_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-05-10_2021-05-11.parquet",
+      "previousDay": "2021-05-07",
+      "yesterdayHigh": 131.99,
+      "yesterdayLow": 129.34,
+      "bars": [
+        {
+          "t": 1620653400,
+          "o": 129.41,
+          "h": 129.55,
+          "l": 128.47,
+          "c": 128.6,
+          "v": 1512996
+        },
+        {
+          "t": 1620653700,
+          "o": 128.61,
+          "h": 128.79,
+          "l": 128.355,
+          "c": 128.56,
+          "v": 269270
+        },
+        {
+          "t": 1620654000,
+          "o": 128.56,
+          "h": 128.73,
+          "l": 128.28,
+          "c": 128.715,
+          "v": 224412
+        },
+        {
+          "t": 1620654300,
+          "o": 128.715,
+          "h": 128.935,
+          "l": 128.61,
+          "c": 128.7,
+          "v": 244992
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_061_2021-06-03",
+      "symbol": "AAPL",
+      "date": "2021-06-03",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/061_2021-06-03_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-06-03_2021-06-04.parquet",
+      "previousDay": "2021-06-02",
+      "yesterdayHigh": 125.23,
+      "yesterdayLow": 123.99,
+      "bars": [
+        {
+          "t": 1622727000,
+          "o": 124.66,
+          "h": 124.85,
+          "l": 124.08,
+          "c": 124.12,
+          "v": 1288464
+        },
+        {
+          "t": 1622727300,
+          "o": 124.12,
+          "h": 124.125,
+          "l": 123.67,
+          "c": 123.74,
+          "v": 391152
+        },
+        {
+          "t": 1622727600,
+          "o": 123.74,
+          "h": 123.745,
+          "l": 123.52,
+          "c": 123.53,
+          "v": 246006
+        },
+        {
+          "t": 1622727900,
+          "o": 123.53,
+          "h": 123.68,
+          "l": 123.295,
+          "c": 123.34,
+          "v": 302012
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_062_2021-06-28",
+      "symbol": "AAPL",
+      "date": "2021-06-28",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/062_2021-06-28_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-06-28_2021-06-29.parquet",
+      "previousDay": "2021-06-25",
+      "yesterdayHigh": 133.885,
+      "yesterdayLow": 132.8,
+      "bars": [
+        {
+          "t": 1624887000,
+          "o": 133.42,
+          "h": 134.2,
+          "l": 133.35,
+          "c": 134.06,
+          "v": 1217554
+        },
+        {
+          "t": 1624887300,
+          "o": 134.08,
+          "h": 134.3,
+          "l": 134.02,
+          "c": 134.23,
+          "v": 271760
+        },
+        {
+          "t": 1624887600,
+          "o": 134.24,
+          "h": 134.43,
+          "l": 134.175,
+          "c": 134.4,
+          "v": 281065
+        },
+        {
+          "t": 1624887900,
+          "o": 134.39,
+          "h": 135.0,
+          "l": 134.39,
+          "c": 135.0,
+          "v": 582683
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_063_2021-08-16",
+      "symbol": "AAPL",
+      "date": "2021-08-16",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/063_2021-08-16_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-08-16_2021-08-17.parquet",
+      "previousDay": "2021-08-13",
+      "yesterdayHigh": 149.44,
+      "yesterdayLow": 148.27,
+      "bars": [
+        {
+          "t": 1629120600,
+          "o": 148.57,
+          "h": 149.56,
+          "l": 148.55,
+          "c": 149.56,
+          "v": 1286056
+        },
+        {
+          "t": 1629120900,
+          "o": 149.56,
+          "h": 150.28,
+          "l": 149.42,
+          "c": 150.21,
+          "v": 1879938
+        },
+        {
+          "t": 1629121200,
+          "o": 150.23,
+          "h": 150.59,
+          "l": 150.0,
+          "c": 150.25,
+          "v": 596099
+        },
+        {
+          "t": 1629121500,
+          "o": 150.24,
+          "h": 150.47,
+          "l": 149.64,
+          "c": 149.97,
+          "v": 574041
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_064_2021-09-09",
+      "symbol": "AAPL",
+      "date": "2021-09-09",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/064_2021-09-09_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-09-09_2021-09-10.parquet",
+      "previousDay": "2021-09-08",
+      "yesterdayHigh": 157.19,
+      "yesterdayLow": 153.975,
+      "bars": [
+        {
+          "t": 1631194200,
+          "o": 155.5,
+          "h": 156.1,
+          "l": 155.4,
+          "c": 156.05,
+          "v": 970970
+        },
+        {
+          "t": 1631194500,
+          "o": 156.04,
+          "h": 156.11,
+          "l": 155.36,
+          "c": 155.4,
+          "v": 366039
+        },
+        {
+          "t": 1631194800,
+          "o": 155.42,
+          "h": 155.5,
+          "l": 154.84,
+          "c": 155.07,
+          "v": 332831
+        },
+        {
+          "t": 1631195100,
+          "o": 155.07,
+          "h": 155.08,
+          "l": 154.72,
+          "c": 155.07,
+          "v": 297464
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_065_2021-10-04",
+      "symbol": "AAPL",
+      "date": "2021-10-04",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/065_2021-10-04_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-10-04_2021-10-05.parquet",
+      "previousDay": "2021-10-01",
+      "yesterdayHigh": 142.92,
+      "yesterdayLow": 139.12,
+      "bars": [
+        {
+          "t": 1633354200,
+          "o": 141.71,
+          "h": 142.21,
+          "l": 141.16,
+          "c": 141.27,
+          "v": 905656
+        },
+        {
+          "t": 1633354500,
+          "o": 141.28,
+          "h": 141.37,
+          "l": 140.95,
+          "c": 141.23,
+          "v": 258764
+        },
+        {
+          "t": 1633354800,
+          "o": 141.22,
+          "h": 141.27,
+          "l": 140.72,
+          "c": 140.79,
+          "v": 205355
+        },
+        {
+          "t": 1633355100,
+          "o": 140.785,
+          "h": 140.82,
+          "l": 140.43,
+          "c": 140.43,
+          "v": 252653
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_066_2021-11-19",
+      "symbol": "AAPL",
+      "date": "2021-11-19",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/066_2021-11-19_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-11-19_2021-11-20.parquet",
+      "previousDay": "2021-11-18",
+      "yesterdayHigh": 158.67,
+      "yesterdayLow": 153.055,
+      "bars": [
+        {
+          "t": 1637332200,
+          "o": 157.64,
+          "h": 157.87,
+          "l": 156.53,
+          "c": 157.11,
+          "v": 4857450
+        },
+        {
+          "t": 1637332500,
+          "o": 157.12,
+          "h": 158.23,
+          "l": 157.08,
+          "c": 158.22,
+          "v": 456680
+        },
+        {
+          "t": 1637332800,
+          "o": 158.23,
+          "h": 158.26,
+          "l": 157.57,
+          "c": 157.9,
+          "v": 291568
+        },
+        {
+          "t": 1637333100,
+          "o": 157.91,
+          "h": 158.09,
+          "l": 157.35,
+          "c": 157.8,
+          "v": 248071
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_067_2021-12-06",
+      "symbol": "AAPL",
+      "date": "2021-12-06",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/067_2021-12-06_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-12-06_2021-12-07.parquet",
+      "previousDay": "2021-12-03",
+      "yesterdayHigh": 165.4,
+      "yesterdayLow": 159.72,
+      "bars": [
+        {
+          "t": 1638801000,
+          "o": 164.32,
+          "h": 165.63,
+          "l": 164.28,
+          "c": 165.18,
+          "v": 1638873
+        },
+        {
+          "t": 1638801300,
+          "o": 165.18,
+          "h": 165.44,
+          "l": 164.37,
+          "c": 165.43,
+          "v": 546293
+        },
+        {
+          "t": 1638801600,
+          "o": 165.43,
+          "h": 167.1,
+          "l": 165.095,
+          "c": 166.68,
+          "v": 771613
+        },
+        {
+          "t": 1638801900,
+          "o": 166.68,
+          "h": 166.93,
+          "l": 166.05,
+          "c": 166.87,
+          "v": 379440
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_068_2021-12-07",
+      "symbol": "AAPL",
+      "date": "2021-12-07",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/068_2021-12-07_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-12-07_2021-12-08.parquet",
+      "previousDay": "2021-12-06",
+      "yesterdayHigh": 167.87,
+      "yesterdayLow": 161.85,
+      "bars": [
+        {
+          "t": 1638887400,
+          "o": 169.06,
+          "h": 169.47,
+          "l": 168.33,
+          "c": 169.23,
+          "v": 1683807
+        },
+        {
+          "t": 1638887700,
+          "o": 169.21,
+          "h": 169.76,
+          "l": 168.82,
+          "c": 169.55,
+          "v": 433492
+        },
+        {
+          "t": 1638888000,
+          "o": 169.56,
+          "h": 170.25,
+          "l": 169.27,
+          "c": 170.24,
+          "v": 665052
+        },
+        {
+          "t": 1638888300,
+          "o": 170.25,
+          "h": 170.78,
+          "l": 170.25,
+          "c": 170.51,
+          "v": 646016
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_069_2021-12-15",
+      "symbol": "AAPL",
+      "date": "2021-12-15",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/069_2021-12-15_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2021-12-15_2021-12-16.parquet",
+      "previousDay": "2021-12-14",
+      "yesterdayHigh": 177.85,
+      "yesterdayLow": 172.21,
+      "bars": [
+        {
+          "t": 1639578600,
+          "o": 175.2,
+          "h": 175.85,
+          "l": 174.1,
+          "c": 175.02,
+          "v": 1229316
+        },
+        {
+          "t": 1639578900,
+          "o": 175.02,
+          "h": 175.7,
+          "l": 174.675,
+          "c": 175.13,
+          "v": 343738
+        },
+        {
+          "t": 1639579200,
+          "o": 175.14,
+          "h": 175.46,
+          "l": 174.86,
+          "c": 174.93,
+          "v": 268076
+        },
+        {
+          "t": 1639579500,
+          "o": 174.91,
+          "h": 175.02,
+          "l": 173.56,
+          "c": 173.57,
+          "v": 288794
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_070_2022-01-10",
+      "symbol": "AAPL",
+      "date": "2022-01-10",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/070_2022-01-10_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-01-10_2022-01-11.parquet",
+      "previousDay": "2022-01-07",
+      "yesterdayHigh": 174.13,
+      "yesterdayLow": 171.03,
+      "bars": [
+        {
+          "t": 1641825000,
+          "o": 169.06,
+          "h": 171.75,
+          "l": 168.75,
+          "c": 169.95,
+          "v": 2652025
+        },
+        {
+          "t": 1641825300,
+          "o": 169.97,
+          "h": 170.16,
+          "l": 169.4,
+          "c": 169.87,
+          "v": 590214
+        },
+        {
+          "t": 1641825600,
+          "o": 169.835,
+          "h": 170.54,
+          "l": 169.63,
+          "c": 170.33,
+          "v": 471857
+        },
+        {
+          "t": 1641825900,
+          "o": 170.32,
+          "h": 170.9,
+          "l": 170.12,
+          "c": 170.83,
+          "v": 396676
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_071_2022-01-26",
+      "symbol": "AAPL",
+      "date": "2022-01-26",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/071_2022-01-26_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-01-26_2022-01-27.parquet",
+      "previousDay": "2022-01-25",
+      "yesterdayHigh": 162.76,
+      "yesterdayLow": 157.01,
+      "bars": [
+        {
+          "t": 1643207400,
+          "o": 163.44,
+          "h": 163.65,
+          "l": 162.31,
+          "c": 162.76,
+          "v": 1625810
+        },
+        {
+          "t": 1643207700,
+          "o": 162.76,
+          "h": 163.24,
+          "l": 162.32,
+          "c": 163.16,
+          "v": 400589
+        },
+        {
+          "t": 1643208000,
+          "o": 163.17,
+          "h": 163.2,
+          "l": 161.75,
+          "c": 161.93,
+          "v": 408595
+        },
+        {
+          "t": 1643208300,
+          "o": 161.95,
+          "h": 162.17,
+          "l": 161.6,
+          "c": 161.97,
+          "v": 382236
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_072_2022-02-15",
+      "symbol": "AAPL",
+      "date": "2022-02-15",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/072_2022-02-15_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-02-15_2022-02-16.parquet",
+      "previousDay": "2022-02-14",
+      "yesterdayHigh": 169.57,
+      "yesterdayLow": 165.25,
+      "bars": [
+        {
+          "t": 1644935400,
+          "o": 170.99,
+          "h": 171.05,
+          "l": 170.25,
+          "c": 170.72,
+          "v": 1208456
+        },
+        {
+          "t": 1644935700,
+          "o": 170.735,
+          "h": 171.15,
+          "l": 170.55,
+          "c": 170.94,
+          "v": 319700
+        },
+        {
+          "t": 1644936000,
+          "o": 170.89,
+          "h": 171.35,
+          "l": 170.71,
+          "c": 171.19,
+          "v": 257594
+        },
+        {
+          "t": 1644936300,
+          "o": 171.2,
+          "h": 171.45,
+          "l": 171.0,
+          "c": 171.03,
+          "v": 230119
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_073_2022-03-01",
+      "symbol": "AAPL",
+      "date": "2022-03-01",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/073_2022-03-01_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-03-01_2022-03-02.parquet",
+      "previousDay": "2022-02-28",
+      "yesterdayHigh": 165.41,
+      "yesterdayLow": 161.74,
+      "bars": [
+        {
+          "t": 1646145000,
+          "o": 164.65,
+          "h": 165.81,
+          "l": 164.56,
+          "c": 165.79,
+          "v": 1496302
+        },
+        {
+          "t": 1646145300,
+          "o": 165.8,
+          "h": 166.5,
+          "l": 165.58,
+          "c": 166.255,
+          "v": 547730
+        },
+        {
+          "t": 1646145600,
+          "o": 166.25,
+          "h": 166.4,
+          "l": 165.62,
+          "c": 165.78,
+          "v": 262481
+        },
+        {
+          "t": 1646145900,
+          "o": 165.79,
+          "h": 166.41,
+          "l": 165.57,
+          "c": 166.36,
+          "v": 245821
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_074_2022-03-09",
+      "symbol": "AAPL",
+      "date": "2022-03-09",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/074_2022-03-09_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-03-09_2022-03-10.parquet",
+      "previousDay": "2022-03-08",
+      "yesterdayHigh": 162.87,
+      "yesterdayLow": 155.8,
+      "bars": [
+        {
+          "t": 1646836200,
+          "o": 161.45,
+          "h": 161.62,
+          "l": 159.7,
+          "c": 159.79,
+          "v": 1576969
+        },
+        {
+          "t": 1646836500,
+          "o": 159.81,
+          "h": 160.3,
+          "l": 159.49,
+          "c": 160.3,
+          "v": 345702
+        },
+        {
+          "t": 1646836800,
+          "o": 160.34,
+          "h": 160.85,
+          "l": 160.1,
+          "c": 160.21,
+          "v": 495543
+        },
+        {
+          "t": 1646837100,
+          "o": 160.2,
+          "h": 160.52,
+          "l": 159.48,
+          "c": 159.9,
+          "v": 433969
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_075_2022-03-24",
+      "symbol": "AAPL",
+      "date": "2022-03-24",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/075_2022-03-24_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-03-24_2022-03-25.parquet",
+      "previousDay": "2022-03-23",
+      "yesterdayHigh": 172.64,
+      "yesterdayLow": 167.62,
+      "bars": [
+        {
+          "t": 1648128600,
+          "o": 171.2,
+          "h": 171.41,
+          "l": 170.72,
+          "c": 171.19,
+          "v": 897957
+        },
+        {
+          "t": 1648128900,
+          "o": 171.19,
+          "h": 172.115,
+          "l": 171.17,
+          "c": 172.05,
+          "v": 341501
+        },
+        {
+          "t": 1648129200,
+          "o": 172.04,
+          "h": 172.34,
+          "l": 171.74,
+          "c": 171.87,
+          "v": 294487
+        },
+        {
+          "t": 1648129500,
+          "o": 171.87,
+          "h": 172.13,
+          "l": 171.57,
+          "c": 171.57,
+          "v": 291934
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_076_2022-04-19",
+      "symbol": "AAPL",
+      "date": "2022-04-19",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/076_2022-04-19_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-04-19_2022-04-20.parquet",
+      "previousDay": "2022-04-18",
+      "yesterdayHigh": 166.59,
+      "yesterdayLow": 163.43,
+      "bars": [
+        {
+          "t": 1650375000,
+          "o": 165.0,
+          "h": 165.12,
+          "l": 164.32,
+          "c": 164.47,
+          "v": 1028866
+        },
+        {
+          "t": 1650375300,
+          "o": 164.46,
+          "h": 164.74,
+          "l": 163.91,
+          "c": 163.99,
+          "v": 349086
+        },
+        {
+          "t": 1650375600,
+          "o": 164.01,
+          "h": 164.68,
+          "l": 163.92,
+          "c": 164.37,
+          "v": 217735
+        },
+        {
+          "t": 1650375900,
+          "o": 164.36,
+          "h": 164.73,
+          "l": 164.12,
+          "c": 164.58,
+          "v": 175951
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_077_2022-05-12",
+      "symbol": "AAPL",
+      "date": "2022-05-12",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/077_2022-05-12_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-05-12_2022-05-13.parquet",
+      "previousDay": "2022-05-11",
+      "yesterdayHigh": 156.78,
+      "yesterdayLow": 145.81,
+      "bars": [
+        {
+          "t": 1652362200,
+          "o": 142.76,
+          "h": 144.12,
+          "l": 141.7,
+          "c": 141.71,
+          "v": 3603135
+        },
+        {
+          "t": 1652362500,
+          "o": 141.69,
+          "h": 142.22,
+          "l": 140.36,
+          "c": 140.62,
+          "v": 906875
+        },
+        {
+          "t": 1652362800,
+          "o": 140.64,
+          "h": 142.05,
+          "l": 140.27,
+          "c": 141.96,
+          "v": 972823
+        },
+        {
+          "t": 1652363100,
+          "o": 141.94,
+          "h": 143.66,
+          "l": 141.51,
+          "c": 142.13,
+          "v": 735533
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_078_2022-06-06",
+      "symbol": "AAPL",
+      "date": "2022-06-06",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/078_2022-06-06_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-06-06_2022-06-07.parquet",
+      "previousDay": "2022-06-03",
+      "yesterdayHigh": 150.46,
+      "yesterdayLow": 144.465,
+      "bars": [
+        {
+          "t": 1654522200,
+          "o": 146.96,
+          "h": 148.12,
+          "l": 146.96,
+          "c": 147.87,
+          "v": 1001485
+        },
+        {
+          "t": 1654522500,
+          "o": 147.86,
+          "h": 148.02,
+          "l": 147.375,
+          "c": 147.71,
+          "v": 239814
+        },
+        {
+          "t": 1654522800,
+          "o": 147.69,
+          "h": 148.31,
+          "l": 147.58,
+          "c": 148.02,
+          "v": 305430
+        },
+        {
+          "t": 1654523100,
+          "o": 148.03,
+          "h": 148.09,
+          "l": 147.15,
+          "c": 147.4,
+          "v": 197222
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_079_2022-06-21",
+      "symbol": "AAPL",
+      "date": "2022-06-21",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/079_2022-06-21_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-06-21_2022-06-22.parquet",
+      "previousDay": "2022-06-17",
+      "yesterdayHigh": 133.07,
+      "yesterdayLow": 129.76,
+      "bars": [
+        {
+          "t": 1655818200,
+          "o": 133.43,
+          "h": 135.14,
+          "l": 133.33,
+          "c": 135.04,
+          "v": 1843228
+        },
+        {
+          "t": 1655818500,
+          "o": 135.05,
+          "h": 136.08,
+          "l": 135.05,
+          "c": 135.98,
+          "v": 553753
+        },
+        {
+          "t": 1655818800,
+          "o": 135.99,
+          "h": 136.28,
+          "l": 135.76,
+          "c": 135.88,
+          "v": 292823
+        },
+        {
+          "t": 1655819100,
+          "o": 135.9,
+          "h": 135.98,
+          "l": 135.51,
+          "c": 135.81,
+          "v": 232291
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_080_2022-07-18",
+      "symbol": "AAPL",
+      "date": "2022-07-18",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/080_2022-07-18_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-07-18_2022-07-19.parquet",
+      "previousDay": "2022-07-15",
+      "yesterdayHigh": 150.86,
+      "yesterdayLow": 148.0,
+      "bars": [
+        {
+          "t": 1658151000,
+          "o": 150.74,
+          "h": 151.32,
+          "l": 150.26,
+          "c": 150.82,
+          "v": 1073289
+        },
+        {
+          "t": 1658151300,
+          "o": 150.81,
+          "h": 151.12,
+          "l": 150.3,
+          "c": 150.63,
+          "v": 291639
+        },
+        {
+          "t": 1658151600,
+          "o": 150.63,
+          "h": 150.86,
+          "l": 150.44,
+          "c": 150.85,
+          "v": 316629
+        },
+        {
+          "t": 1658151900,
+          "o": 150.84,
+          "h": 151.375,
+          "l": 150.77,
+          "c": 151.16,
+          "v": 261822
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_081_2022-10-04",
+      "symbol": "AAPL",
+      "date": "2022-10-04",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/081_2022-10-04_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-10-04_2022-10-05.parquet",
+      "previousDay": "2022-10-03",
+      "yesterdayHigh": 143.07,
+      "yesterdayLow": 136.4,
+      "bars": [
+        {
+          "t": 1664890200,
+          "o": 145.09,
+          "h": 145.34,
+          "l": 144.5,
+          "c": 144.75,
+          "v": 1493515
+        },
+        {
+          "t": 1664890500,
+          "o": 144.76,
+          "h": 145.33,
+          "l": 144.7,
+          "c": 145.27,
+          "v": 484032
+        },
+        {
+          "t": 1664890800,
+          "o": 145.27,
+          "h": 145.31,
+          "l": 144.72,
+          "c": 144.73,
+          "v": 377907
+        },
+        {
+          "t": 1664891100,
+          "o": 144.725,
+          "h": 145.31,
+          "l": 144.515,
+          "c": 145.21,
+          "v": 337414
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_082_2022-10-17",
+      "symbol": "AAPL",
+      "date": "2022-10-17",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/082_2022-10-17_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-10-17_2022-10-18.parquet",
+      "previousDay": "2022-10-14",
+      "yesterdayHigh": 144.66,
+      "yesterdayLow": 138.0,
+      "bars": [
+        {
+          "t": 1666013400,
+          "o": 141.11,
+          "h": 141.88,
+          "l": 140.83,
+          "c": 141.68,
+          "v": 1713648
+        },
+        {
+          "t": 1666013700,
+          "o": 141.68,
+          "h": 142.16,
+          "l": 141.51,
+          "c": 141.78,
+          "v": 380434
+        },
+        {
+          "t": 1666014000,
+          "o": 141.78,
+          "h": 142.6,
+          "l": 141.76,
+          "c": 142.51,
+          "v": 579030
+        },
+        {
+          "t": 1666014300,
+          "o": 142.505,
+          "h": 142.59,
+          "l": 142.02,
+          "c": 142.53,
+          "v": 390238
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_083_2022-10-18",
+      "symbol": "AAPL",
+      "date": "2022-10-18",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/083_2022-10-18_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2022-10-18_2022-10-19.parquet",
+      "previousDay": "2022-10-17",
+      "yesterdayHigh": 143.49,
+      "yesterdayLow": 139.59,
+      "bars": [
+        {
+          "t": 1666099800,
+          "o": 145.34,
+          "h": 146.7,
+          "l": 145.34,
+          "c": 146.25,
+          "v": 1427265
+        },
+        {
+          "t": 1666100100,
+          "o": 146.25,
+          "h": 146.45,
+          "l": 145.71,
+          "c": 145.89,
+          "v": 400910
+        },
+        {
+          "t": 1666100400,
+          "o": 145.89,
+          "h": 146.56,
+          "l": 145.67,
+          "c": 146.36,
+          "v": 321665
+        },
+        {
+          "t": 1666100700,
+          "o": 146.35,
+          "h": 146.4,
+          "l": 145.83,
+          "c": 146.25,
+          "v": 270394
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_084_2023-01-04",
+      "symbol": "AAPL",
+      "date": "2023-01-04",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/084_2023-01-04_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2023-01-04_2023-01-05.parquet",
+      "previousDay": "2023-01-03",
+      "yesterdayHigh": 131.46,
+      "yesterdayLow": 124.18,
+      "bars": [
+        {
+          "t": 1672842600,
+          "o": 126.84,
+          "h": 127.19,
+          "l": 126.25,
+          "c": 126.71,
+          "v": 1602562
+        },
+        {
+          "t": 1672842900,
+          "o": 126.75,
+          "h": 127.55,
+          "l": 126.58,
+          "c": 126.735,
+          "v": 435412
+        },
+        {
+          "t": 1672843200,
+          "o": 126.735,
+          "h": 127.34,
+          "l": 126.14,
+          "c": 126.16,
+          "v": 263549
+        },
+        {
+          "t": 1672843500,
+          "o": 126.165,
+          "h": 126.66,
+          "l": 126.07,
+          "c": 126.32,
+          "v": 265697
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_085_2023-03-13",
+      "symbol": "AAPL",
+      "date": "2023-03-13",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/085_2023-03-13_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2023-03-13_2023-03-14.parquet",
+      "previousDay": "2023-03-10",
+      "yesterdayHigh": 152.01,
+      "yesterdayLow": 147.61,
+      "bars": [
+        {
+          "t": 1678714200,
+          "o": 147.76,
+          "h": 149.76,
+          "l": 147.74,
+          "c": 149.18,
+          "v": 1262634
+        },
+        {
+          "t": 1678714500,
+          "o": 149.19,
+          "h": 149.23,
+          "l": 148.13,
+          "c": 148.73,
+          "v": 317544
+        },
+        {
+          "t": 1678714800,
+          "o": 148.72,
+          "h": 149.01,
+          "l": 148.43,
+          "c": 148.75,
+          "v": 288763
+        },
+        {
+          "t": 1678715100,
+          "o": 148.75,
+          "h": 150.3,
+          "l": 148.57,
+          "c": 150.025,
+          "v": 425491
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_086_2023-10-02",
+      "symbol": "AAPL",
+      "date": "2023-10-02",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/086_2023-10-02_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2023-10-02_2023-10-03.parquet",
+      "previousDay": "2023-09-29",
+      "yesterdayHigh": 173.07,
+      "yesterdayLow": 170.35,
+      "bars": [
+        {
+          "t": 1696253400,
+          "o": 171.28,
+          "h": 173.07,
+          "l": 171.0,
+          "c": 173.01,
+          "v": 844946
+        },
+        {
+          "t": 1696253700,
+          "o": 173.02,
+          "h": 173.19,
+          "l": 172.8,
+          "c": 173.04,
+          "v": 178910
+        },
+        {
+          "t": 1696254000,
+          "o": 173.05,
+          "h": 173.21,
+          "l": 172.85,
+          "c": 173.19,
+          "v": 136985
+        },
+        {
+          "t": 1696254300,
+          "o": 173.17,
+          "h": 173.25,
+          "l": 172.87,
+          "c": 173.02,
+          "v": 107669
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_087_2024-03-06",
+      "symbol": "AAPL",
+      "date": "2024-03-06",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/087_2024-03-06_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2024-03-06_2024-03-07.parquet",
+      "previousDay": "2024-03-05",
+      "yesterdayHigh": 174.21,
+      "yesterdayLow": 169.63,
+      "bars": [
+        {
+          "t": 1709735400,
+          "o": 171.09,
+          "h": 171.24,
+          "l": 169.81,
+          "c": 169.89,
+          "v": 2177675
+        },
+        {
+          "t": 1709735700,
+          "o": 169.88,
+          "h": 170.27,
+          "l": 169.83,
+          "c": 169.95,
+          "v": 373313
+        },
+        {
+          "t": 1709736000,
+          "o": 169.95,
+          "h": 170.09,
+          "l": 169.58,
+          "c": 169.82,
+          "v": 306992
+        },
+        {
+          "t": 1709736300,
+          "o": 169.83,
+          "h": 169.97,
+          "l": 169.49,
+          "c": 169.51,
+          "v": 292284
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_088_2024-03-19",
+      "symbol": "AAPL",
+      "date": "2024-03-19",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/088_2024-03-19_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2024-03-19_2024-03-20.parquet",
+      "previousDay": "2024-03-18",
+      "yesterdayHigh": 177.7,
+      "yesterdayLow": 172.42,
+      "bars": [
+        {
+          "t": 1710855000,
+          "o": 174.35,
+          "h": 174.36,
+          "l": 173.39,
+          "c": 173.48,
+          "v": 968738
+        },
+        {
+          "t": 1710855300,
+          "o": 173.48,
+          "h": 173.8,
+          "l": 173.13,
+          "c": 173.2,
+          "v": 338693
+        },
+        {
+          "t": 1710855600,
+          "o": 173.2,
+          "h": 173.41,
+          "l": 173.12,
+          "c": 173.15,
+          "v": 271854
+        },
+        {
+          "t": 1710855900,
+          "o": 173.155,
+          "h": 173.83,
+          "l": 173.03,
+          "c": 173.77,
+          "v": 354696
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_089_2024-04-29",
+      "symbol": "AAPL",
+      "date": "2024-04-29",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/089_2024-04-29_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2024-04-29_2024-04-30.parquet",
+      "previousDay": "2024-04-26",
+      "yesterdayHigh": 171.34,
+      "yesterdayLow": 169.14,
+      "bars": [
+        {
+          "t": 1714397400,
+          "o": 173.33,
+          "h": 174.65,
+          "l": 173.15,
+          "c": 174.6,
+          "v": 1900407
+        },
+        {
+          "t": 1714397700,
+          "o": 174.6,
+          "h": 175.44,
+          "l": 174.45,
+          "c": 175.3,
+          "v": 949660
+        },
+        {
+          "t": 1714398000,
+          "o": 175.31,
+          "h": 175.81,
+          "l": 175.06,
+          "c": 175.53,
+          "v": 526896
+        },
+        {
+          "t": 1714398300,
+          "o": 175.54,
+          "h": 176.03,
+          "l": 175.49,
+          "c": 175.8,
+          "v": 546670
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_090_2024-08-07",
+      "symbol": "AAPL",
+      "date": "2024-08-07",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/090_2024-08-07_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2024-08-07_2024-08-08.parquet",
+      "previousDay": "2024-08-06",
+      "yesterdayHigh": 211.31,
+      "yesterdayLow": 201.07,
+      "bars": [
+        {
+          "t": 1723037400,
+          "o": 206.94,
+          "h": 209.76,
+          "l": 206.42,
+          "c": 209.71,
+          "v": 1094032
+        },
+        {
+          "t": 1723037700,
+          "o": 209.75,
+          "h": 211.49,
+          "l": 209.4,
+          "c": 211.13,
+          "v": 344061
+        },
+        {
+          "t": 1723038000,
+          "o": 211.15,
+          "h": 211.64,
+          "l": 210.55,
+          "c": 211.4,
+          "v": 244629
+        },
+        {
+          "t": 1723038300,
+          "o": 211.42,
+          "h": 212.14,
+          "l": 210.93,
+          "c": 212.0,
+          "v": 246545
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_091_2024-09-09",
+      "symbol": "AAPL",
+      "date": "2024-09-09",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/091_2024-09-09_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2024-09-09_2024-09-10.parquet",
+      "previousDay": "2024-09-06",
+      "yesterdayHigh": 225.24,
+      "yesterdayLow": 219.0,
+      "bars": [
+        {
+          "t": 1725888600,
+          "o": 220.83,
+          "h": 221.28,
+          "l": 219.9,
+          "c": 220.61,
+          "v": 928681
+        },
+        {
+          "t": 1725888900,
+          "o": 220.63,
+          "h": 220.76,
+          "l": 219.04,
+          "c": 219.04,
+          "v": 371370
+        },
+        {
+          "t": 1725889200,
+          "o": 219.05,
+          "h": 219.08,
+          "l": 217.82,
+          "c": 218.04,
+          "v": 421667
+        },
+        {
+          "t": 1725889500,
+          "o": 218.04,
+          "h": 219.07,
+          "l": 217.84,
+          "c": 218.89,
+          "v": 304602
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_092_2024-11-06",
+      "symbol": "AAPL",
+      "date": "2024-11-06",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/092_2024-11-06_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2024-11-06_2024-11-07.parquet",
+      "previousDay": "2024-11-05",
+      "yesterdayHigh": 223.95,
+      "yesterdayLow": 221.05,
+      "bars": [
+        {
+          "t": 1730903400,
+          "o": 222.59,
+          "h": 225.22,
+          "l": 221.19,
+          "c": 225.19,
+          "v": 1541193
+        },
+        {
+          "t": 1730903700,
+          "o": 225.19,
+          "h": 225.63,
+          "l": 224.54,
+          "c": 224.65,
+          "v": 375910
+        },
+        {
+          "t": 1730904000,
+          "o": 224.65,
+          "h": 224.71,
+          "l": 223.67,
+          "c": 223.74,
+          "v": 285779
+        },
+        {
+          "t": 1730904300,
+          "o": 223.74,
+          "h": 223.86,
+          "l": 223.09,
+          "c": 223.43,
+          "v": 251248
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_093_2025-01-16",
+      "symbol": "AAPL",
+      "date": "2025-01-16",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/093_2025-01-16_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2025-01-16_2025-01-17.parquet",
+      "previousDay": "2025-01-15",
+      "yesterdayHigh": 238.55,
+      "yesterdayLow": 233.4,
+      "bars": [
+        {
+          "t": 1737037800,
+          "o": 237.32,
+          "h": 238.01,
+          "l": 235.94,
+          "c": 236.25,
+          "v": 1086371
+        },
+        {
+          "t": 1737038100,
+          "o": 236.28,
+          "h": 237.0,
+          "l": 236.19,
+          "c": 236.55,
+          "v": 216096
+        },
+        {
+          "t": 1737038400,
+          "o": 236.56,
+          "h": 236.71,
+          "l": 236.09,
+          "c": 236.25,
+          "v": 164027
+        },
+        {
+          "t": 1737038700,
+          "o": 236.23,
+          "h": 236.28,
+          "l": 235.52,
+          "c": 235.68,
+          "v": 190625
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_094_2025-04-03",
+      "symbol": "AAPL",
+      "date": "2025-04-03",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/094_2025-04-03_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2025-04-03_2025-04-04.parquet",
+      "previousDay": "2025-04-02",
+      "yesterdayHigh": 225.52,
+      "yesterdayLow": 206.2,
+      "bars": [
+        {
+          "t": 1743687000,
+          "o": 205.53,
+          "h": 207.48,
+          "l": 204.58,
+          "c": 206.91,
+          "v": 3136977
+        },
+        {
+          "t": 1743687300,
+          "o": 206.93,
+          "h": 206.94,
+          "l": 204.29,
+          "c": 204.605,
+          "v": 836676
+        },
+        {
+          "t": 1743687600,
+          "o": 204.61,
+          "h": 204.76,
+          "l": 202.52,
+          "c": 202.915,
+          "v": 560450
+        },
+        {
+          "t": 1743687900,
+          "o": 202.915,
+          "h": 204.0,
+          "l": 202.52,
+          "c": 203.4,
+          "v": 452650
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_095_2025-04-04",
+      "symbol": "AAPL",
+      "date": "2025-04-04",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/095_2025-04-04_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2025-04-04_2025-04-05.parquet",
+      "previousDay": "2025-04-03",
+      "yesterdayHigh": 211.53,
+      "yesterdayLow": 201.25,
+      "bars": [
+        {
+          "t": 1743773400,
+          "o": 193.92,
+          "h": 197.15,
+          "l": 192.8,
+          "c": 196.845,
+          "v": 3602848
+        },
+        {
+          "t": 1743773700,
+          "o": 196.835,
+          "h": 198.34,
+          "l": 196.5,
+          "c": 198.18,
+          "v": 787424
+        },
+        {
+          "t": 1743774000,
+          "o": 198.22,
+          "h": 198.39,
+          "l": 195.585,
+          "c": 195.98,
+          "v": 561183
+        },
+        {
+          "t": 1743774300,
+          "o": 195.97,
+          "h": 199.23,
+          "l": 195.77,
+          "c": 197.95,
+          "v": 488950
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_096_2025-04-11",
+      "symbol": "AAPL",
+      "date": "2025-04-11",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/096_2025-04-11_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2025-04-11_2025-04-12.parquet",
+      "previousDay": "2025-04-10",
+      "yesterdayHigh": 195.26,
+      "yesterdayLow": 183.01,
+      "bars": [
+        {
+          "t": 1744378200,
+          "o": 186.17,
+          "h": 188.43,
+          "l": 186.06,
+          "c": 188.27,
+          "v": 1235682
+        },
+        {
+          "t": 1744378500,
+          "o": 188.21,
+          "h": 190.93,
+          "l": 188.11,
+          "c": 190.27,
+          "v": 373857
+        },
+        {
+          "t": 1744378800,
+          "o": 190.23,
+          "h": 191.34,
+          "l": 189.43,
+          "c": 190.7,
+          "v": 265985
+        },
+        {
+          "t": 1744379100,
+          "o": 190.7,
+          "h": 192.08,
+          "l": 190.54,
+          "c": 191.37,
+          "v": 256100
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_097_2025-04-14",
+      "symbol": "AAPL",
+      "date": "2025-04-14",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/097_2025-04-14_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2025-04-14_2025-04-15.parquet",
+      "previousDay": "2025-04-11",
+      "yesterdayHigh": 199.53,
+      "yesterdayLow": 185.23,
+      "bars": [
+        {
+          "t": 1744637400,
+          "o": 211.43,
+          "h": 212.94,
+          "l": 208.44,
+          "c": 208.64,
+          "v": 4153445
+        },
+        {
+          "t": 1744637700,
+          "o": 208.67,
+          "h": 209.42,
+          "l": 207.9,
+          "c": 208.51,
+          "v": 857325
+        },
+        {
+          "t": 1744638000,
+          "o": 208.52,
+          "h": 208.58,
+          "l": 206.1,
+          "c": 207.03,
+          "v": 773243
+        },
+        {
+          "t": 1744638300,
+          "o": 207.03,
+          "h": 207.93,
+          "l": 206.44,
+          "c": 207.84,
+          "v": 430821
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_098_2025-04-15",
+      "symbol": "AAPL",
+      "date": "2025-04-15",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/098_2025-04-15_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2025-04-15_2025-04-16.parquet",
+      "previousDay": "2025-04-14",
+      "yesterdayHigh": 212.94,
+      "yesterdayLow": 200.72,
+      "bars": [
+        {
+          "t": 1744723800,
+          "o": 201.76,
+          "h": 203.24,
+          "l": 201.75,
+          "c": 202.505,
+          "v": 1081097
+        },
+        {
+          "t": 1744724100,
+          "o": 202.505,
+          "h": 202.85,
+          "l": 201.15,
+          "c": 202.845,
+          "v": 264281
+        },
+        {
+          "t": 1744724400,
+          "o": 202.88,
+          "h": 202.96,
+          "l": 202.17,
+          "c": 202.455,
+          "v": 251017
+        },
+        {
+          "t": 1744724700,
+          "o": 202.44,
+          "h": 202.91,
+          "l": 201.94,
+          "c": 202.83,
+          "v": 135733
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_099_2025-05-27",
+      "symbol": "AAPL",
+      "date": "2025-05-27",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/099_2025-05-27_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2025-05-27_2025-05-28.parquet",
+      "previousDay": "2025-05-23",
+      "yesterdayHigh": 202.03,
+      "yesterdayLow": 193.13,
+      "bars": [
+        {
+          "t": 1748352600,
+          "o": 198.5,
+          "h": 199.18,
+          "l": 197.95,
+          "c": 198.05,
+          "v": 1313405
+        },
+        {
+          "t": 1748352900,
+          "o": 198.02,
+          "h": 198.375,
+          "l": 197.65,
+          "c": 198.15,
+          "v": 245163
+        },
+        {
+          "t": 1748353200,
+          "o": 198.11,
+          "h": 198.27,
+          "l": 197.54,
+          "c": 197.9,
+          "v": 201400
+        },
+        {
+          "t": 1748353500,
+          "o": 197.9,
+          "h": 198.345,
+          "l": 197.44,
+          "c": 198.07,
+          "v": 237683
+        }
+      ]
+    },
+    {
+      "id": "aapl_opening_100_2025-10-13",
+      "symbol": "AAPL",
+      "date": "2025-10-13",
+      "decisionBar": 4,
+      "label": "",
+      "note": "",
+      "imageUrl": "/training/aapl-opening/charts/100_2025-10-13_AAPL_opening_bars.png?v=4",
+      "sourceFile": "/Users/williamkosloski/Gap-ups/Gap-ups/cache/XNAS.ITCH_AAPL_ohlcv-1m_2025-10-13_2025-10-14.parquet",
+      "previousDay": "2025-10-10",
+      "yesterdayHigh": 256.39,
+      "yesterdayLow": 239.16,
+      "bars": [
+        {
+          "t": 1760362200,
+          "o": 249.36,
+          "h": 249.46,
+          "l": 246.64,
+          "c": 246.78,
+          "v": 1032973
+        },
+        {
+          "t": 1760362500,
+          "o": 246.78,
+          "h": 247.22,
+          "l": 245.56,
+          "c": 247.14,
+          "v": 341893
+        },
+        {
+          "t": 1760362800,
+          "o": 247.15,
+          "h": 247.33,
+          "l": 246.67,
+          "c": 246.8,
+          "v": 255167
+        },
+        {
+          "t": 1760363100,
+          "o": 246.815,
+          "h": 247.03,
+          "l": 246.1,
+          "c": 246.92,
+          "v": 216232
+        }
+      ]
+    }
+  ],
+  "featureVersion": "first-four-ohlc-v1"
+}
