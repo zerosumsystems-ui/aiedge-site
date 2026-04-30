@@ -1,36 +1,11 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react"
-import { useRouter, useSearchParams, usePathname } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import type { ScanPayload } from "@/lib/types"
 import { ScannerCard } from "./ScannerCard"
 import { SortBar, sortResults, type SortKey } from "./SortBar"
-import {
-  FilterBar,
-  filterResults,
-  bpaFieldsMissing,
-  type SetupFilter,
-  type PhaseFilter,
-} from "./FilterBar"
 import { ScoringLegend } from "./ScoringLegend"
-
-const SETUP_VALUES: SetupFilter[] = [
-  "all", "H1", "H2", "L1", "L2", "FL1", "FL2", "FH1", "FH2", "spike_channel", "failed_bo",
-]
-const PHASE_VALUES: PhaseFilter[] = [
-  "all", "trend_from_open", "spike_and_channel", "trading_range", "bull_channel",
-  "bear_channel", "trending_tr", "breakout", "undetermined",
-]
-
-function parseSetup(raw: string | null): SetupFilter {
-  if (!raw) return "all"
-  return (SETUP_VALUES as string[]).includes(raw) ? (raw as SetupFilter) : "all"
-}
-
-function parsePhase(raw: string | null): PhaseFilter {
-  if (!raw) return "all"
-  return (PHASE_VALUES as string[]).includes(raw) ? (raw as PhaseFilter) : "all"
-}
 
 export function ScannerDashboard() {
   return (
@@ -41,34 +16,11 @@ export function ScannerDashboard() {
 }
 
 function ScannerDashboardInner() {
-  const router = useRouter()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const [data, setData] = useState<ScanPayload | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>("rank")
   const [loading, setLoading] = useState(true)
-
-  // Filters — synced to URL query params (?setup=H2&phase=trading_range)
-  const setupFilter = parseSetup(searchParams.get("setup"))
-  const phaseFilter = parsePhase(searchParams.get("phase"))
-
-  const updateQuery = useCallback(
-    (patch: { setup?: SetupFilter; phase?: PhaseFilter }) => {
-      const params = new URLSearchParams(searchParams.toString())
-      if (patch.setup !== undefined) {
-        if (patch.setup === "all") params.delete("setup")
-        else params.set("setup", patch.setup)
-      }
-      if (patch.phase !== undefined) {
-        if (patch.phase === "all") params.delete("phase")
-        else params.set("phase", patch.phase)
-      }
-      const qs = params.toString()
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
-    },
-    [router, pathname, searchParams],
-  )
 
   // ?demo=analogs swaps in a static fixture so the analog UI is verifiable
   // off-hours. Production reads from /api/scan as usual.
@@ -95,21 +47,12 @@ function ScannerDashboardInner() {
     return () => clearInterval(interval)
   }, [fetchData, demoMode])
 
-  const hasData = Boolean(data && data.results.length > 0)
-  const results = data?.results ?? []
+  const results = data?.results
+  const hasData = Boolean(results && results.length > 0)
 
   const sorted = useMemo(
-    () => (hasData ? sortResults(results, sortKey) : []),
+    () => (hasData && results ? sortResults(results, sortKey) : []),
     [hasData, results, sortKey],
-  )
-  const filtered = useMemo(
-    () => filterResults(sorted, setupFilter, phaseFilter),
-    [sorted, setupFilter, phaseFilter],
-  )
-
-  const backendPending = useMemo(
-    () => setupFilter !== "all" && bpaFieldsMissing(results),
-    [setupFilter, results],
   )
 
   if (loading) {
@@ -119,9 +62,6 @@ function ScannerDashboardInner() {
       </div>
     )
   }
-
-  const filterActive = setupFilter !== "all" || phaseFilter !== "all"
-  const hiddenCount = sorted.length - filtered.length
 
   return (
     <div className="max-w-5xl mx-auto px-3 py-3">
@@ -153,43 +93,13 @@ function ScannerDashboardInner() {
       {/* Sort bar */}
       {hasData && <SortBar onSort={setSortKey} activeKey={sortKey} />}
 
-      {/* Filter bar */}
-      {hasData && (
-        <FilterBar
-          setup={setupFilter}
-          phase={phaseFilter}
-          onSetupChange={(v) => updateQuery({ setup: v })}
-          onPhaseChange={(v) => updateQuery({ phase: v })}
-          onClear={() => updateQuery({ setup: "all", phase: "all" })}
-          showBackendPendingNote={backendPending}
-        />
-      )}
-
       {/* Cards */}
       {hasData ? (
-        filtered.length > 0 ? (
-          <div>
-            {filterActive && (
-              <div className="text-[11px] text-sub mb-2">
-                Showing {filtered.length} of {sorted.length}
-                {hiddenCount > 0 && <span className="opacity-70"> · {hiddenCount} hidden by filters</span>}
-              </div>
-            )}
-            {filtered.map((result) => (
-              <ScannerCard key={result.ticker} result={result} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12 text-sub">
-            <p className="text-sm mb-2">No results match the current filters.</p>
-            <button
-              onClick={() => updateQuery({ setup: "all", phase: "all" })}
-              className="text-xs text-teal hover:underline"
-            >
-              Clear filters
-            </button>
-          </div>
-        )
+        <div>
+          {sorted.map((result) => (
+            <ScannerCard key={result.ticker} result={result} />
+          ))}
+        </div>
       ) : (
         <div className="text-center py-20 text-sub">
           <p className="text-lg mb-2">No scan data yet</p>
