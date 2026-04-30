@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: '/journal', label: 'Journal' },
   { href: '/training', label: 'Training' },
   { href: '/brooks', label: 'Brooks' },
+  { href: '/blog', label: 'Blog' },
 ]
 
 type Props = { userEmail: string | null }

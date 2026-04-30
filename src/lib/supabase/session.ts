@@ -11,9 +11,10 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 /**
- * Runs on every page request via src/proxy.ts. Refreshes the Supabase session
- * cookie and gates `/journal` and `/brooks` behind sign-in. Other pages are
- * public.
+ * Runs on every page request via src/proxy.ts. Refreshes the Supabase
+ * session cookie and gates `/journal` and `/brooks` behind sign-in. All
+ * other pages (including `/`, `/training`, `/history`, etc.) are public so
+ * the mobile training tool stays usable without signing in.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -41,12 +42,29 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANT: don't run any code between createServerClient and getUser.
   // A simple bug can cause session refresh to desync from the response.
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (isProtectedPath(request.nextUrl.pathname) && !isAllowed(user?.email)) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search)
-    return NextResponse.redirect(loginUrl)
+  const { pathname, search } = request.nextUrl
+
+  if (!isProtectedPath(pathname)) {
+    return supabaseResponse
+  }
+
+  if (!user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.search = `?next=${encodeURIComponent(pathname + search)}`
+    return NextResponse.redirect(url)
+  }
+
+  if (!isAllowed(user.email)) {
+    await supabase.auth.signOut()
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.search = '?error=not_invited'
+    return NextResponse.redirect(url)
   }
 
   return supabaseResponse
