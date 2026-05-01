@@ -13,6 +13,15 @@ import {
 } from "./DayExtremeFilterBar"
 
 const EMPTY_RESULTS: ScanPayload["results"] = []
+const OPENING_BARS_STORAGE_KEY = "aiedge.scanner.openingBars"
+const DEFAULT_OPENING_BARS = 4
+
+function readStoredOpeningBars(): number {
+  if (typeof window === "undefined") return DEFAULT_OPENING_BARS
+  const raw = window.localStorage.getItem(OPENING_BARS_STORAGE_KEY)
+  const parsed = raw ? Number(raw) : NaN
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_OPENING_BARS
+}
 
 export function ScannerDashboard() {
   return (
@@ -29,7 +38,19 @@ function ScannerDashboardInner() {
 
   const [data, setData] = useState<ScanPayload | null>(null)
   const [loading, setLoading] = useState(true)
+  const [openingBars, setOpeningBars] = useState<number>(DEFAULT_OPENING_BARS)
   const extremeFilter = parseExtremeBarFilter(searchParams.get("extreme"))
+
+  useEffect(() => {
+    setOpeningBars(readStoredOpeningBars())
+  }, [])
+
+  const updateOpeningBars = useCallback((count: number) => {
+    setOpeningBars(count)
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(OPENING_BARS_STORAGE_KEY, String(count))
+    }
+  }, [])
 
   const updateExtremeFilter = useCallback(
     (nextFilter: ExtremeBarFilter) => {
@@ -128,7 +149,13 @@ function ScannerDashboardInner() {
         filteredResults.length > 0 ? (
           <div>
             {filteredResults.map((result) => (
-              <ScannerCard key={result.ticker} result={result} scanDate={data?.date ?? ""} />
+              <ScannerCard
+                key={result.ticker}
+                result={result}
+                scanDate={data?.date ?? ""}
+                openingBars={openingBars}
+                onOpeningBarsChange={updateOpeningBars}
+              />
             ))}
           </div>
         ) : (

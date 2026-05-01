@@ -78,11 +78,23 @@ function useMediaQuery(query: string) {
   )
 }
 
-export function ScannerCard({ result, scanDate }: { result: ScanResult; scanDate: string }) {
+export function ScannerCard({
+  result,
+  scanDate,
+  openingBars: controlledOpeningBars,
+  onOpeningBarsChange,
+}: {
+  result: ScanResult
+  scanDate: string
+  openingBars?: number
+  onOpeningBarsChange?: (count: number) => void
+}) {
   const { ticker, chart } = result
   const [minuteBars, setMinuteBars] = useState<Bar[] | null>(null)
   const [minuteError, setMinuteError] = useState(false)
-  const [openingBars, setOpeningBars] = useState(4)
+  const [internalOpeningBars, setInternalOpeningBars] = useState(4)
+  const openingBars = controlledOpeningBars ?? internalOpeningBars
+  const setOpeningBars = onOpeningBarsChange ?? setInternalOpeningBars
   const isDesktop = useMediaQuery("(min-width: 768px)")
   const chartHeight = isDesktop ? 300 : 250
   const barWidth = isDesktop ? DESKTOP_BAR_WIDTH : MOBILE_BAR_WIDTH
