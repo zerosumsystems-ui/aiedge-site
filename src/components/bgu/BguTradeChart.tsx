@@ -101,6 +101,8 @@ export function BguTradeChart({ trade }: Props) {
       timeScale: {
         timeVisible: false,
         borderColor: GRID,
+        barSpacing: 10,
+        rightOffset: 4,
       },
       rightPriceScale: { borderColor: GRID },
       crosshair: { mode: 1 },
@@ -114,7 +116,12 @@ export function BguTradeChart({ trade }: Props) {
         attributionLogo: false,
       },
       grid: { vertLines: { color: GRID }, horzLines: { color: GRID } },
-      timeScale: { timeVisible: false, borderColor: GRID },
+      timeScale: {
+        timeVisible: false,
+        borderColor: GRID,
+        barSpacing: 10,
+        rightOffset: 4,
+      },
       rightPriceScale: { borderColor: GRID },
       crosshair: { mode: 1 },
     })
@@ -244,9 +251,11 @@ export function BguTradeChart({ trade }: Props) {
 
   return (
     <div className="space-y-2 px-3 py-3 bg-bg/40 border-t border-border">
-      <div ref={chartRef} className="w-full h-[360px]" />
-      <div ref={volRef} className="w-full h-[100px]" />
-      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-2">
+      <div className="space-y-1 max-w-[1100px] mx-auto">
+        <div ref={chartRef} className="w-full h-[360px]" />
+        <div ref={volRef} className="w-full h-[100px]" />
+      </div>
+      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-2 max-w-[1100px] mx-auto">
         <Detail label="Intraday" value={`+${trade.intradayGainPct.toFixed(1)}%`} />
         <Detail label="Gap" value={`${trade.gapUpPct >= 0 ? '+' : ''}${trade.gapUpPct.toFixed(1)}%`} />
         <Detail label="RVOL" value={`${trade.volumeRvol.toFixed(1)}×`} />
@@ -273,6 +282,7 @@ export function BguTradeChart({ trade }: Props) {
     </div>
   )
 }
+
 
 function Detail({ label, value, accent = false, danger = false }: {
   label: string

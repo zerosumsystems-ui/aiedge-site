@@ -32,8 +32,8 @@ MERGED = SCANNER / "data" / "leadership_daily_extended.parquet"
 OUT_DIR = SITE / "public" / "data" / "buyable-gap-up"
 OUT_FILE = OUT_DIR / "all-trades.json"
 PER_TRADE_DIR = OUT_DIR / "trades"
-# Per-trade chart window: bars before signal + bars after (covers entry, hold, exit)
-BARS_BEFORE_SIGNAL = 30
+# Per-trade chart window: 20 before + 50 after = ~70 bars total (under 80 cap)
+BARS_BEFORE_SIGNAL = 20
 BARS_AFTER_SIGNAL = 50
 
 ET = ZoneInfo("America/New_York")

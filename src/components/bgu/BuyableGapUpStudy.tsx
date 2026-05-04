@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState } from 'react'
 import type { BguPayload, BguTrade } from '@/lib/buyable-gap-up'
+import { BguProcessFlow } from './BguProcessFlow'
 import { BguTradeChart } from './BguTradeChart'
 
 type SortKey =
@@ -158,6 +159,8 @@ export function BuyableGapUpStudy({ payload }: Props) {
           <p className="text-xs text-sub">Generated {generatedAt}</p>
         )}
       </header>
+
+      <BguProcessFlow />
 
       {/* Setup spec */}
       <section className="rounded-lg border border-border bg-surface p-4">
