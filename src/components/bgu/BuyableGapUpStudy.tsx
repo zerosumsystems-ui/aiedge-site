@@ -164,6 +164,7 @@ export function BuyableGapUpStudy({ payload }: Props) {
         <h2 className="text-sm font-semibold uppercase tracking-wider text-sub mb-3">Setup Filter</h2>
         <div className="flex flex-wrap gap-2">
           <FilterBadge label={`Intraday +${filters.minIntradayGainPct}%`} />
+          <FilterBadge label={`Close ≥ top ${100 - filters.minCloseLocationPct}% of day`} />
           <FilterBadge label={`RVOL ≥ ${filters.minVolumeRvol}×`} />
           <FilterBadge label={`Today's vol = highest in ${filters.vol60dWindow}d`} />
           <FilterBadge

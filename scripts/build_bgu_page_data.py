@@ -44,6 +44,7 @@ MIN_INTRADAY_PCT = 15.0
 MIN_VOL_RVOL = 1.5
 MIN_AVG_VOL_SHARES = 500_000.0
 MIN_PRICE = 1.0
+MIN_CLOSE_LOCATION_PCT = 80.0  # close in top 20% of day's range — kills upper-wick fades
 HIGH_WINDOW = 50
 VOL_60D_WINDOW = 60
 ISO_SPIKE_MULT = 1.5
@@ -138,6 +139,7 @@ def find_events(df: pd.DataFrame) -> list[dict[str, Any]]:
         mask = (
             price_ok
             & (intraday_pct >= MIN_INTRADAY_PCT)
+            & (close_loc >= MIN_CLOSE_LOCATION_PCT)
             & (vol_rvol >= MIN_VOL_RVOL)
             & (avg_vol_20d >= MIN_AVG_VOL_SHARES)
             & (c >= sma200)
@@ -296,6 +298,7 @@ def main() -> None:
             "minIntradayGainPct": MIN_INTRADAY_PCT,
             "minVolumeRvol": MIN_VOL_RVOL,
             "minAvgVolumeShares": MIN_AVG_VOL_SHARES,
+            "minCloseLocationPct": MIN_CLOSE_LOCATION_PCT,
             "highWindowDays": HIGH_WINDOW,
             "vol60dWindow": VOL_60D_WINDOW,
             "isolatedSpikeMult": ISO_SPIKE_MULT,

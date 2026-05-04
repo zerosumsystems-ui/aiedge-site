@@ -5,6 +5,7 @@ export interface BguFilters {
   minIntradayGainPct: number
   minVolumeRvol: number
   minAvgVolumeShares: number
+  minCloseLocationPct: number
   highWindowDays: number
   vol60dWindow: number
   isolatedSpikeMult: number
@@ -90,6 +91,7 @@ const EMPTY: BguPayload = {
     minIntradayGainPct: 15,
     minVolumeRvol: 1.5,
     minAvgVolumeShares: 500_000,
+    minCloseLocationPct: 80,
     highWindowDays: 50,
     vol60dWindow: 60,
     isolatedSpikeMult: 1.5,
