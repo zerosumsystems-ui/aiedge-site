@@ -6,7 +6,6 @@ import {
   createSeriesMarkers,
   CandlestickSeries,
   HistogramSeries,
-  LineSeries,
   ColorType,
   LineStyle,
   type IChartApi,
@@ -144,45 +143,6 @@ export function BguTradeChart({ trade }: Props) {
         low: b.low,
         close: b.close,
       }))
-    )
-
-    const ema20 = priceChart.addSeries(LineSeries, {
-      color: '#FFB74D',
-      lineWidth: 1,
-      priceLineVisible: false,
-      lastValueVisible: false,
-      title: '20 EMA',
-    })
-    ema20.setData(
-      data.bars
-        .filter((b) => b.ema20 !== null)
-        .map((b) => ({ time: dateToTime(b.date), value: b.ema20 as number }))
-    )
-
-    const sma50 = priceChart.addSeries(LineSeries, {
-      color: '#42A5F5',
-      lineWidth: 1,
-      priceLineVisible: false,
-      lastValueVisible: false,
-      title: '50 SMA',
-    })
-    sma50.setData(
-      data.bars
-        .filter((b) => b.sma50 !== null)
-        .map((b) => ({ time: dateToTime(b.date), value: b.sma50 as number }))
-    )
-
-    const sma200 = priceChart.addSeries(LineSeries, {
-      color: '#AB47BC',
-      lineWidth: 1,
-      priceLineVisible: false,
-      lastValueVisible: false,
-      title: '200 SMA',
-    })
-    sma200.setData(
-      data.bars
-        .filter((b) => b.sma200 !== null)
-        .map((b) => ({ time: dateToTime(b.date), value: b.sma200 as number }))
     )
 
     // Entry / Stop / Exit horizontal price lines
