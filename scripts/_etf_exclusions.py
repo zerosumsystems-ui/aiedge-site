@@ -52,6 +52,9 @@ ETF_EXCLUSIONS = frozenset({
     # Common ETF suffixes / 2x products encountered in the BGU sample
     "WEED", "VTVT", "OCSAW", "NRGD", "ZHDG", "WVVI",
     "TSLI", "TSLP", "RGTU",
+    # NASDAQ test tickers — used by market makers to test order flow,
+    # not real securities. Bars look real but the prices are arbitrary.
+    "ZVZZT", "ZWZZT", "ZXZZT", "ZYZZT", "ZBZZT", "ZJZZT",
 })
 
 
