@@ -170,6 +170,7 @@ export function BuyableGapUpStudy({ payload }: Props) {
           <FilterBadge
             label={`Today's vol ≥ ${filters.isolatedSpikeMult}× max prior ${filters.isolatedSpikeWindow}d`}
           />
+          <FilterBadge label={`Not extended (≤${filters.maxPrior30dRatio}× of 30-day-prior close)`} />
           {filters.requireAboveSma200 && <FilterBadge label="Close > 200 SMA" />}
           {filters.requireNewHigh && <FilterBadge label={`New ${filters.highWindowDays}-day high`} />}
           <FilterBadge label={`Avg vol ≥ ${(filters.minAvgVolumeShares / 1000).toLocaleString()}k`} />

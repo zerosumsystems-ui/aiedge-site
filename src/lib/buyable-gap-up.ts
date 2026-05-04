@@ -10,6 +10,7 @@ export interface BguFilters {
   vol60dWindow: number
   isolatedSpikeMult: number
   isolatedSpikeWindow: number
+  maxPrior30dRatio: number
   requireAboveSma200: boolean
   requireNewHigh: boolean
   requireVol60dHigh: boolean
@@ -96,6 +97,7 @@ const EMPTY: BguPayload = {
     vol60dWindow: 60,
     isolatedSpikeMult: 1.5,
     isolatedSpikeWindow: 30,
+    maxPrior30dRatio: 2.0,
     requireAboveSma200: true,
     requireNewHigh: true,
     requireVol60dHigh: true,

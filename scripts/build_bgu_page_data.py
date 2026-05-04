@@ -49,6 +49,11 @@ HIGH_WINDOW = 50
 VOL_60D_WINDOW = 60
 ISO_SPIKE_MULT = 1.5
 ISO_SPIKE_WINDOW = 30
+# Parabolic-top filter: gap-day close <= N x its close 30 trading days ago.
+# CEI 2021-09-28 was 3.5x of its 30d-prior close — already in late-parabola
+# territory before the BGU triggered. 2.0x = "no more than doubled in 30 days".
+MAX_PRIOR_30D_RATIO = 2.0
+PRIOR_RATIO_WINDOW = 30
 
 
 def merge_daily(force: bool = False) -> pd.DataFrame:
@@ -134,6 +139,8 @@ def find_events(df: pd.DataFrame) -> list[dict[str, Any]]:
         prior_high = c.shift(1).rolling(HIGH_WINDOW, min_periods=20).max()
         prior_vol_max = v.shift(1).rolling(VOL_60D_WINDOW, min_periods=30).max()
         prior_short_vol_max = v.shift(1).rolling(ISO_SPIKE_WINDOW, min_periods=15).max()
+        prior_30d_close = c.shift(PRIOR_RATIO_WINDOW)
+        prior_30d_ratio = c / prior_30d_close
 
         price_ok = (prior_c >= MIN_PRICE) & (o >= MIN_PRICE) & (c >= MIN_PRICE)
         mask = (
@@ -146,6 +153,7 @@ def find_events(df: pd.DataFrame) -> list[dict[str, Any]]:
             & (c >= prior_high)
             & (v >= prior_vol_max)
             & (v >= ISO_SPIKE_MULT * prior_short_vol_max)
+            & (prior_30d_ratio <= MAX_PRIOR_30D_RATIO)
         ).fillna(False)
 
         for idx in mask[mask].index.tolist():
@@ -303,6 +311,7 @@ def main() -> None:
             "vol60dWindow": VOL_60D_WINDOW,
             "isolatedSpikeMult": ISO_SPIKE_MULT,
             "isolatedSpikeWindow": ISO_SPIKE_WINDOW,
+            "maxPrior30dRatio": MAX_PRIOR_30D_RATIO,
             "requireAboveSma200": True,
             "requireNewHigh": True,
             "requireVol60dHigh": True,
