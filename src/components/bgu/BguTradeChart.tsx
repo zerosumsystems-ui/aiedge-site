@@ -88,11 +88,11 @@ export function BguTradeChart({ trade }: Props) {
     const volEl = volRef.current
 
     const priceChart: IChartApi = createChart(priceEl, {
-      width: priceEl.clientWidth,
-      height: 360,
+      autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: BG },
         textColor: TEXT,
+        attributionLogo: false,
       },
       grid: {
         vertLines: { color: GRID },
@@ -107,11 +107,11 @@ export function BguTradeChart({ trade }: Props) {
     })
 
     const volChart: IChartApi = createChart(volEl, {
-      width: volEl.clientWidth,
-      height: 100,
+      autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: BG },
         textColor: TEXT,
+        attributionLogo: false,
       },
       grid: { vertLines: { color: GRID }, horzLines: { color: GRID } },
       timeScale: { timeVisible: false, borderColor: GRID },
@@ -225,15 +225,7 @@ export function BguTradeChart({ trade }: Props) {
     priceChart.timeScale().fitContent()
     volChart.timeScale().fitContent()
 
-    const ro = new ResizeObserver(() => {
-      priceChart.applyOptions({ width: priceEl.clientWidth })
-      volChart.applyOptions({ width: volEl.clientWidth })
-    })
-    ro.observe(priceEl)
-    ro.observe(volEl)
-
     return () => {
-      ro.disconnect()
       priceChart.remove()
       volChart.remove()
     }
@@ -252,8 +244,8 @@ export function BguTradeChart({ trade }: Props) {
 
   return (
     <div className="space-y-2 px-3 py-3 bg-bg/40 border-t border-border">
-      <div ref={chartRef} className="w-full" />
-      <div ref={volRef} className="w-full" />
+      <div ref={chartRef} className="w-full h-[360px]" />
+      <div ref={volRef} className="w-full h-[100px]" />
       <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-2">
         <Detail label="Intraday" value={`+${trade.intradayGainPct.toFixed(1)}%`} />
         <Detail label="Gap" value={`${trade.gapUpPct >= 0 ? '+' : ''}${trade.gapUpPct.toFixed(1)}%`} />
