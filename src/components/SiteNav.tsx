@@ -6,7 +6,9 @@ import { useState } from 'react'
 import { MobileNavDrawer } from './MobileNavDrawer'
 
 const NAV_ITEMS = [
-  { href: '/', label: 'Scanner' },
+  { href: '/', label: '5 min TFO' },
+  { href: '/cc', label: 'gap up + ft setups' },
+  { href: '/bgu', label: 'BGU study' },
   { href: '/history', label: 'History' },
   { href: '/journal', label: 'Journal' },
   { href: '/training', label: 'Training' },
@@ -25,7 +27,7 @@ export function SiteNav({ userEmail }: Props) {
     return null
   }
 
-  // Active-route label for the mobile nav header ("Scanner", "Journal", …).
+  // Active-route label for the mobile nav header.
   const activeItem =
     NAV_ITEMS.find((item) =>
       item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
@@ -56,7 +58,7 @@ export function SiteNav({ userEmail }: Props) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                   active
                     ? 'bg-teal/10 text-teal'
                     : 'text-sub hover:text-text hover:bg-bg'
