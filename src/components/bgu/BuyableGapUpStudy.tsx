@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import type { BguPayload, BguTrade } from '@/lib/buyable-gap-up'
+import { BguTradeChart } from './BguTradeChart'
 
 type SortKey =
   | 'date'
@@ -98,6 +99,7 @@ export function BuyableGapUpStudy({ payload }: Props) {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [filterText, setFilterText] = useState('')
   const [showOnly, setShowOnly] = useState<'all' | 'wins' | 'losses' | 'stopped'>('all')
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
 
   const sortedFiltered = useMemo(() => {
     let rows = [...trades]
@@ -214,7 +216,7 @@ export function BuyableGapUpStudy({ payload }: Props) {
           ))}
         </div>
         <div className="text-xs text-sub ml-auto">
-          Showing {sortedFiltered.length} of {trades.length} trades
+          Showing {sortedFiltered.length} of {trades.length} trades · click any row for chart
         </div>
       </section>
 
@@ -239,42 +241,58 @@ export function BuyableGapUpStudy({ payload }: Props) {
             {sortedFiltered.map((t, i) => {
               const win = t.returnPct > 0
               const stopped = t.exitReason === 'stop'
+              const key = `${t.ticker}-${t.signalDate}`
+              const expanded = expandedKey === key
               return (
-                <tr
-                  key={`${t.ticker}-${t.signalDate}-${i}`}
-                  className="border-b border-border/40 hover:bg-bg/30 transition-colors"
-                >
-                  <td className="px-2 py-1.5 font-mono text-xs text-sub">{t.signalDate}</td>
-                  <td className="px-2 py-1.5 font-mono text-sm font-semibold">{t.ticker}</td>
-                  <td className="px-2 py-1.5 font-mono text-xs text-right">
-                    {fmtPct(t.intradayGainPct, 1)}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs text-right text-sub">
-                    {fmtPct(t.gapUpPct, 1)}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs text-right text-sub">
-                    {t.volumeRvol.toFixed(1)}×
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs text-right">
-                    {fmtPrice(t.entryPrice)}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs text-right text-sub">
-                    {fmtPct(t.stopDistancePct, 1)}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs text-right text-sub">
-                    {t.daysHeld}{stopped && <span className="text-red ml-1">●</span>}
-                  </td>
-                  <td className={`px-2 py-1.5 font-mono text-sm text-right font-semibold ${
-                    win ? 'text-teal' : 'text-red'
-                  }`}>
-                    {fmtPct(t.returnPct, 2)}
-                  </td>
-                  <td className={`px-2 py-1.5 font-mono text-sm text-right font-semibold ${
-                    t.rMultiple > 0 ? 'text-teal' : 'text-red'
-                  }`}>
-                    {fmtR(t.rMultiple)}
-                  </td>
-                </tr>
+                <Fragment key={`${key}-${i}`}>
+                  <tr
+                    className={`border-b border-border/40 transition-colors cursor-pointer ${
+                      expanded ? 'bg-bg/40' : 'hover:bg-bg/30'
+                    }`}
+                    onClick={() => setExpandedKey(expanded ? null : key)}
+                  >
+                    <td className="px-2 py-1.5 font-mono text-xs text-sub">
+                      <span className="inline-block w-3 mr-1 text-sub">{expanded ? '▾' : '▸'}</span>
+                      {t.signalDate}
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-sm font-semibold">{t.ticker}</td>
+                    <td className="px-2 py-1.5 font-mono text-xs text-right">
+                      {fmtPct(t.intradayGainPct, 1)}
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-xs text-right text-sub">
+                      {fmtPct(t.gapUpPct, 1)}
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-xs text-right text-sub">
+                      {t.volumeRvol.toFixed(1)}×
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-xs text-right">
+                      {fmtPrice(t.entryPrice)}
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-xs text-right text-sub">
+                      {fmtPct(t.stopDistancePct, 1)}
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-xs text-right text-sub">
+                      {t.daysHeld}{stopped && <span className="text-red ml-1">●</span>}
+                    </td>
+                    <td className={`px-2 py-1.5 font-mono text-sm text-right font-semibold ${
+                      win ? 'text-teal' : 'text-red'
+                    }`}>
+                      {fmtPct(t.returnPct, 2)}
+                    </td>
+                    <td className={`px-2 py-1.5 font-mono text-sm text-right font-semibold ${
+                      t.rMultiple > 0 ? 'text-teal' : 'text-red'
+                    }`}>
+                      {fmtR(t.rMultiple)}
+                    </td>
+                  </tr>
+                  {expanded && (
+                    <tr>
+                      <td colSpan={10} className="p-0">
+                        <BguTradeChart trade={t} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               )
             })}
             {sortedFiltered.length === 0 && (

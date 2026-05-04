@@ -31,6 +31,10 @@ CURRENT = SCANNER / "data" / "leadership_daily_all_above_1_universe.csv"
 MERGED = SCANNER / "data" / "leadership_daily_extended.parquet"
 OUT_DIR = SITE / "public" / "data" / "buyable-gap-up"
 OUT_FILE = OUT_DIR / "all-trades.json"
+PER_TRADE_DIR = OUT_DIR / "trades"
+# Per-trade chart window: bars before signal + bars after (covers entry, hold, exit)
+BARS_BEFORE_SIGNAL = 30
+BARS_AFTER_SIGNAL = 50
 
 ET = ZoneInfo("America/New_York")
 TIME_STOP_DAYS = 40
@@ -321,6 +325,53 @@ def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     OUT_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(f"\nWrote {OUT_FILE}")
+
+    # Per-trade chart bars — written one file per trade for lazy-load on row expand.
+    PER_TRADE_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"\nwriting per-trade bar files to {PER_TRADE_DIR}/...")
+    written = 0
+    # Map ticker -> df for fast lookup (we already have `df` in scope)
+    bars_by_ticker = {tk: g.sort_values("date").reset_index(drop=True)
+                      for tk, g in df.groupby("ticker")}
+    for ev in events:
+        tk = ev["ticker"]
+        sig_idx = ev["sig_idx"]
+        bars_df = bars_by_ticker.get(tk)
+        if bars_df is None:
+            continue
+        start_idx = max(0, sig_idx - BARS_BEFORE_SIGNAL)
+        end_idx = min(len(bars_df) - 1, sig_idx + BARS_AFTER_SIGNAL)
+        window = bars_df.iloc[start_idx:end_idx + 1]
+        # 20-EMA / 50-SMA / 200-SMA (computed on the FULL series so the values
+        # at the visible bars are correct, not truncated by the window).
+        full_close = bars_df["close"].astype(float)
+        ema20 = full_close.ewm(span=20, adjust=False, min_periods=20).mean()
+        sma50 = full_close.rolling(50, min_periods=50).mean()
+        sma200 = full_close.rolling(200, min_periods=200).mean()
+        bars_payload = []
+        for j in range(start_idx, end_idx + 1):
+            row = bars_df.iloc[j]
+            bars_payload.append({
+                "date": pd.Timestamp(row["date"]).strftime("%Y-%m-%d"),
+                "open": round(float(row["open"]), 4),
+                "high": round(float(row["high"]), 4),
+                "low": round(float(row["low"]), 4),
+                "close": round(float(row["close"]), 4),
+                "volume": int(row["volume"]),
+                "ema20": round(float(ema20.iloc[j]), 4) if pd.notna(ema20.iloc[j]) else None,
+                "sma50": round(float(sma50.iloc[j]), 4) if pd.notna(sma50.iloc[j]) else None,
+                "sma200": round(float(sma200.iloc[j]), 4) if pd.notna(sma200.iloc[j]) else None,
+            })
+        signal_date = ev["signal_date"]
+        out_path = PER_TRADE_DIR / f"{tk}_{signal_date}.json"
+        out_path.write_text(json.dumps({
+            "ticker": tk,
+            "signalDate": signal_date,
+            "signalIndex": sig_idx - start_idx,  # local index within `bars`
+            "bars": bars_payload,
+        }), encoding="utf-8")
+        written += 1
+    print(f"  wrote {written} per-trade files")
     print(f"\nSample size:    {len(trades):,} trades")
     print(f"Span:           {span_years:.2f} years ({start} → {end})")
     print(f"Win rate:       {win_rate * 100:.1f}%")
