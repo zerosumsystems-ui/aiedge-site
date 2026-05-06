@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   createChart,
   CandlestickSeries,
@@ -25,6 +25,7 @@ interface Props {
   hideScales?: boolean
   fitContent?: boolean
   logicalRange?: { from: number; to: number }
+  interactive?: boolean
 }
 
 const TEAL = '#00C896'
@@ -63,12 +64,34 @@ const ET_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
   hour12: false,
 })
 
+const ET_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  month: 'short',
+  day: 'numeric',
+})
+
 function formatEtTime(time: Time): string | null {
   if (typeof time === 'number') {
     return ET_TIME_FORMATTER.format(new Date(time * 1000))
   }
   if (typeof time === 'string') return time
   return `${time.year}-${String(time.month).padStart(2, '0')}-${String(time.day).padStart(2, '0')}`
+}
+
+function formatEtDate(time: Time): string | null {
+  if (typeof time === 'number') {
+    return ET_DATE_FORMATTER.format(new Date(time * 1000))
+  }
+  if (typeof time === 'string') {
+    const date = new Date(`${time}T12:00:00-05:00`)
+    return Number.isNaN(date.getTime()) ? time : ET_DATE_FORMATTER.format(date)
+  }
+  const date = new Date(Date.UTC(time.year, time.month - 1, time.day, 17, 0, 0))
+  return ET_DATE_FORMATTER.format(date)
+}
+
+function formatChartTime(time: Time, dateOnly: boolean): string {
+  return (dateOnly ? formatEtDate(time) : formatEtTime(time)) ?? ''
 }
 
 function markerShape(direction: SignalDirection): SeriesMarker<Time>['shape'] {
@@ -82,17 +105,43 @@ export function LightweightChart({
   hideScales = false,
   fitContent = true,
   logicalRange,
+  interactive = true,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
+  const [layoutReady, setLayoutReady] = useState(false)
 
   useEffect(() => {
     const container = containerRef.current
     if (!container || !chart || !chart.bars || chart.bars.length === 0) return
+    let cancelled = false
+    let frame: number | null = null
 
+    function markReadyWhenVisible() {
+      const width = Math.floor(container?.clientWidth ?? 0)
+      if (!cancelled && width > 0) setLayoutReady(true)
+    }
+
+    frame = window.requestAnimationFrame(markReadyWhenVisible)
+    const ro = new ResizeObserver(markReadyWhenVisible)
+    ro.observe(container)
+    return () => {
+      cancelled = true
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      ro.disconnect()
+    }
+  }, [chart])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!layoutReady || !container || !chart || !chart.bars || chart.bars.length === 0) return
+
+    const dateOnly = chart.timeframe === 'daily' || chart.timeframe === 'weekly'
+    const initialWidth = Math.floor(container.clientWidth)
+    if (initialWidth <= 0) return
     const api = createChart(container, {
       height,
-      width: container.clientWidth,
+      width: initialWidth,
       autoSize: false,
       layout: {
         background: { type: ColorType.Solid, color: BG },
@@ -102,7 +151,7 @@ export function LightweightChart({
         attributionLogo: false,
       },
       localization: {
-        timeFormatter: (time: Time) => formatEtTime(time) ?? '',
+        timeFormatter: (time: Time) => formatChartTime(time, dateOnly),
       },
       grid: {
         vertLines: { color: hideScales ? 'transparent' : GRID },
@@ -116,9 +165,9 @@ export function LightweightChart({
       timeScale: {
         visible: !hideScales,
         borderColor: AXIS,
-        timeVisible: true,
+        timeVisible: !dateOnly,
         secondsVisible: false,
-        tickMarkFormatter: (time: Time) => formatEtTime(time),
+        tickMarkFormatter: (time: Time) => formatChartTime(time, dateOnly),
       },
       crosshair: {
         mode: 1, // Magnet
@@ -126,12 +175,36 @@ export function LightweightChart({
         horzLine: { color: '#555', width: 1, style: LineStyle.Dotted },
       },
       // iOS: let vertical touch drags pass through to the page so the user
-      // can scroll past a chart. Horizontal pans still work to move the timescale.
-      handleScroll: {
-        vertTouchDrag: false,
-      },
+      // can scroll past a chart. Horizontal pans still work to move the
+      // timescale unless the chart is intentionally locked.
+      handleScroll: interactive ? { vertTouchDrag: false } : false,
+      handleScale: interactive,
     })
     chartRef.current = api
+    let rangeFrame: number | null = null
+    let settleFrame: number | null = null
+    const settleTimers: number[] = []
+
+    function applyVisibleRange() {
+      if (logicalRange) {
+        api.timeScale().setVisibleLogicalRange(logicalRange as unknown as LogicalRange)
+      } else if (fitContent) {
+        api.timeScale().fitContent()
+      }
+    }
+
+    function scheduleVisibleRange() {
+      if (rangeFrame !== null) window.cancelAnimationFrame(rangeFrame)
+      if (settleFrame !== null) window.cancelAnimationFrame(settleFrame)
+      rangeFrame = window.requestAnimationFrame(() => {
+        rangeFrame = null
+        applyVisibleRange()
+        settleFrame = window.requestAnimationFrame(() => {
+          settleFrame = null
+          applyVisibleRange()
+        })
+      })
+    }
 
     const candleSeries: ISeriesApi<'Candlestick'> = api.addSeries(CandlestickSeries, {
       upColor: TEAL,
@@ -242,6 +315,17 @@ export function LightweightChart({
           text: 'SELL',
         })
       }
+      if (a.markers) {
+        for (const marker of a.markers) {
+          markers.push({
+            time: marker.time as UTCTimestamp,
+            position: marker.position ?? 'aboveBar',
+            color: marker.color ?? '#FFD700',
+            shape: marker.shape ?? 'circle',
+            text: marker.text,
+          })
+        }
+      }
       if (markers.length > 0) createSeriesMarkers(candleSeries, markers)
 
       // Entry + exit price lines (for round-trip journal charts). Solid lines
@@ -282,25 +366,40 @@ export function LightweightChart({
       }
     }
 
-    if (logicalRange) {
-      api.timeScale().setVisibleLogicalRange(logicalRange as unknown as LogicalRange)
-    } else if (fitContent) {
-      api.timeScale().fitContent()
-    }
+    scheduleVisibleRange()
+    settleTimers.push(
+      window.setTimeout(scheduleVisibleRange, 80),
+      window.setTimeout(scheduleVisibleRange, 240),
+      window.setTimeout(scheduleVisibleRange, 600)
+    )
 
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        api.applyOptions({ width: entry.contentRect.width, height })
+        const width = Math.floor(entry.contentRect.width)
+        if (width <= 0) continue
+        api.applyOptions({ width, height })
+        scheduleVisibleRange()
       }
     })
     ro.observe(container)
 
+    const io = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) scheduleVisibleRange()
+      }
+    })
+    io.observe(container)
+
     return () => {
+      if (rangeFrame !== null) window.cancelAnimationFrame(rangeFrame)
+      if (settleFrame !== null) window.cancelAnimationFrame(settleFrame)
+      for (const timer of settleTimers) window.clearTimeout(timer)
       ro.disconnect()
+      io.disconnect()
       api.remove()
       chartRef.current = null
     }
-  }, [chart, height, compact, hideScales, fitContent, logicalRange])
+  }, [chart, height, compact, hideScales, fitContent, interactive, logicalRange, layoutReady])
 
   if (!chart || !chart.bars || chart.bars.length === 0) {
     return (
@@ -319,7 +418,7 @@ export function LightweightChart({
     <div className="relative w-full rounded-lg overflow-hidden border border-border bg-[#1A1A1A]">
       <div
         ref={containerRef}
-        style={{ height, width: '100%', touchAction: 'pan-y' }}
+        style={{ height, width: '100%', touchAction: interactive ? 'pan-y' : 'auto' }}
       />
 
       {!compact && a && (a.phaseLabel || a.alwaysIn || a.strength) && (

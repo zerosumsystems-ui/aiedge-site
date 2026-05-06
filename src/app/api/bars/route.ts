@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
  * render directly.
  *
  *   tf=auto         → we pick based on range length (details below)
- *   tf=1min|5min|15min|1h|daily → explicit override
+ *   tf=1min|5min|15min|30min|1h|4h|daily → explicit override
  *   session=open    → same-day RTH opening slice from 09:30 ET; use minutes=5..120
  *   session=rth     → same-day regular session only (09:30-16:00 ET)
  *
@@ -69,8 +69,10 @@ function overrideToSchema(tf: ChartTimeframe): DatabentoSchema {
       return 'ohlcv-1m'
     case '5min':
     case '15min':
+    case '30min':
       return 'ohlcv-1m'
     case '1h':
+    case '4h':
       return 'ohlcv-1h'
     case 'daily':
     case 'weekly':
