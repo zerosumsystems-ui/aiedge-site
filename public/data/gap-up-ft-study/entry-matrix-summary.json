@@ -1,0 +1,923 @@
+{
+  "signals": 20,
+  "strategies": {
+    "first_daily_pullback_h1": {
+      "signals": 20,
+      "entered": 5,
+      "fillRatePct": 25.0,
+      "statuses": {
+        "missed": 7,
+        "entered": 5,
+        "no_forward_daily_bars": 8
+      },
+      "horizons": {
+        "1": {
+          "n": 5,
+          "avgPct": 0.36,
+          "medianPct": 0.75,
+          "winRatePct": 60.0,
+          "avgGainPct": 1.26,
+          "avgLossPct": -1.0,
+          "avgMfePct": 1.36,
+          "avgMaePct": -2.43,
+          "bestPct": 1.61,
+          "worstPct": -1.08
+        },
+        "2": {
+          "n": 4,
+          "avgPct": 1.25,
+          "medianPct": 1.93,
+          "winRatePct": 50.0,
+          "avgGainPct": 4.81,
+          "avgLossPct": -2.31,
+          "avgMfePct": 4.08,
+          "avgMaePct": -2.94,
+          "bestPct": 5.53,
+          "worstPct": -4.41
+        },
+        "3": {
+          "n": 4,
+          "avgPct": 1.11,
+          "medianPct": 1.44,
+          "winRatePct": 75.0,
+          "avgGainPct": 2.1,
+          "avgLossPct": -1.87,
+          "avgMfePct": 4.08,
+          "avgMaePct": -3.8,
+          "bestPct": 3.43,
+          "worstPct": -1.87
+        },
+        "5": {
+          "n": 3,
+          "avgPct": 2.72,
+          "medianPct": 2.98,
+          "winRatePct": 66.67,
+          "avgGainPct": 5.81,
+          "avgLossPct": -3.45,
+          "avgMfePct": 6.83,
+          "avgMaePct": -6.43,
+          "bestPct": 8.63,
+          "worstPct": -3.45
+        },
+        "10": {
+          "n": 3,
+          "avgPct": -1.95,
+          "medianPct": -1.91,
+          "winRatePct": 33.33,
+          "avgGainPct": 1.98,
+          "avgLossPct": -3.92,
+          "avgMfePct": 9.31,
+          "avgMaePct": -6.83,
+          "bestPct": 1.98,
+          "worstPct": -5.92
+        },
+        "20": null
+      }
+    },
+    "limit_atr0.25": {
+      "signals": 20,
+      "entered": 15,
+      "fillRatePct": 75.0,
+      "statuses": {
+        "entered": 15,
+        "missed": 5
+      },
+      "horizons": {
+        "1": {
+          "n": 15,
+          "avgPct": -0.71,
+          "medianPct": 1.24,
+          "winRatePct": 60.0,
+          "avgGainPct": 2.33,
+          "avgLossPct": -5.28,
+          "avgMfePct": 3.63,
+          "avgMaePct": -5.37,
+          "bestPct": 3.98,
+          "worstPct": -21.93
+        },
+        "2": {
+          "n": 12,
+          "avgPct": -1.3,
+          "medianPct": -0.97,
+          "winRatePct": 41.67,
+          "avgGainPct": 5.78,
+          "avgLossPct": -6.35,
+          "avgMfePct": 4.65,
+          "avgMaePct": -6.2,
+          "bestPct": 10.3,
+          "worstPct": -19.11
+        },
+        "3": {
+          "n": 12,
+          "avgPct": -1.8,
+          "medianPct": -1.1,
+          "winRatePct": 41.67,
+          "avgGainPct": 5.22,
+          "avgLossPct": -6.81,
+          "avgMfePct": 5.76,
+          "avgMaePct": -6.82,
+          "bestPct": 11.6,
+          "worstPct": -20.04
+        },
+        "5": {
+          "n": 10,
+          "avgPct": -1.74,
+          "medianPct": -1.7,
+          "winRatePct": 40.0,
+          "avgGainPct": 8.55,
+          "avgLossPct": -8.6,
+          "avgMfePct": 6.73,
+          "avgMaePct": -8.18,
+          "bestPct": 13.44,
+          "worstPct": -23.36
+        },
+        "10": {
+          "n": 6,
+          "avgPct": -0.04,
+          "medianPct": -0.05,
+          "winRatePct": 50.0,
+          "avgGainPct": 7.15,
+          "avgLossPct": -7.24,
+          "avgMfePct": 8.85,
+          "avgMaePct": -8.56,
+          "bestPct": 16.92,
+          "worstPct": -18.56
+        },
+        "20": {
+          "n": 3,
+          "avgPct": -8.88,
+          "medianPct": -9.33,
+          "winRatePct": 33.33,
+          "avgGainPct": 1.23,
+          "avgLossPct": -13.93,
+          "avgMfePct": 4.53,
+          "avgMaePct": -16.88,
+          "bestPct": 1.23,
+          "worstPct": -18.53
+        }
+      }
+    },
+    "limit_atr0.5": {
+      "signals": 20,
+      "entered": 10,
+      "fillRatePct": 50.0,
+      "statuses": {
+        "entered": 10,
+        "missed": 10
+      },
+      "horizons": {
+        "1": {
+          "n": 10,
+          "avgPct": -1.76,
+          "medianPct": -0.16,
+          "winRatePct": 50.0,
+          "avgGainPct": 1.64,
+          "avgLossPct": -5.16,
+          "avgMfePct": 4.04,
+          "avgMaePct": -4.94,
+          "bestPct": 3.54,
+          "worstPct": -20.6
+        },
+        "2": {
+          "n": 9,
+          "avgPct": -3.78,
+          "medianPct": -1.59,
+          "winRatePct": 22.22,
+          "avgGainPct": 2.04,
+          "avgLossPct": -5.44,
+          "avgMfePct": 4.29,
+          "avgMaePct": -6.71,
+          "bestPct": 3.29,
+          "worstPct": -17.73
+        },
+        "3": {
+          "n": 8,
+          "avgPct": -4.43,
+          "medianPct": -4.1,
+          "winRatePct": 25.0,
+          "avgGainPct": 2.4,
+          "avgLossPct": -6.7,
+          "avgMfePct": 5.28,
+          "avgMaePct": -8.32,
+          "bestPct": 4.71,
+          "worstPct": -18.67
+        },
+        "5": {
+          "n": 7,
+          "avgPct": -6.28,
+          "medianPct": -2.68,
+          "winRatePct": 14.29,
+          "avgGainPct": 2.53,
+          "avgLossPct": -7.75,
+          "avgMfePct": 4.84,
+          "avgMaePct": -10.29,
+          "bestPct": 2.53,
+          "worstPct": -22.04
+        },
+        "10": {
+          "n": 4,
+          "avgPct": -4.34,
+          "medianPct": -0.82,
+          "winRatePct": 50.0,
+          "avgGainPct": 1.0,
+          "avgLossPct": -9.69,
+          "avgMfePct": 5.38,
+          "avgMaePct": -13.04,
+          "bestPct": 1.77,
+          "worstPct": -17.5
+        },
+        "20": {
+          "n": 3,
+          "avgPct": -7.85,
+          "medianPct": -8.27,
+          "winRatePct": 33.33,
+          "avgGainPct": 2.2,
+          "avgLossPct": -12.87,
+          "avgMfePct": 5.73,
+          "avgMaePct": -15.93,
+          "bestPct": 2.2,
+          "worstPct": -17.47
+        }
+      }
+    },
+    "limit_atr0.75": {
+      "signals": 20,
+      "entered": 8,
+      "fillRatePct": 40.0,
+      "statuses": {
+        "entered": 8,
+        "missed": 12
+      },
+      "horizons": {
+        "1": {
+          "n": 8,
+          "avgPct": -1.96,
+          "medianPct": 0.47,
+          "winRatePct": 62.5,
+          "avgGainPct": 1.03,
+          "avgLossPct": -6.93,
+          "avgMfePct": 5.34,
+          "avgMaePct": -5.05,
+          "bestPct": 1.87,
+          "worstPct": -19.22
+        },
+        "2": {
+          "n": 8,
+          "avgPct": -3.01,
+          "medianPct": -0.43,
+          "winRatePct": 50.0,
+          "avgGainPct": 1.79,
+          "avgLossPct": -7.81,
+          "avgMfePct": 5.47,
+          "avgMaePct": -6.32,
+          "bestPct": 4.52,
+          "worstPct": -16.3
+        },
+        "3": {
+          "n": 7,
+          "avgPct": -3.04,
+          "medianPct": -2.76,
+          "winRatePct": 42.86,
+          "avgGainPct": 2.63,
+          "avgLossPct": -7.29,
+          "avgMfePct": 6.66,
+          "avgMaePct": -7.42,
+          "bestPct": 5.96,
+          "worstPct": -17.25
+        },
+        "5": {
+          "n": 6,
+          "avgPct": -5.85,
+          "medianPct": -2.43,
+          "winRatePct": 16.67,
+          "avgGainPct": 3.24,
+          "avgLossPct": -7.66,
+          "avgMfePct": 6.17,
+          "avgMaePct": -9.54,
+          "bestPct": 3.24,
+          "worstPct": -20.69
+        },
+        "10": {
+          "n": 4,
+          "avgPct": -3.29,
+          "medianPct": 0.23,
+          "winRatePct": 50.0,
+          "avgGainPct": 2.09,
+          "avgLossPct": -8.69,
+          "avgMfePct": 6.55,
+          "avgMaePct": -12.09,
+          "bestPct": 2.76,
+          "worstPct": -16.41
+        },
+        "20": {
+          "n": 3,
+          "avgPct": -6.79,
+          "medianPct": -7.18,
+          "winRatePct": 33.33,
+          "avgGainPct": 3.19,
+          "avgLossPct": -11.78,
+          "avgMfePct": 6.96,
+          "avgMaePct": -14.97,
+          "bestPct": 3.19,
+          "worstPct": -16.37
+        }
+      }
+    },
+    "limit_atr1": {
+      "signals": 20,
+      "entered": 5,
+      "fillRatePct": 25.0,
+      "statuses": {
+        "entered": 5,
+        "missed": 15
+      },
+      "horizons": {
+        "1": {
+          "n": 5,
+          "avgPct": -3.16,
+          "medianPct": 0.15,
+          "winRatePct": 60.0,
+          "avgGainPct": 0.85,
+          "avgLossPct": -9.17,
+          "avgMfePct": 6.8,
+          "avgMaePct": -7.09,
+          "bestPct": 1.82,
+          "worstPct": -17.79
+        },
+        "2": {
+          "n": 5,
+          "avgPct": -5.34,
+          "medianPct": -5.41,
+          "winRatePct": 20.0,
+          "avgGainPct": 1.53,
+          "avgLossPct": -7.06,
+          "avgMfePct": 6.8,
+          "avgMaePct": -8.95,
+          "bestPct": 1.53,
+          "worstPct": -14.82
+        },
+        "3": {
+          "n": 5,
+          "avgPct": -4.31,
+          "medianPct": -2.21,
+          "winRatePct": 20.0,
+          "avgGainPct": 1.91,
+          "avgLossPct": -5.86,
+          "avgMfePct": 6.8,
+          "avgMaePct": -9.1,
+          "bestPct": 1.91,
+          "worstPct": -15.79
+        },
+        "5": {
+          "n": 5,
+          "avgPct": -5.95,
+          "medianPct": -2.78,
+          "winRatePct": 40.0,
+          "avgGainPct": 1.95,
+          "avgLossPct": -11.22,
+          "avgMfePct": 7.16,
+          "avgMaePct": -10.31,
+          "bestPct": 3.86,
+          "worstPct": -19.28
+        },
+        "10": {
+          "n": 3,
+          "avgPct": -2.96,
+          "medianPct": 2.65,
+          "winRatePct": 66.67,
+          "avgGainPct": 3.21,
+          "avgLossPct": -15.28,
+          "avgMfePct": 7.65,
+          "avgMaePct": -12.05,
+          "bestPct": 3.76,
+          "worstPct": -15.28
+        },
+        "20": {
+          "n": 3,
+          "avgPct": -5.71,
+          "medianPct": -6.07,
+          "winRatePct": 33.33,
+          "avgGainPct": 4.2,
+          "avgLossPct": -10.66,
+          "avgMfePct": 8.22,
+          "avgMaePct": -13.98,
+          "bestPct": 4.2,
+          "worstPct": -15.25
+        }
+      }
+    },
+    "limit_bb_lower1": {
+      "signals": 20,
+      "entered": 2,
+      "fillRatePct": 10.0,
+      "statuses": {
+        "entered": 2,
+        "missed": 18
+      },
+      "horizons": {
+        "1": {
+          "n": 2,
+          "avgPct": 5.61,
+          "medianPct": 5.61,
+          "winRatePct": 50.0,
+          "avgGainPct": 13.52,
+          "avgLossPct": -2.3,
+          "avgMfePct": 27.92,
+          "avgMaePct": -2.37,
+          "bestPct": 13.52,
+          "worstPct": -2.3
+        },
+        "2": {
+          "n": 2,
+          "avgPct": 3.41,
+          "medianPct": 3.41,
+          "winRatePct": 50.0,
+          "avgGainPct": 17.63,
+          "avgLossPct": -10.81,
+          "avgMfePct": 27.92,
+          "avgMaePct": -7.01,
+          "bestPct": 17.63,
+          "worstPct": -10.81
+        },
+        "3": {
+          "n": 2,
+          "avgPct": 3.23,
+          "medianPct": 3.23,
+          "winRatePct": 50.0,
+          "avgGainPct": 16.28,
+          "avgLossPct": -9.83,
+          "avgMfePct": 27.92,
+          "avgMaePct": -7.93,
+          "bestPct": 16.28,
+          "worstPct": -9.83
+        },
+        "5": {
+          "n": 2,
+          "avgPct": 4.81,
+          "medianPct": 4.81,
+          "winRatePct": 50.0,
+          "avgGainPct": 11.45,
+          "avgLossPct": -1.83,
+          "avgMfePct": 27.92,
+          "avgMaePct": -7.93,
+          "bestPct": 11.45,
+          "worstPct": -1.83
+        },
+        "10": {
+          "n": 1,
+          "avgPct": -0.54,
+          "medianPct": -0.54,
+          "winRatePct": 0.0,
+          "avgGainPct": null,
+          "avgLossPct": -0.54,
+          "avgMfePct": 5.78,
+          "avgMaePct": -13.43,
+          "bestPct": -0.54,
+          "worstPct": -0.54
+        },
+        "20": {
+          "n": 1,
+          "avgPct": -7.06,
+          "medianPct": -7.06,
+          "winRatePct": 0.0,
+          "avgGainPct": null,
+          "avgLossPct": -7.06,
+          "avgMfePct": 5.78,
+          "avgMaePct": -13.43,
+          "bestPct": -7.06,
+          "worstPct": -7.06
+        }
+      }
+    },
+    "limit_bb_lower2": {
+      "signals": 20,
+      "entered": 0,
+      "fillRatePct": 0.0,
+      "statuses": {
+        "missed": 20
+      },
+      "horizons": {
+        "1": null,
+        "2": null,
+        "3": null,
+        "5": null,
+        "10": null,
+        "20": null
+      }
+    },
+    "limit_bb_mid20": {
+      "signals": 20,
+      "entered": 2,
+      "fillRatePct": 10.0,
+      "statuses": {
+        "entered": 2,
+        "missed": 18
+      },
+      "horizons": {
+        "1": {
+          "n": 2,
+          "avgPct": -0.05,
+          "medianPct": -0.05,
+          "winRatePct": 50.0,
+          "avgGainPct": 1.67,
+          "avgLossPct": -1.76,
+          "avgMfePct": 19.29,
+          "avgMaePct": -7.33,
+          "bestPct": 1.67,
+          "worstPct": -1.76
+        },
+        "2": {
+          "n": 2,
+          "avgPct": 3.73,
+          "medianPct": 3.73,
+          "winRatePct": 100.0,
+          "avgGainPct": 3.73,
+          "avgLossPct": null,
+          "avgMfePct": 19.29,
+          "avgMaePct": -7.33,
+          "bestPct": 5.34,
+          "worstPct": 2.12
+        },
+        "3": {
+          "n": 2,
+          "avgPct": 1.26,
+          "medianPct": 1.26,
+          "winRatePct": 50.0,
+          "avgGainPct": 4.14,
+          "avgLossPct": -1.61,
+          "avgMfePct": 19.4,
+          "avgMaePct": -7.33,
+          "bestPct": 4.14,
+          "worstPct": -1.61
+        },
+        "5": {
+          "n": 2,
+          "avgPct": -7.95,
+          "medianPct": -7.95,
+          "winRatePct": 0.0,
+          "avgGainPct": null,
+          "avgLossPct": -7.95,
+          "avgMfePct": 19.4,
+          "avgMaePct": -14.54,
+          "bestPct": -0.19,
+          "worstPct": -15.71
+        },
+        "10": {
+          "n": 1,
+          "avgPct": -11.5,
+          "medianPct": -11.5,
+          "winRatePct": 0.0,
+          "avgGainPct": null,
+          "avgLossPct": -11.5,
+          "avgMfePct": 4.41,
+          "avgMaePct": -18.19,
+          "bestPct": -11.5,
+          "worstPct": -11.5
+        },
+        "20": {
+          "n": 1,
+          "avgPct": -13.09,
+          "medianPct": -13.09,
+          "winRatePct": 0.0,
+          "avgGainPct": null,
+          "avgLossPct": -13.09,
+          "avgMfePct": 4.41,
+          "avgMaePct": -18.19,
+          "bestPct": -13.09,
+          "worstPct": -13.09
+        }
+      }
+    },
+    "limit_stdev0.5": {
+      "signals": 20,
+      "entered": 9,
+      "fillRatePct": 45.0,
+      "statuses": {
+        "entered": 9,
+        "missed": 11
+      },
+      "horizons": {
+        "1": {
+          "n": 9,
+          "avgPct": -2.61,
+          "medianPct": -0.79,
+          "winRatePct": 44.44,
+          "avgGainPct": 1.05,
+          "avgLossPct": -5.55,
+          "avgMfePct": 3.8,
+          "avgMaePct": -5.7,
+          "bestPct": 2.7,
+          "worstPct": -20.28
+        },
+        "2": {
+          "n": 8,
+          "avgPct": -4.31,
+          "medianPct": -1.58,
+          "winRatePct": 25.0,
+          "avgGainPct": 1.97,
+          "avgLossPct": -6.4,
+          "avgMfePct": 4.04,
+          "avgMaePct": -7.57,
+          "bestPct": 3.36,
+          "worstPct": -17.4
+        },
+        "3": {
+          "n": 7,
+          "avgPct": -4.4,
+          "medianPct": -3.35,
+          "winRatePct": 14.29,
+          "avgGainPct": 4.78,
+          "avgLossPct": -5.93,
+          "avgMfePct": 5.15,
+          "avgMaePct": -8.72,
+          "bestPct": 4.78,
+          "worstPct": -18.34
+        },
+        "5": {
+          "n": 6,
+          "avgPct": -7.21,
+          "medianPct": -4.33,
+          "winRatePct": 16.67,
+          "avgGainPct": 2.61,
+          "avgLossPct": -9.17,
+          "avgMfePct": 4.61,
+          "avgMaePct": -10.86,
+          "bestPct": 2.61,
+          "worstPct": -21.73
+        },
+        "10": {
+          "n": 4,
+          "avgPct": -4.95,
+          "medianPct": -1.36,
+          "winRatePct": 25.0,
+          "avgGainPct": 0.85,
+          "avgLossPct": -6.89,
+          "avgMfePct": 4.72,
+          "avgMaePct": -13.59,
+          "bestPct": 0.85,
+          "worstPct": -17.93
+        },
+        "20": {
+          "n": 3,
+          "avgPct": -8.57,
+          "medianPct": -9.09,
+          "winRatePct": 33.33,
+          "avgGainPct": 1.28,
+          "avgLossPct": -13.49,
+          "avgMfePct": 4.91,
+          "avgMaePct": -16.6,
+          "bestPct": 1.28,
+          "worstPct": -17.9
+        }
+      }
+    },
+    "limit_stdev1": {
+      "signals": 20,
+      "entered": 5,
+      "fillRatePct": 25.0,
+      "statuses": {
+        "entered": 5,
+        "missed": 15
+      },
+      "horizons": {
+        "1": {
+          "n": 5,
+          "avgPct": -3.94,
+          "medianPct": -0.49,
+          "winRatePct": 0.0,
+          "avgGainPct": null,
+          "avgLossPct": -3.94,
+          "avgMfePct": 6.0,
+          "avgMaePct": -7.87,
+          "bestPct": -0.03,
+          "worstPct": -17.1
+        },
+        "2": {
+          "n": 5,
+          "avgPct": -6.08,
+          "medianPct": -6.93,
+          "winRatePct": 0.0,
+          "avgGainPct": null,
+          "avgLossPct": -6.08,
+          "avgMfePct": 6.0,
+          "avgMaePct": -9.71,
+          "bestPct": -0.33,
+          "worstPct": -14.1
+        },
+        "3": {
+          "n": 5,
+          "avgPct": -5.06,
+          "medianPct": -3.26,
+          "winRatePct": 20.0,
+          "avgGainPct": 0.05,
+          "avgLossPct": -6.34,
+          "avgMfePct": 6.0,
+          "avgMaePct": -9.85,
+          "bestPct": 0.05,
+          "worstPct": -15.09
+        },
+        "5": {
+          "n": 5,
+          "avgPct": -6.69,
+          "medianPct": -4.55,
+          "winRatePct": 20.0,
+          "avgGainPct": 4.03,
+          "avgLossPct": -9.37,
+          "avgMfePct": 6.36,
+          "avgMaePct": -11.05,
+          "bestPct": 4.03,
+          "worstPct": -18.61
+        },
+        "10": {
+          "n": 3,
+          "avgPct": -4.52,
+          "medianPct": 0.78,
+          "winRatePct": 66.67,
+          "avgGainPct": 1.32,
+          "avgLossPct": -16.19,
+          "avgMfePct": 5.96,
+          "avgMaePct": -13.46,
+          "bestPct": 1.86,
+          "worstPct": -16.19
+        },
+        "20": {
+          "n": 3,
+          "avgPct": -7.22,
+          "medianPct": -7.78,
+          "winRatePct": 33.33,
+          "avgGainPct": 2.29,
+          "avgLossPct": -11.97,
+          "avgMfePct": 6.52,
+          "avgMaePct": -15.36,
+          "bestPct": 2.29,
+          "worstPct": -16.16
+        }
+      }
+    },
+    "next_open": {
+      "signals": 20,
+      "entered": 14,
+      "fillRatePct": 70.0,
+      "statuses": {
+        "entered": 14,
+        "no_next_session_yet": 6
+      },
+      "horizons": {
+        "1": {
+          "n": 14,
+          "avgPct": -0.47,
+          "medianPct": 0.17,
+          "winRatePct": 50.0,
+          "avgGainPct": 2.44,
+          "avgLossPct": -3.38,
+          "avgMfePct": 2.55,
+          "avgMaePct": -3.32,
+          "bestPct": 7.69,
+          "worstPct": -8.43
+        },
+        "2": {
+          "n": 12,
+          "avgPct": -2.08,
+          "medianPct": -1.11,
+          "winRatePct": 33.33,
+          "avgGainPct": 3.49,
+          "avgLossPct": -4.87,
+          "avgMfePct": 3.31,
+          "avgMaePct": -4.7,
+          "bestPct": 7.25,
+          "worstPct": -14.36
+        },
+        "3": {
+          "n": 11,
+          "avgPct": -5.21,
+          "medianPct": -2.38,
+          "winRatePct": 36.36,
+          "avgGainPct": 2.75,
+          "avgLossPct": -9.76,
+          "avgMfePct": 4.08,
+          "avgMaePct": -8.95,
+          "bestPct": 3.66,
+          "worstPct": -24.42
+        },
+        "5": {
+          "n": 11,
+          "avgPct": -3.66,
+          "medianPct": -1.79,
+          "winRatePct": 36.36,
+          "avgGainPct": 5.5,
+          "avgLossPct": -8.89,
+          "avgMfePct": 5.04,
+          "avgMaePct": -9.84,
+          "bestPct": 10.3,
+          "worstPct": -22.58
+        },
+        "10": {
+          "n": 8,
+          "avgPct": -5.01,
+          "medianPct": -1.95,
+          "winRatePct": 25.0,
+          "avgGainPct": 3.73,
+          "avgLossPct": -7.92,
+          "avgMfePct": 5.12,
+          "avgMaePct": -14.11,
+          "bestPct": 7.15,
+          "worstPct": -22.88
+        },
+        "20": {
+          "n": 4,
+          "avgPct": -7.35,
+          "medianPct": -6.31,
+          "winRatePct": 50.0,
+          "avgGainPct": 3.4,
+          "avgLossPct": -18.11,
+          "avgMfePct": 4.8,
+          "avgMaePct": -16.11,
+          "bestPct": 6.07,
+          "worstPct": -22.85
+        }
+      }
+    },
+    "signal_1530": {
+      "signals": 20,
+      "entered": 20,
+      "fillRatePct": 100.0,
+      "statuses": {
+        "entered": 20
+      },
+      "horizons": {
+        "1": {
+          "n": 20,
+          "avgPct": 1.31,
+          "medianPct": 0.81,
+          "winRatePct": 75.0,
+          "avgGainPct": 1.87,
+          "avgLossPct": -0.37,
+          "avgMfePct": 1.73,
+          "avgMaePct": -7.09,
+          "bestPct": 6.87,
+          "worstPct": -0.81
+        },
+        "2": {
+          "n": 14,
+          "avgPct": 1.2,
+          "medianPct": 0.86,
+          "winRatePct": 64.29,
+          "avgGainPct": 3.26,
+          "avgLossPct": -2.51,
+          "avgMfePct": 4.39,
+          "avgMaePct": -6.28,
+          "bestPct": 15.5,
+          "worstPct": -4.54
+        },
+        "3": {
+          "n": 12,
+          "avgPct": -0.29,
+          "medianPct": 0.91,
+          "winRatePct": 58.33,
+          "avgGainPct": 3.51,
+          "avgLossPct": -5.6,
+          "avgMfePct": 5.38,
+          "avgMaePct": -7.43,
+          "bestPct": 8.98,
+          "worstPct": -10.72
+        },
+        "5": {
+          "n": 11,
+          "avgPct": -1.65,
+          "medianPct": -0.33,
+          "winRatePct": 45.45,
+          "avgGainPct": 4.83,
+          "avgLossPct": -7.05,
+          "avgMfePct": 6.85,
+          "avgMaePct": -9.96,
+          "bestPct": 10.3,
+          "worstPct": -20.45
+        },
+        "10": {
+          "n": 8,
+          "avgPct": -3.24,
+          "medianPct": -3.67,
+          "winRatePct": 25.0,
+          "avgGainPct": 10.22,
+          "avgLossPct": -7.73,
+          "avgMfePct": 6.82,
+          "avgMaePct": -14.01,
+          "bestPct": 11.77,
+          "worstPct": -17.7
+        },
+        "20": {
+          "n": 4,
+          "avgPct": -6.79,
+          "medianPct": -8.13,
+          "winRatePct": 25.0,
+          "avgGainPct": 7.78,
+          "avgLossPct": -11.65,
+          "avgMfePct": 7.35,
+          "avgMaePct": -15.92,
+          "bestPct": 7.78,
+          "worstPct": -18.7
+        }
+      }
+    }
+  }
+}

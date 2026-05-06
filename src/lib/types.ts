@@ -21,6 +21,17 @@ export interface KeyLevels {
 
 export type SignalDirection = "long" | "short"
 
+export type ChartMarkerPosition = "aboveBar" | "belowBar" | "inBar"
+export type ChartMarkerShape = "circle" | "square" | "arrowUp" | "arrowDown"
+
+export interface ChartMarkerAnnotation {
+  time: number
+  position?: ChartMarkerPosition
+  color?: string
+  shape?: ChartMarkerShape
+  text?: string
+}
+
 export interface ChartAnnotations {
   phaseLabel?: string                   // "bear_spike"
   alwaysIn?: string                     // "long" | "short" | "unclear" (or descriptive like "short_moderate")
@@ -37,18 +48,111 @@ export interface ChartAnnotations {
   exitPrice?: number                    // solid exit line (for round-trip charts)
   entryMarker?: { time: number; direction: SignalDirection }  // BUY at bar time
   exitMarker?: { time: number; direction: SignalDirection }   // SELL at bar time
+  markers?: ChartMarkerAnnotation[]      // labeled chart markers for scanner/setup review
   verdict?: { decision: string; probability: number; rr: number }
   agreement?: "AGREE" | "PARTIAL" | "MINOR" | "MAJOR" | "DISAGREE" | "INVERTED"
   adrMultiple?: number
 }
 
-export type ChartTimeframe = "1min" | "5min" | "15min" | "1h" | "daily" | "weekly"
+export type ChartTimeframe = "1min" | "5min" | "15min" | "30min" | "1h" | "4h" | "daily" | "weekly"
 
 export interface ChartData {
   bars: Bar[]
   timeframe: ChartTimeframe
   keyLevels?: KeyLevels
   annotations?: ChartAnnotations
+}
+
+/** Higher-timeframe breakout board */
+
+export interface WeeklyBreakoutFilters {
+  rthOnly: boolean
+  minWeekReturnPct: number
+  minWeekRvol: number
+  minCleanlinessScore: number
+  eventExclusions: boolean
+  artifactExclusions: boolean
+  chartBars: number
+  ccPattern?: string
+  ccMinCloseLocationPct?: number
+  ccMinAvgPairCloseLocationPct?: number
+  ccMinStreakBars?: number
+  ccMinBarVolumeRvol?: number
+  ccMinEventGapPct?: number
+  ccMinEventVolumeRvol?: number
+  ccMinGapUpPct?: number
+  ccMinGapDayVolumeRvol?: number
+  ccMinFollowThroughVolumeRvol?: number
+  intradayTimeframes?: IntradayCcTimeframe[]
+  intradayChartBars?: number
+  intradayOpeningBars?: number
+  intradayMinCloseLocationPct?: number
+  intradayMinBodyPct?: number
+  intradayMinRangeVsMedian?: number
+}
+
+export type IntradayCcTimeframe = "4h" | "1h" | "30min" | "5min"
+
+export interface WeeklyBreakoutLeader {
+  rank: number
+  ticker: string
+  barClosedAt: string
+  weeklyNewHigh: string
+  weekReturnPct: number
+  weekRvol: number
+  adrPct: number
+  latestRangeVsAdr: number
+  weekVolume: number
+  avgWeekVolume10w: number
+  displayScore: number
+  powerScore: number
+  cleanlinessScore: number
+  cleanlinessMultiplier: number
+  ccRank?: number
+  ccScore?: number
+  ccActive?: boolean
+  ccStreakBars?: number
+  ccMaxStreakLookback?: number
+  ccAvgCloseLocationPct?: number
+  ccLatestCloseLocationPct?: number
+  ccQualifyingBarsLookback?: number
+  ccAvgVolumeRvol?: number
+  ccLatestVolumeRvol?: number
+  ccMaxPairVolumeRvol?: number
+  ccMaxPairGapPct?: number
+  ccHasGapOrVolumeEvent?: boolean
+  ccGapUpPct?: number
+  ccGapDayCloseLocationPct?: number
+  ccGapDayVolumeRvol?: number
+  ccFollowThroughCloseLocationPct?: number
+  ccFollowThroughVolumeRvol?: number
+  ccOpeningBars?: number
+  ccQualifyingOpeningBars?: number
+  ccAvgBodyPct?: number
+  ccAvgRangeVsMedian?: number
+  ccLatestSession?: string
+  lastClose: number | null
+  chart: ChartData
+  ccTimeframe?: IntradayCcTimeframe
+}
+
+export interface CcTimeframePayload {
+  timeframe: IntradayCcTimeframe
+  label: string
+  source: "intraday_csv" | "not_exported"
+  leaders: WeeklyBreakoutLeader[]
+}
+
+export interface WeeklyBreakoutPayload {
+  screen: "clean_weekly_breakouts"
+  asOf: string
+  generatedAt: string
+  sourceCsv?: string
+  filters: WeeklyBreakoutFilters
+  excludedTickers: string[]
+  leaders: WeeklyBreakoutLeader[]
+  ccLeaders: WeeklyBreakoutLeader[]
+  ccTimeframes?: Record<IntradayCcTimeframe, CcTimeframePayload>
 }
 
 /** Vault / Knowledge base types */
@@ -575,7 +679,7 @@ export type RoutineHealth = "healthy" | "stale" | "failed" | "unknown"
 
 export interface RoutineStatus {
   id: string                         // "com.aiedge.scanner"
-  label: string                      // "AI Edge Scanner"
+  label: string                      // "5 minute trend from the open"
   category: RoutineCategory
   schedule: string                   // human-readable: "Mon–Fri 09:15 → 16:05 ET"
   lastRunAt: string | null           // ISO timestamp, null if never / unknown

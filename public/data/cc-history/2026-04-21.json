@@ -1,0 +1,22 @@
+{
+  "screen": "daily_cc_history",
+  "asOf": "2026-04-21",
+  "generatedAt": "2026-05-03T13:40:57-04:00",
+  "filters": {
+    "rthOnly": true,
+    "minWeekReturnPct": 10.0,
+    "minWeekRvol": 1.4,
+    "minCleanlinessScore": 45,
+    "eventExclusions": true,
+    "artifactExclusions": true,
+    "chartBars": 60,
+    "ccPattern": "gap_up_day_follow_through",
+    "ccMinCloseLocationPct": 80.0,
+    "ccMinAvgPairCloseLocationPct": 88.0,
+    "ccMinStreakBars": 2,
+    "ccMinGapUpPct": 1.0,
+    "ccMinGapDayVolumeRvol": 1.4,
+    "ccMinFollowThroughVolumeRvol": 1.4
+  },
+  "ccLeaders": []
+}
