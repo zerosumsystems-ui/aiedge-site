@@ -117,14 +117,14 @@ function phaseAt(phases: PhaseAnchor[], barIdx: number): string {
 
 const SETUPS: FeaturedSetup[] = [
   {
-    symbol: "NQ", timeframe: "5m", sessionLabel: "Tue · RTH session",
+    symbol: "QQQ", timeframe: "5m", sessionLabel: "Tue · RTH session",
     read: "H2 long off EMA · spike-and-channel base",
     direction: "long", signal: "BUY",
     urgency: 8.2, uncertainty: 2.1,
     edge: { eq: 0.78, note: "p 0.65 · 1.7R win · 1R stop" },
     adrMultiple: 1.4,
     signalBarIndex: 23,
-    entryPrice: 17896, stopPrice: 17876, targetPrice: 17930,
+    entryPrice: 515.40, stopPrice: 514.85, targetPrice: 516.40,
     phases: [
       { from: 0, label: "trading_range" },
       { from: 4, label: "bull_spike" },
@@ -135,17 +135,17 @@ const SETUPS: FeaturedSetup[] = [
     ],
     bars: pathToBars(
       [
-        17820, 17816, 17814, 17816, 17815,
-        17832, 17852, 17865, 17878, 17886,
-        17880, 17888, 17893, 17896,
-        17886, 17880, 17878,
-        17886, 17890, 17894,
-        17886, 17880, 17876, 17880,
-        17896,
-        17908, 17920, 17932, 17944, 17952, 17962,
+        513.20, 513.10, 513.05, 513.10, 513.05,
+        513.55, 514.15, 514.50, 514.90, 515.10,
+        514.95, 515.20, 515.35, 515.40,
+        515.10, 514.95, 514.90,
+        515.10, 515.25, 515.35,
+        515.10, 514.95, 514.85, 514.95,
+        515.40,
+        515.75, 516.10, 516.45, 516.80, 517.05, 517.30,
       ],
       1337,
-      3.2,
+      0.09,
     ),
   },
   {

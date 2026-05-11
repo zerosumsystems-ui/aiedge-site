@@ -308,7 +308,10 @@ export async function GET(request: Request) {
         ? 5 * 86_400_000
         : Math.max((toDate.getTime() - fromDate.getTime()) * 0.2, 86_400_000)
   const paddedFrom = explicitSessionWindow?.start ?? new Date(fromDate.getTime() - padMs)
-  const paddedTo = explicitSessionWindow?.end ?? new Date(Math.min(toDate.getTime() + padMs, Date.now()))
+  // EQUS.MINI intraday publishes with a ~30 min lag; clamp past that or
+  // Databento returns 422 "data_end_after_available_end" on near-realtime queries.
+  const DATABENTO_FEED_LAG_MS = 60 * 60 * 1000
+  const paddedTo = explicitSessionWindow?.end ?? new Date(Math.min(toDate.getTime() + padMs, Date.now() - DATABENTO_FEED_LAG_MS))
 
   // Databento Historical API — HTTP Basic auth, key as username, empty pw.
   const url = new URL('https://hist.databento.com/v0/timeseries.get_range')
