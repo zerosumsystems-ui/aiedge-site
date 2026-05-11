@@ -21,6 +21,8 @@ import base64
 import json
 import os
 import sys
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -28,6 +30,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HIST = "https://hist.databento.com/v0"
+LIVE_PROBE_SCHEMA = "trades"
+LIVE_PROBE_SYMBOL = "SPY"
+LIVE_PROBE_TIMEOUT_SECONDS = float(os.environ.get("LIVE_PROBE_TIMEOUT_SECONDS", "8"))
 
 # Datasets we care about for the live wiring decision. DBEQ.BASIC is
 # Databento's own consolidated equities feed (likely real-time on the
@@ -98,6 +103,117 @@ def section(title: str) -> None:
     print("=" * 72)
 
 
+def classify_live_error(message: str) -> str:
+    msg = message.lower()
+    if any(
+        token in msg
+        for token in (
+            "not entitled",
+            "not licensed",
+            "license",
+            "permission",
+            "not authorized",
+            "unauthorized",
+            "forbidden",
+            "auth",
+            "api key",
+            "subscription",
+        )
+    ):
+        return "LICENSE_REQUIRED"
+    if any(
+        token in msg
+        for token in (
+            "timed out",
+            "timeout",
+            "connection",
+            "failed",
+            "nodename",
+            "name or service",
+            "temporary failure",
+            "network",
+            "gateway",
+            "unavailable",
+            "connection lost",
+        )
+    ):
+        return "GATEWAY_UNAVAILABLE"
+    # Unknown gateway rejections are safer to treat as not streamable for this key
+    # than as a successful entitlement.
+    return "LICENSE_REQUIRED"
+
+
+def probe_live_dataset(key: str, dataset: str) -> tuple[str, str]:
+    try:
+        import databento as db  # type: ignore[import-not-found]
+        import databento_dbn as dbn  # type: ignore[import-not-found]
+    except ImportError as exc:
+        return "GATEWAY_UNAVAILABLE", f"local Databento SDK import failed: {exc}"
+
+    got_market_record = threading.Event()
+    got_gateway_error = threading.Event()
+    result = {
+        "record_type": "",
+        "error": "",
+        "control_count": 0,
+    }
+
+    def on_record(record: object) -> None:
+        record_type = type(record).__name__
+        if isinstance(record, dbn.ErrorMsg):
+            result["error"] = str(getattr(record, "err", record))
+            got_gateway_error.set()
+            return
+        if isinstance(record, (dbn.Metadata, dbn.SymbolMappingMsg, dbn.SystemMsg)):
+            result["control_count"] += 1
+            return
+        result["record_type"] = record_type
+        got_market_record.set()
+
+    client = None
+    try:
+        client = db.Live(key=key, heartbeat_interval_s=5)
+        client.add_callback(on_record)
+        client.subscribe(
+            dataset=dataset,
+            schema=LIVE_PROBE_SCHEMA,
+            symbols=LIVE_PROBE_SYMBOL,
+            stype_in="raw_symbol",
+        )
+        client.start()
+        deadline = time.monotonic() + LIVE_PROBE_TIMEOUT_SECONDS
+        while time.monotonic() < deadline:
+            if got_market_record.is_set():
+                return "LICENSED_AND_STREAMING", f"received {result['record_type']}"
+            if got_gateway_error.is_set():
+                detail = result["error"] or "gateway error"
+                return classify_live_error(detail), detail
+            time.sleep(0.1)
+        return (
+            "LICENSED_BUT_SILENT",
+            f"subscription accepted; no {LIVE_PROBE_SCHEMA} record within "
+            f"{LIVE_PROBE_TIMEOUT_SECONDS:g}s"
+            + (
+                f" (control messages: {result['control_count']})"
+                if result["control_count"]
+                else ""
+            ),
+        )
+    except Exception as exc:
+        detail = str(exc) or repr(exc)
+        return classify_live_error(detail), detail
+    finally:
+        if client is not None:
+            try:
+                client.stop()
+                client.block_for_close(timeout=1)
+            except Exception:
+                try:
+                    client.terminate()
+                except Exception:
+                    pass
+
+
 def main() -> None:
     key = load_api_key()
     print(f"Using API key ending in ...{key[-4:]} (length {len(key)})")
@@ -151,21 +267,15 @@ def main() -> None:
                     detail = data.get("detail", data)
                 print(f"    {minutes_ago:>4d} min ago: HTTP {status} — {detail}")
 
-    section("4. Live gateway entitlements (does the live API accept this key?)")
-    # No metadata endpoint for live; smoke-test by checking which gateways
-    # the key is provisioned against. This calls the hist endpoint that
-    # mirrors live entitlements.
-    status, data = get("/metadata.list_publishers", key)
-    if status == 200 and isinstance(data, list):
-        live_gateways = [p for p in data if isinstance(p, dict) and p.get("dataset") in CANDIDATE_DATASETS]
-        if live_gateways:
-            for p in live_gateways:
-                print(f"  {p}")
-        else:
-            print(f"  No publisher entries matched candidate datasets")
-            print(f"  (raw count: {len(data)})")
-    else:
-        print(f"  HTTP {status}: {data}")
+    section("4. Live stream entitlement smoke test")
+    print(
+        f"  Attempting db.Live.subscribe(schema={LIVE_PROBE_SCHEMA!r}, "
+        f"symbols={LIVE_PROBE_SYMBOL!r}) per dataset"
+    )
+    print(f"  Wait per accepted subscription: {LIVE_PROBE_TIMEOUT_SECONDS:g}s")
+    for ds in CANDIDATE_DATASETS:
+        live_status, detail = probe_live_dataset(key, ds)
+        print(f"  {ds:20s} {live_status:22s} {detail}")
 
     print()
     print("Done. Paste this output back to the chat / issue #26.")
