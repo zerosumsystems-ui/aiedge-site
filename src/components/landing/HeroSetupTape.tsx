@@ -482,13 +482,13 @@ export function HeroSetupTape() {
     })
     candleRef.current = candle
 
-    candle.setData(chartBars)
-    api.timeScale().setVisibleLogicalRange({
-      from: -0.5,
-      to: chartBars.length - 0.5,
-    })
+    const fullRange = { from: -0.5, to: chartBars.length - 0.5 }
+    const applyFullRange = () =>
+      api.timeScale().setVisibleLogicalRange(fullRange)
+
     candle.setData([chartBars[0]])
     ema.setData([emaSeriesData[0]])
+    applyFullRange()
 
     markersPlacedRef.current = false
     levelsPlacedRef.current = false
@@ -502,6 +502,7 @@ export function HeroSetupTape() {
     if (reducedMotion) {
       candle.setData(chartBars)
       ema.setData(emaSeriesData)
+      applyFullRange()
       setRevealedCount(chartBars.length)
       setPhase("revealed")
       setCurrentPhaseLabel(phaseAt(setup.phases, chartBars.length - 1))
@@ -527,10 +528,7 @@ export function HeroSetupTape() {
         width: container.clientWidth,
         height: container.clientHeight,
       })
-      api.timeScale().setVisibleLogicalRange({
-        from: -0.5,
-        to: chartBars.length - 0.5,
-      })
+      applyFullRange()
     })
     ro.observe(container)
 
@@ -554,6 +552,8 @@ export function HeroSetupTape() {
     const ema = emaRef.current
     if (!candle || !ema) return
 
+    const fullRange = { from: -0.5, to: chartBars.length - 0.5 }
+
     let cumulative = 0
     for (let i = 2; i <= chartBars.length; i++) {
       cumulative += revealDelay(i - 1, setup.signalBarIndex)
@@ -561,6 +561,7 @@ export function HeroSetupTape() {
       const id = window.setTimeout(() => {
         candle.setData(chartBars.slice(0, target))
         ema.setData(emaSeriesData.slice(0, target))
+        chartRef.current?.timeScale().setVisibleLogicalRange(fullRange)
         setRevealedCount(target)
         setCurrentPhaseLabel(phaseAt(setup.phases, target - 1))
 
