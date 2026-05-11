@@ -195,6 +195,8 @@ def run() -> None:
     except ImportError:
         log.error("Missing dep: pip install databento")
         sys.exit(2)
+    FIXED_PRICE_SCALE = db.FIXED_PRICE_SCALE
+    SymbolMappingMsg = db.SymbolMappingMsg
 
     # Live client. The SDK handles reconnect with replay so a brief drop
     # doesn't gap the cache.
@@ -218,35 +220,44 @@ def run() -> None:
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
 
-    # Iterate records. The Live client yields decoded records; for the
-    # trades schema each record has ts_event (nanoseconds), price, size,
-    # and a symbol mapping. Field names match the published TradeMsg shape.
+    # The Live iterator yields two kinds of records we care about:
+    #   - SymbolMappingMsg: instrument_id ↔ raw_symbol mapping. These arrive
+    #     at session start and whenever a subscription resolves a new symbol.
+    #   - Trade records (rtype=TRADE / MBP-0): carry only instrument_id, not
+    #     raw_symbol. We resolve via the map we built from SymbolMappingMsg.
+    instrument_to_symbol: dict[int, str] = {}
     record_count = 0
     for rec in client:
         if stopping["flag"]:
             break
 
-        # Symbol resolution — the SDK provides instrument_id → raw_symbol
-        # via SymbolMappingMsg records that arrive at session start. The
-        # Live iterator yields those automatically before the first trade.
-        sym = getattr(rec, "raw_symbol", None) or getattr(rec, "symbol", None)
-        if not sym:
-            # Skip non-trade records (system messages, symbol mappings, etc).
-            # The SDK handles symbol-mapping bookkeeping internally so we
-            # only need to act on records that have a usable symbol.
+        if isinstance(rec, SymbolMappingMsg):
+            iid = getattr(rec, "instrument_id", None)
+            sym = getattr(rec, "stype_out_symbol", None) or getattr(rec, "stype_in_symbol", None)
+            if iid is not None and sym:
+                instrument_to_symbol[int(iid)] = str(sym).upper()
             continue
-        sym = sym.upper()
+
+        iid = getattr(rec, "instrument_id", None)
+        if iid is None:
+            continue
+        sym = instrument_to_symbol.get(int(iid))
+        if sym is None:
+            continue
         agg = aggs.get(sym)
         if agg is None:
             continue
 
         ts_ns = getattr(rec, "ts_event", None)
-        price = getattr(rec, "price", None)
+        raw_price = getattr(rec, "price", None)
         size = getattr(rec, "size", 0)
-        if ts_ns is None or price is None:
+        if ts_ns is None or raw_price is None:
             continue
 
-        agg.add_trade(ts_seconds=ts_ns / 1e9, price=float(price), size=int(size or 0))
+        # DBN prices are int64 in 1e-9 fixed point — $580.12 arrives as
+        # 580_120_000_000. Scale to a float before bucketing.
+        price = float(raw_price) / FIXED_PRICE_SCALE
+        agg.add_trade(ts_seconds=ts_ns / 1e9, price=price, size=int(size or 0))
 
         record_count += 1
         if record_count % 1000 == 0:
