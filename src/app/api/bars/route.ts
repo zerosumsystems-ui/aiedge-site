@@ -45,7 +45,11 @@ interface BarsResponse {
 
 type DatabentoSchema = 'ohlcv-1s' | 'ohlcv-1m' | 'ohlcv-1h' | 'ohlcv-1d'
 
-const DATABENTO_FEED_LAG_MS = 60 * 60 * 1000
+// EQUS.MINI intraday publishes with a ~30 min lag (empirically observed
+// from the 422 frontier message). Keep a small safety buffer above that
+// so brief publish-rate dips don't 422. The live aggregator covers the
+// remaining gap in real time once it's running.
+const DATABENTO_FEED_LAG_MS = 35 * 60 * 1000
 
 function pickSchema(fromMs: number, toMs: number): DatabentoSchema {
   const days = (toMs - fromMs) / 86_400_000
