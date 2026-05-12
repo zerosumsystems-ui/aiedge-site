@@ -200,6 +200,122 @@ class Upstash:
         self._post(["set", key, bar.to_json(), "EX", "120"])
 
 
+# ---------- historical backfill ---------------------------------------------
+
+# Databento's EQUS.MINI historical feed publishes with a ~30 min lag, so
+# the "end" of any historical query has to be clamped past that or we get
+# 422 "data_end_after_available_end". The site's /api/bars route uses the
+# same 35-min cushion; we mirror it here.
+DATABENTO_HISTORICAL_LAG_S = 35 * 60
+
+
+def backfill_recent_bars(
+    *,
+    api_key: str,
+    dataset: str,
+    symbols: list[str],
+    cache: "Upstash",
+    hours: float,
+    db_module: Any,
+) -> None:
+    """One-shot seed of recent OHLCV-1m bars into Upstash.
+
+    Bridges the gap between the historical publish frontier and the
+    aggregator's first live bar after restart. Uses ohlcv-1m (not
+    trades) to keep the historical pull cheap — ~60 records per symbol
+    per hour. Best-effort: any failure is logged and ignored, since
+    the live subscription will still work without backfill.
+    """
+    import datetime
+
+    try:
+        hist_client = db_module.Historical(key=api_key)
+    except Exception as exc:
+        log.warning("Backfill skipped: failed to construct Historical client: %s", exc)
+        return
+
+    now_dt = datetime.datetime.now(tz=datetime.timezone.utc)
+    end_dt = now_dt - datetime.timedelta(seconds=DATABENTO_HISTORICAL_LAG_S)
+    start_dt = end_dt - datetime.timedelta(hours=hours)
+
+    log.info(
+        "Backfilling ohlcv-1m for %d symbols: %s → %s",
+        len(symbols),
+        start_dt.isoformat(timespec="seconds"),
+        end_dt.isoformat(timespec="seconds"),
+    )
+
+    try:
+        data = hist_client.timeseries.get_range(
+            dataset=dataset,
+            schema="ohlcv-1m",
+            symbols=symbols,
+            start=start_dt,
+            end=end_dt,
+            stype_in="raw_symbol",
+        )
+    except Exception as exc:
+        log.warning("Backfill skipped: get_range failed: %s", exc)
+        return
+
+    FIXED_PRICE_SCALE = db_module.FIXED_PRICE_SCALE
+    OHLCVMsg = db_module.OHLCVMsg
+
+    # Historical responses don't emit SymbolMappingMsg as iterable records
+    # — the instrument_id ↔ raw_symbol mapping comes from the response's
+    # metadata, exposed as DBNStore.symbology_map. Collect the records
+    # first, then map symbols once the metadata is fully read.
+    collected: list[tuple[int, int, float, float, float, float, int]] = []
+    try:
+        for rec in data:
+            if not isinstance(rec, OHLCVMsg):
+                continue
+            iid = getattr(rec, "instrument_id", None)
+            ts_ns = getattr(rec, "ts_event", None)
+            if iid is None or ts_ns is None:
+                continue
+            collected.append(
+                (
+                    int(iid),
+                    int(ts_ns) // 1_000_000_000,
+                    float(rec.open) / FIXED_PRICE_SCALE,
+                    float(rec.high) / FIXED_PRICE_SCALE,
+                    float(rec.low) / FIXED_PRICE_SCALE,
+                    float(rec.close) / FIXED_PRICE_SCALE,
+                    int(rec.volume or 0),
+                )
+            )
+    except Exception as exc:
+        log.warning("Backfill stream errored after %d records: %s", len(collected), exc)
+        return
+
+    sym_map: dict[int, str] = {}
+    try:
+        raw_map = getattr(data, "symbology_map", None) or {}
+        for iid, sym in raw_map.items():
+            if iid is not None and sym:
+                sym_map[int(iid)] = str(sym).upper()
+    except Exception as exc:
+        log.warning("Backfill symbology_map read failed: %s", exc)
+
+    written = 0
+    skipped = 0
+    for iid, t, o, h, l, c, v in collected:
+        sym = sym_map.get(iid)
+        if sym is None:
+            skipped += 1
+            continue
+        cache.write_bar(sym, Bar(t=t, o=o, h=h, l=l, c=c, v=v))
+        written += 1
+
+    log.info(
+        "Backfilled %d bars from historical (saw %d records, skipped %d for missing symbology)",
+        written,
+        len(collected),
+        skipped,
+    )
+
+
 # ---------- databento live wiring ------------------------------------------
 
 def run() -> None:
@@ -248,6 +364,22 @@ def run() -> None:
     FIXED_PRICE_SCALE = db.FIXED_PRICE_SCALE
     OHLCVMsg = db.OHLCVMsg
     SymbolMappingMsg = db.SymbolMappingMsg
+
+    # Backfill recent bars from Databento Historical before we subscribe to
+    # live. Closes the visual gap the chart sees between /api/bars (which
+    # stops at the ~30-min publish frontier) and the aggregator's first
+    # live bar after a restart. Best-effort — historical failures don't
+    # block the live subscription.
+    backfill_hours = float(optional_env("BACKFILL_HOURS", "2"))
+    if backfill_hours > 0:
+        backfill_recent_bars(
+            api_key=api_key,
+            dataset=dataset,
+            symbols=symbols,
+            cache=cache,
+            hours=backfill_hours,
+            db_module=db,
+        )
 
     # Live client. The SDK handles reconnect with replay so a brief drop
     # doesn't gap the cache.
