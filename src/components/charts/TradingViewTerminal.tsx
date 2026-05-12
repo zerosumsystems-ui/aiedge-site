@@ -227,7 +227,7 @@ function rawLimitFor(timeframe: IntradayTimeframe, barWindow: number): number {
   return Math.min(Math.max(barWindow * minutes, DEFAULT_BAR_WINDOW), 1000)
 }
 
-function emaLineData(bars: Bar[], period = 9) {
+function emaLineData(bars: Bar[], period = 20) {
   if (bars.length === 0) return []
   const alpha = 2 / (period + 1)
   let ema = bars[0].c
@@ -652,7 +652,7 @@ function ChartSurface({
 
   useEffect(() => {
     barsRef.current = bars
-    emaByTimeRef.current = new Map(emaLineData(bars, 9).map((point) => [Number(point.time), point.value]))
+    emaByTimeRef.current = new Map(emaLineData(bars, 20).map((point) => [Number(point.time), point.value]))
   }, [bars])
 
   useEffect(() => {
@@ -695,7 +695,7 @@ function ChartSurface({
       `#${index + 1}  ${formatEt(bar.t)}`,
       `O ${formatPrice(bar.o)}  H ${formatPrice(bar.h)}`,
       `L ${formatPrice(bar.l)}  C ${formatPrice(bar.c)}`,
-      `EMA9 ${formatPrice(ema)}`,
+      `EMA20 ${formatPrice(ema)}`,
     ]
     if (mode === "corner") {
       setCrosshairReadout({ x: 12, y: Math.max(72, containerHeight - 180), lines })
@@ -968,7 +968,7 @@ function ChartSurface({
         close: bar.c,
       })),
     )
-    average.setData(emaLineData(bars, 9))
+    average.setData(emaLineData(bars, 20))
 
     for (const priceLine of priceLinesRef.current) {
       candles.removePriceLine(priceLine)
