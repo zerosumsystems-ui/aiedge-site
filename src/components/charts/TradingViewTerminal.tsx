@@ -585,8 +585,8 @@ function SymbolScroller({
         }}
         className="flex min-h-11 min-w-[76px] flex-col items-center justify-center rounded border border-border/80 bg-black/[0.74] px-2.5 py-1 text-center shadow-[0_8px_22px_rgba(0,0,0,0.32)] outline-none backdrop-blur-sm focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-[86px] sm:bg-black/[0.82] sm:px-3"
       >
-        <span className="text-[8px] uppercase tracking-[0.14em] text-sub sm:text-[9px] sm:tracking-[0.16em]">symbol</span>
-        <span className="text-[13px] font-semibold tracking-[0.1em] text-text sm:text-sm">{symbol}</span>
+        <span className="text-[10px] uppercase tracking-[0.14em] text-sub sm:text-[9px] sm:tracking-[0.16em]">symbol</span>
+        <span className="text-sm font-semibold tracking-[0.1em] text-text">{symbol}</span>
       </button>
     </div>
   )
@@ -623,7 +623,6 @@ function ChartSurface({
   const barsRef = useRef(bars)
   const barWindowRef = useRef(barWindow)
   const emaByTimeRef = useRef<Map<number, number>>(new Map())
-  const lastTapAtRef = useRef(0)
   const tapStartRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   const priceScaleDragRef = useRef<{ startY: number; from: number; to: number } | null>(null)
   const [barNumberLabels, setBarNumberLabels] = useState<BarNumberLabel[]>([])
@@ -675,21 +674,26 @@ function ChartSurface({
     setViewState({ visibleBars: DEFAULT_BAR_WINDOW, offDefault: false })
   }, [fitChartToBarWindow, onResetBarWindow])
 
-  const showReadoutForBar = useCallback((bar: Bar, index: number, x: number, y: number) => {
+  const showReadoutForBar = useCallback((bar: Bar, index: number, x: number, y: number, mode: "follow" | "corner" = "follow") => {
     const container = containerRef.current
     if (!container) return
     const ema = emaByTimeRef.current.get(bar.t)
     const containerWidth = container.clientWidth || 360
     const containerHeight = container.clientHeight || 560
+    const lines = [
+      `#${index + 1}  ${formatEt(bar.t)}`,
+      `O ${formatPrice(bar.o)}  H ${formatPrice(bar.h)}`,
+      `L ${formatPrice(bar.l)}  C ${formatPrice(bar.c)}`,
+      `EMA9 ${formatPrice(ema)}`,
+    ]
+    if (mode === "corner") {
+      setCrosshairReadout({ x: 12, y: Math.max(72, containerHeight - 96), lines })
+      return
+    }
     setCrosshairReadout({
       x: Math.min(Math.max(x + 12, 8), Math.max(8, containerWidth - 180)),
       y: Math.min(Math.max(y - 54, 84), Math.max(84, containerHeight - 92)),
-      lines: [
-        `#${index + 1}  ${formatEt(bar.t)}`,
-        `O ${formatPrice(bar.o)}  H ${formatPrice(bar.h)}`,
-        `L ${formatPrice(bar.l)}  C ${formatPrice(bar.c)}`,
-        `EMA9 ${formatPrice(ema)}`,
-      ],
+      lines,
     })
   }, [])
 
@@ -752,31 +756,19 @@ function ChartSurface({
     const index = Math.min(Math.max(Math.round(logical), 0), barsRef.current.length - 1)
     const bar = barsRef.current[index]
     if (!bar) return
-    showReadoutForBar(bar, index, x, y)
+    showReadoutForBar(bar, index, x, y, "corner")
   }, [showReadoutForBar])
 
-  const handleTouchEnd = useCallback((event: TouchEvent<HTMLDivElement>) => {
-    const target = event.target
-    const start = tapStartRef.current
-    const hadPriceScaleDrag = priceScaleDragRef.current !== null
+  const handleTouchEnd = useCallback(() => {
     priceScaleDragRef.current = null
     tapStartRef.current = null
-    if (!start || start.moved || hadPriceScaleDrag) return
-    if (target instanceof Element && target.closest("button")) return
-    const now = Date.now()
-    if (now - lastTapAtRef.current < 320) {
-      resetViewTo78()
-      lastTapAtRef.current = 0
-      return
-    }
-    lastTapAtRef.current = now
-  }, [resetViewTo78])
+  }, [])
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
-    const height = Math.max(560, Math.floor(container.clientHeight || 680))
+    const height = Math.max(360, Math.floor(container.clientHeight || 680))
     const width = Math.max(320, Math.floor(container.clientWidth))
     const chart = createChart(container, {
       width,
@@ -911,7 +903,7 @@ function ChartSurface({
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const nextWidth = Math.max(320, Math.floor(entry.contentRect.width))
-        const nextHeight = Math.max(560, Math.floor(entry.contentRect.height))
+        const nextHeight = Math.max(360, Math.floor(entry.contentRect.height))
         chart.applyOptions({ width: nextWidth, height: nextHeight })
         scheduleLabels()
       }
@@ -1016,7 +1008,7 @@ function ChartSurface({
   return (
     <section className="flex min-h-0 min-w-0 flex-1 px-0 py-1 sm:px-3 sm:py-2">
       <div
-        className="relative h-[calc(100dvh-var(--nav-h)-5.75rem)] min-h-[560px] flex-1 touch-none overscroll-contain overflow-hidden rounded border border-border bg-[#1A1A1A] sm:h-full sm:min-h-[560px] sm:rounded-lg"
+        className="relative h-[calc(100dvh-var(--nav-h)-5.75rem)] min-h-[360px] flex-1 touch-none overscroll-contain overflow-hidden rounded border border-border bg-[#1A1A1A] sm:h-full sm:min-h-[560px] sm:rounded-lg"
         onDoubleClick={(event) => {
           const target = event.target
           if (target instanceof Element && target.closest("button")) return
@@ -1040,7 +1032,7 @@ function ChartSurface({
         </div>
 
         <div className="pointer-events-none absolute right-[132px] top-4 z-10 hidden min-w-[230px] text-right lg:block">
-          <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.12em] text-sub">
+          <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-sub">
             <div>{title}</div>
             <div>{symbol} / {sessionLabel}</div>
           </div>
@@ -1058,12 +1050,12 @@ function ChartSurface({
           </div>
         </div>
 
-        <div className="pointer-events-none absolute right-3 top-3 z-10 text-right font-mono text-[10px] uppercase tracking-[0.1em] text-sub sm:right-4 sm:text-[11px] sm:tracking-[0.12em] lg:hidden">
+        <div className="pointer-events-none absolute right-3 top-3 z-10 text-right font-mono text-[11px] uppercase tracking-[0.1em] text-sub sm:right-4 sm:tracking-[0.12em] lg:hidden">
           <div>{title}</div>
           <div>{symbol} / {sessionLabel}</div>
         </div>
 
-        <div ref={containerRef} className="h-full min-h-[560px] w-full" />
+        <div ref={containerRef} className="h-full min-h-[360px] w-full sm:min-h-[560px]" />
 
         <div className="pointer-events-none absolute inset-0 z-[5]">
           {barNumberLabels.map((label) => (
@@ -1072,7 +1064,7 @@ function ChartSurface({
               data-testid="bar-number-label"
               aria-hidden="true"
               className={`absolute -translate-x-1/2 font-mono font-semibold leading-none tabular-nums ${
-                label.tone === "bull" ? "text-[11px] text-[#62ad61]" : "-translate-y-full text-[9px] text-[#ff535d]"
+                label.tone === "bull" ? "text-[11px] text-[#62ad61]" : "-translate-y-full text-[10px] text-[#ff535d]"
               }`}
               style={{ left: label.x, top: label.y }}
             >
@@ -1083,7 +1075,7 @@ function ChartSurface({
 
         {crosshairReadout && (
           <div
-            className="pointer-events-none absolute z-20 rounded border border-border/80 bg-black/[0.78] px-2.5 py-2 font-mono text-[10px] leading-4 text-text/90 shadow-[0_8px_24px_rgba(0,0,0,0.3)] backdrop-blur-sm"
+            className="pointer-events-none absolute z-20 rounded border border-border/80 bg-black/[0.88] px-2.5 py-2 font-mono text-[11px] leading-[1.35] text-text/90 shadow-[0_8px_24px_rgba(0,0,0,0.3)] sm:text-[10px] sm:leading-4 sm:backdrop-blur-sm"
             style={{ left: crosshairReadout.x, top: crosshairReadout.y }}
           >
             {crosshairReadout.lines.map((line) => (
@@ -1096,27 +1088,13 @@ function ChartSurface({
           <button
             type="button"
             onClick={resetViewTo78}
-            className="absolute bottom-[calc(4.35rem+env(safe-area-inset-bottom,0px))] right-3 z-20 rounded border border-border/80 bg-black/[0.72] px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-sub shadow-[0_8px_22px_rgba(0,0,0,0.28)] outline-none backdrop-blur-sm hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-4"
+            className="absolute bottom-[calc(4.35rem+env(safe-area-inset-bottom,0px))] right-3 z-20 min-h-11 rounded border border-border/80 bg-black/[0.82] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-sub shadow-[0_8px_22px_rgba(0,0,0,0.28)] outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-h-0 sm:right-4 sm:text-[10px]"
           >
             view {viewState.visibleBars} · reset 78
           </button>
         )}
 
         <SymbolScroller symbol={symbol} symbols={symbols} onSelect={onSelectSymbol} />
-
-        <div
-          aria-hidden="true"
-          data-testid="chart-mobile-toolbar"
-          className="pointer-events-none absolute bottom-[calc(0.875rem+env(safe-area-inset-bottom,0px))] left-3 z-10 flex max-w-[calc(100%-6.5rem)] rounded-lg border border-border/70 bg-black/[0.58] px-2.5 py-1.5 shadow-[0_8px_22px_rgba(0,0,0,0.24)] backdrop-blur-sm lg:hidden"
-        >
-          <div className="flex min-h-8 items-center gap-3.5 text-text/62">
-            <span className="h-3.5 w-8 border-y-2 border-current" />
-            <span className="h-6 w-6 rotate-45 border-b-2 border-l-2 border-current" />
-            <span className="h-6 w-6 border-2 border-current" />
-            <span className="h-px w-8 bg-current" />
-            <span className="h-5 w-8 border-y-2 border-current" />
-          </div>
-        </div>
       </div>
     </section>
   )
@@ -1149,7 +1127,7 @@ function Watchlist({
               key={symbol}
               type="button"
               onClick={() => onSelect(symbol)}
-              className={`grid w-full grid-cols-[minmax(58px,1fr)_auto_auto] items-center gap-3 border-b border-border px-3 py-2 text-left last:border-b-0 ${
+              className={`grid min-h-11 w-full grid-cols-[minmax(58px,1fr)_auto_auto] items-center gap-3 border-b border-border px-3 py-2 text-left last:border-b-0 sm:min-h-0 ${
                 active ? "bg-surface-hover" : "hover:bg-surface-hover"
               }`}
             >
@@ -1504,18 +1482,21 @@ export function TradingViewTerminal() {
 
   return (
     <div className="mx-auto flex h-auto min-h-[calc(100dvh-var(--nav-h))] max-w-[1600px] flex-col bg-bg px-2 py-1 text-text sm:px-3 sm:py-3 xl:h-[calc(100dvh-var(--nav-h))] xl:overflow-hidden">
-      <header className="mb-1 flex gap-2 overflow-x-auto border-b border-border pb-1 scrollbar-none sm:mb-2 sm:flex-row sm:items-center sm:justify-between sm:overflow-visible sm:pb-2">
-        <div className="flex min-w-max items-center gap-2 sm:min-w-0 sm:flex-wrap">
+      <header className="mb-1 flex flex-wrap items-center gap-2 border-b border-border pb-1 sm:mb-2 sm:justify-between sm:pb-2">
+        <div className="flex flex-wrap items-center gap-2">
           <form onSubmit={submitSymbol} className="flex min-h-11 items-center gap-2 rounded border border-border bg-surface px-2 py-1.5 sm:min-h-0">
             <label htmlFor="chart-symbol" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
               Symbol
             </label>
             <input
               id="chart-symbol"
+              type="text"
               value={symbolDraft}
               onChange={(event) => setSymbolDraft(event.target.value.toUpperCase())}
-              className="w-20 rounded bg-transparent font-mono text-sm font-semibold uppercase text-text outline-none focus-visible:ring-2 focus-visible:ring-teal/70"
+              className="w-20 rounded bg-transparent font-mono text-base font-semibold uppercase text-text outline-none focus-visible:ring-2 focus-visible:ring-teal/70 sm:text-sm"
               spellCheck={false}
+              autoCapitalize="characters"
+              autoCorrect="off"
             />
           </form>
 
@@ -1543,7 +1524,7 @@ export function TradingViewTerminal() {
           <LevelControls visibility={levelVisibility} onToggle={toggleLevelGroup} />
         </div>
 
-        <div className="flex min-w-max items-center gap-2">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             aria-pressed={watchlistVisible}
@@ -1555,19 +1536,23 @@ export function TradingViewTerminal() {
           <button
             type="button"
             onClick={() => setRefreshNonce((value) => value + 1)}
-            className="min-h-11 rounded border border-border bg-surface px-3 py-1 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-h-0"
+            className="hidden min-h-11 rounded border border-border bg-surface px-3 py-1 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:inline-flex sm:min-h-0"
           >
             Refresh
           </button>
-          <div className={`flex min-h-11 items-center gap-1.5 rounded border border-border bg-surface px-2.5 py-1 text-[11px] font-semibold sm:min-h-0 ${statusTone}`}>
+          <div
+            className={`flex min-h-11 items-center gap-1.5 rounded border border-border bg-surface px-2.5 py-1 text-[11px] font-semibold sm:min-h-0 ${statusTone}`}
+            aria-label={`Live status: ${statusText}`}
+            title={statusText}
+          >
             <SymbolIcon active={liveFresh} />
-            {statusText}
+            <span className="hidden sm:inline">{statusText}</span>
           </div>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
-        <main className="flex min-h-[560px] min-w-0 flex-1 flex-col">
+        <main className="flex min-h-[360px] min-w-0 flex-1 flex-col sm:min-h-[560px]">
           <div className="hidden flex-wrap items-center justify-between gap-2 border-b border-border bg-bg px-3 py-2 sm:flex">
             <div className="flex min-w-0 items-center gap-3">
               <h1 className="truncate text-base font-bold tracking-tight">{selectedSymbol}</h1>
@@ -1581,11 +1566,11 @@ export function TradingViewTerminal() {
           </div>
 
           {loading ? (
-            <div className="flex min-h-[520px] flex-1 items-center justify-center bg-bg">
+            <div className="flex min-h-[360px] sm:min-h-[520px] flex-1 items-center justify-center bg-bg">
               <div className="skeleton h-[420px] w-[92%] rounded" />
             </div>
           ) : blockingError ? (
-            <div className="flex min-h-[520px] flex-1 items-center justify-center bg-bg px-6 text-center">
+            <div className="flex min-h-[360px] sm:min-h-[520px] flex-1 items-center justify-center bg-bg px-6 text-center">
               <div>
                 <div className="mb-2 text-sm font-semibold text-red">Chart unavailable</div>
                 <div className="max-w-xl text-xs leading-5 text-sub">{blockingError}</div>
@@ -1621,15 +1606,38 @@ export function TradingViewTerminal() {
       </div>
 
       {watchlistVisible && (
-        <div className="xl:hidden">
-          <SidePanel
-            symbol={selectedSymbol}
-            bars={displayBars}
-            quotes={quotes}
-            symbols={symbols}
-            selectedSymbol={selectedSymbol}
-            onSelectSymbol={selectSymbol}
+        <div className="fixed inset-0 z-40 flex flex-col justify-end xl:hidden" role="dialog" aria-modal="true" aria-label="Watchlist">
+          <button
+            type="button"
+            aria-label="Close watchlist"
+            onClick={() => setWatchlistVisible(false)}
+            className="absolute inset-0 bg-black/55"
           />
+          <div className="relative max-h-[78dvh] overflow-hidden rounded-t-2xl border-t border-border bg-bg pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-12px_36px_rgba(0,0,0,0.45)]">
+            <div className="flex items-center justify-between border-b border-border px-3 pt-2 pb-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-sub">Watchlist</span>
+              <button
+                type="button"
+                onClick={() => setWatchlistVisible(false)}
+                className="-mr-2 flex h-11 min-w-11 items-center justify-center rounded px-3 text-sm font-semibold text-sub outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70"
+              >
+                Done
+              </button>
+            </div>
+            <div className="max-h-[calc(78dvh-3rem)] overflow-y-auto">
+              <SidePanel
+                symbol={selectedSymbol}
+                bars={displayBars}
+                quotes={quotes}
+                symbols={symbols}
+                selectedSymbol={selectedSymbol}
+                onSelectSymbol={(symbol) => {
+                  selectSymbol(symbol)
+                  setWatchlistVisible(false)
+                }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
