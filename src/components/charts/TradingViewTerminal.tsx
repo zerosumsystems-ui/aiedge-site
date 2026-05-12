@@ -669,16 +669,13 @@ function ChartSurface({
     const barSpacing = Math.min(14, Math.max(2.4, usableWidth / (targetWindow + 12)))
     chart.applyOptions({ timeScale: { barSpacing, rightOffset: 6 } })
     chart.timeScale().applyOptions({ barSpacing, rightOffset: 6 })
-    const first = currentBars[0]
-    const last = currentBars.at(-1)
-    if (!first || !last) {
+    if (currentBars.length === 0) {
       chart.timeScale().fitContent()
       return
     }
-    const stepSeconds = currentBars[1] ? Math.max(60, currentBars[1].t - first.t) : 60
-    chart.timeScale().setVisibleRange({
-      from: (first.t - stepSeconds * 6) as UTCTimestamp,
-      to: (last.t + stepSeconds * 6) as UTCTimestamp,
+    chart.timeScale().setVisibleLogicalRange({
+      from: -6,
+      to: currentBars.length + 6,
     })
   }, [])
 
