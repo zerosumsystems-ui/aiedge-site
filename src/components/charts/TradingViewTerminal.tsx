@@ -331,35 +331,74 @@ function emaLineData(bars: Bar[], period = 20, seed?: number) {
   })
 }
 
-// Higher-timeframe EMA20 mapped onto LTF bars. The EMA is computed on
-// HTF aggregated bars (e.g., 15m EMA20 when looking at 5m candles).
-// Each LTF bar inherits the most-recent HTF EMA value so the overlay
-// renders as a smooth line on the LTF chart — Brooks-traditional
-// context indicator.
-function htfMinutesFor(timeframe: ChartViewTimeframe): number | null {
-  switch (timeframe) {
-    case "1min": return 5
-    case "5min": return 15
-    case "15min": return 60
-    // 1h and non-intraday already are the "higher timeframe" — no
-    // overlay makes sense without fetching daily/weekly separately.
-    default: return null
-  }
+// Higher-timeframe EMA20 overlays. Each LTF bar inherits the most-
+// recent HTF EMA value so the line renders smoothly on the LTF chart —
+// Brooks-traditional context indicator. We expose four independent
+// HTFs (15m, 1h, daily, weekly) so traders can stack as many higher-
+// timeframe references as they want over the LTF candles.
+//
+// Each spec carries:
+//   tf           — the /api/bars timeframe to fetch
+//   lookbackDays — calendar days of history (≥ ~30 HTF bars so the
+//                  EMA20 has a real warmup period)
+//   color        — distinct hue so overlays don't blend into one another
+const HTF_SPECS = [
+  { key: "15m" as const, label: "15m EMA20", chipLabel: "15m", tf: "15min" as const, minutes: 15, lookbackDays: 5, session: "rth" as const, color: "rgba(91, 168, 230, 0.7)", lineWidth: 2 as const },
+  { key: "1h" as const, label: "1h EMA20", chipLabel: "1h", tf: "1h" as const, minutes: 60, lookbackDays: 14, session: "rth" as const, color: "rgba(255, 195, 100, 0.75)", lineWidth: 2 as const },
+  { key: "daily" as const, label: "Daily EMA20", chipLabel: "D", tf: "daily" as const, minutes: 390, lookbackDays: 100, session: null, color: "rgba(195, 130, 240, 0.8)", lineWidth: 3 as const },
+  { key: "weekly" as const, label: "Weekly EMA20", chipLabel: "W", tf: "weekly" as const, minutes: 1950, lookbackDays: 480, session: null, color: "rgba(245, 130, 175, 0.85)", lineWidth: 3 as const },
+]
+
+type HtfKey = (typeof HTF_SPECS)[number]["key"]
+type HtfVisibility = Record<HtfKey, boolean>
+
+const TF_MINUTES: Record<ChartViewTimeframe, number> = {
+  "1min": 1,
+  "5min": 5,
+  "15min": 15,
+  "30min": 30,
+  "1h": 60,
+  daily: 390,
+  weekly: 1950,
 }
 
-function htfEmaLineData(bars: Bar[], htfMinutes: number, period = 20) {
-  if (bars.length === 0 || htfMinutes <= 0) return []
-  const htfBars = aggregateBars(bars, htfMinutes)
-  if (htfBars.length === 0) return []
-  const htfEma = emaLineData(htfBars, period)
+// Only show an HTF overlay when its bucket is wider than the chart's
+// own bucket — a 15m EMA over 1h candles is just noise.
+function availableHtfsFor(ltf: ChartViewTimeframe) {
+  const ltfMin = TF_MINUTES[ltf]
+  return HTF_SPECS.filter((spec) => spec.minutes > ltfMin)
+}
+
+function emptyHtfVisibility(): HtfVisibility {
+  return HTF_SPECS.reduce((acc, spec) => {
+    acc[spec.key] = false
+    return acc
+  }, {} as HtfVisibility)
+}
+
+function emptyHtfBars(): Record<HtfKey, Bar[]> {
+  return HTF_SPECS.reduce((acc, spec) => {
+    acc[spec.key] = []
+    return acc
+  }, {} as Record<HtfKey, Bar[]>)
+}
+
+// Project a pre-computed HTF EMA series onto the LTF bar grid. Each
+// LTF bar takes the most-recent HTF EMA value, so the overlay reads as
+// a flat segment that steps up/down whenever a new HTF bar closes.
+function projectHtfEmaOntoLtfBars(
+  htfEma: { time: number; value: number }[],
+  ltfBars: Bar[],
+): { time: UTCTimestamp; value: number }[] {
+  if (htfEma.length === 0 || ltfBars.length === 0) return []
   const result: { time: UTCTimestamp; value: number }[] = []
-  let htfIdx = 0
-  for (const bar of bars) {
-    while (htfIdx + 1 < htfEma.length && (htfEma[htfIdx + 1].time as number) <= bar.t) {
-      htfIdx += 1
+  let idx = 0
+  for (const bar of ltfBars) {
+    while (idx + 1 < htfEma.length && htfEma[idx + 1].time <= bar.t) {
+      idx += 1
     }
-    if ((htfEma[htfIdx].time as number) <= bar.t) {
-      result.push({ time: bar.t as UTCTimestamp, value: htfEma[htfIdx].value })
+    if (htfEma[idx].time <= bar.t) {
+      result.push({ time: bar.t as UTCTimestamp, value: htfEma[idx].value })
     }
   }
   return result
@@ -652,7 +691,7 @@ interface SymbolPrefs {
   volumeVisible?: boolean
   emaVisible?: boolean
   vwapVisible?: boolean
-  htfEmaVisible?: boolean
+  htfEmaVisibility?: Partial<HtfVisibility>
   barNumbersVisible?: boolean
 }
 
@@ -718,10 +757,15 @@ function symbolVwapVisible(symbol: string): boolean {
   return typeof stored === "boolean" ? stored : false
 }
 
-function symbolHtfEmaVisible(symbol: string): boolean {
-  const stored = readSymbolPrefs(symbol).htfEmaVisible
-  // Default off — HTF EMA overlay is busy on the chart, opt-in.
-  return typeof stored === "boolean" ? stored : false
+function symbolHtfEmaVisibility(symbol: string): HtfVisibility {
+  const stored = readSymbolPrefs(symbol).htfEmaVisibility ?? {}
+  const result = emptyHtfVisibility()
+  for (const spec of HTF_SPECS) {
+    const v = stored[spec.key]
+    // Default off — HTF EMA overlays stack visually, so opt-in per HTF.
+    if (typeof v === "boolean") result[spec.key] = v
+  }
+  return result
 }
 
 function symbolBarNumbersVisible(symbol: string): boolean {
@@ -1099,7 +1143,8 @@ function ChartSurface({
   volumeVisible,
   emaVisible,
   vwapVisible,
-  htfEmaVisible,
+  htfEmaVisibility,
+  htfBars,
   barNumbersVisible,
   drawnLines,
   replayActive,
@@ -1137,7 +1182,8 @@ function ChartSurface({
   volumeVisible: boolean
   emaVisible: boolean
   vwapVisible: boolean
-  htfEmaVisible: boolean
+  htfEmaVisibility: HtfVisibility
+  htfBars: Record<HtfKey, Bar[]>
   barNumbersVisible: boolean
   drawnLines: number[]
   replayActive: boolean
@@ -1155,7 +1201,7 @@ function ChartSurface({
   onToggleVolume: () => void
   onToggleEma: () => void
   onToggleVwap: () => void
-  onToggleHtfEma: () => void
+  onToggleHtfEma: (key: HtfKey) => void
   onToggleBarNumbers: () => void
   onAddDrawnLine: (price: number) => void
   onClearDrawnLines: () => void
@@ -1164,7 +1210,7 @@ function ChartSurface({
   const chartRef = useRef<IChartApi | null>(null)
   const candlesRef = useRef<ISeriesApi<"Candlestick"> | null>(null)
   const averageRef = useRef<ISeriesApi<"Line"> | null>(null)
-  const htfEmaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
+  const htfSeriesRef = useRef<Partial<Record<HtfKey, ISeriesApi<"Line">>>>({})
   const vwapRef = useRef<ISeriesApi<"Line"> | null>(null)
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null)
   // Optional comparison ticker as a normalized %-change line on a
@@ -1463,16 +1509,21 @@ function ChartSurface({
       crosshairMarkerVisible: false,
     })
 
-    // Higher-timeframe EMA20 overlay — same blue family as the LTF EMA
-    // but more transparent so it reads as background context, not a
-    // primary indicator.
-    htfEmaSeriesRef.current = chart.addSeries(LineSeries, {
-      color: "rgba(91, 168, 230, 0.28)",
-      lineWidth: 3,
-      priceLineVisible: false,
-      lastValueVisible: false,
-      crosshairMarkerVisible: false,
-    })
+    // Higher-timeframe EMA20 overlays — one series per HTF spec. Each
+    // is its own line on the chart with a distinct hue so traders can
+    // stack 15m / 1h / Daily / Weekly references and still tell them
+    // apart at a glance.
+    htfSeriesRef.current = {}
+    for (const spec of HTF_SPECS) {
+      htfSeriesRef.current[spec.key] = chart.addSeries(LineSeries, {
+        color: spec.color,
+        lineWidth: spec.lineWidth,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        title: spec.chipLabel,
+      })
+    }
 
     // Per-session VWAP — dashed purple line so it reads as distinct
     // from the EMA and from the Brooks level lines.
@@ -1666,7 +1717,7 @@ function ChartSurface({
       chartRef.current = null
       candlesRef.current = null
       averageRef.current = null
-      htfEmaSeriesRef.current = null
+      htfSeriesRef.current = {}
       vwapRef.current = null
       volumeRef.current = null
       compareSeriesRef.current = null
@@ -1717,11 +1768,20 @@ function ChartSurface({
     )
     average.setData(emaLineData(bars, 20, emaSeed))
     average.applyOptions({ visible: emaVisible })
-    if (htfEmaSeriesRef.current) {
-      const htfMinutes = htfMinutesFor(timeframe)
-      const htfData = htfEmaVisible && htfMinutes != null ? htfEmaLineData(bars, htfMinutes, 20) : []
-      htfEmaSeriesRef.current.setData(htfData)
-      htfEmaSeriesRef.current.applyOptions({ visible: htfEmaVisible && htfMinutes != null })
+    const availableHtfKeys = new Set(availableHtfsFor(timeframe).map((spec) => spec.key))
+    for (const spec of HTF_SPECS) {
+      const series = htfSeriesRef.current[spec.key]
+      if (!series) continue
+      const active = htfEmaVisibility[spec.key] && availableHtfKeys.has(spec.key)
+      const sourceBars = htfBars[spec.key]
+      if (active && sourceBars.length > 0 && bars.length > 0) {
+        const htfEma = emaLineData(sourceBars, 20).map((p) => ({ time: Number(p.time), value: p.value }))
+        series.setData(projectHtfEmaOntoLtfBars(htfEma, bars))
+        series.applyOptions({ visible: true })
+      } else {
+        series.setData([])
+        series.applyOptions({ visible: false })
+      }
     }
     if (vwap) {
       vwap.setData(vwapVisible ? vwapLineData(bars) : [])
@@ -1878,7 +1938,7 @@ function ChartSurface({
     return () => {
       for (const timer of settleTimers) window.clearTimeout(timer)
     }
-  }, [barWindow, bars, compareBars, compareSymbol, emaSeed, emaVisible, fitChartToBarWindow, htfEmaVisible, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
+  }, [barWindow, bars, compareBars, compareSymbol, emaSeed, emaVisible, fitChartToBarWindow, htfBars, htfEmaVisibility, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
 
   useEffect(() => {
     if (bars.length === 0) return
@@ -1938,15 +1998,16 @@ function ChartSurface({
               onClick={onToggleEma}
               ariaLabel={emaVisible ? "Hide EMA 20" : "Show EMA 20"}
             />
-            {htfMinutesFor(timeframe) != null ? (
+            {availableHtfsFor(timeframe).map((spec) => (
               <IndicatorPill
-                label="HTF"
-                active={htfEmaVisible}
-                swatchColor="rgba(91, 168, 230, 0.55)"
-                onClick={onToggleHtfEma}
-                ariaLabel={htfEmaVisible ? "Hide higher-timeframe EMA" : "Show higher-timeframe EMA"}
+                key={spec.key}
+                label={spec.chipLabel}
+                active={htfEmaVisibility[spec.key]}
+                swatchColor={spec.color}
+                onClick={() => onToggleHtfEma(spec.key)}
+                ariaLabel={htfEmaVisibility[spec.key] ? `Hide ${spec.label}` : `Show ${spec.label}`}
               />
-            ) : null}
+            ))}
             <IndicatorPill
               label="VWAP"
               active={vwapVisible}
@@ -2405,10 +2466,10 @@ function SettingsMenu({
 // active as quick-toggles for the indicators that are currently on.
 function IndicatorsMenu({
   intraday,
-  htfAvailable,
+  availableHtfs,
   volumeVisible,
   emaVisible,
-  htfEmaVisible,
+  htfEmaVisibility,
   vwapVisible,
   barNumbersVisible,
   levelVisibility,
@@ -2422,17 +2483,17 @@ function IndicatorsMenu({
   onClearDrawnLines,
 }: {
   intraday: boolean
-  htfAvailable: boolean
+  availableHtfs: typeof HTF_SPECS
   volumeVisible: boolean
   emaVisible: boolean
-  htfEmaVisible: boolean
+  htfEmaVisibility: HtfVisibility
   vwapVisible: boolean
   barNumbersVisible: boolean
   levelVisibility: LevelVisibility
   drawnLinesCount: number
   onToggleVolume: () => void
   onToggleEma: () => void
-  onToggleHtfEma: () => void
+  onToggleHtfEma: (key: HtfKey) => void
   onToggleVwap: () => void
   onToggleBarNumbers: () => void
   onToggleLevel: (group: LevelGroup) => void
@@ -2463,9 +2524,13 @@ function IndicatorsMenu({
   const overlays: Array<{ key: string; label: string; active: boolean; swatch: string; onToggle: () => void }> = [
     { key: "vol", label: "Volume", active: volumeVisible, swatch: "rgba(0, 200, 150, 0.7)", onToggle: onToggleVolume },
     { key: "ema", label: "EMA 20", active: emaVisible, swatch: "rgba(91, 168, 230, 0.85)", onToggle: onToggleEma },
-    ...(htfAvailable
-      ? [{ key: "htf", label: "HTF EMA 20", active: htfEmaVisible, swatch: "rgba(91, 168, 230, 0.55)", onToggle: onToggleHtfEma }]
-      : []),
+    ...availableHtfs.map((spec) => ({
+      key: `htf-${spec.key}`,
+      label: spec.label,
+      active: htfEmaVisibility[spec.key],
+      swatch: spec.color,
+      onToggle: () => onToggleHtfEma(spec.key),
+    })),
     { key: "vwap", label: "VWAP", active: vwapVisible, swatch: "rgba(180, 130, 230, 0.85)", onToggle: onToggleVwap },
     ...(intraday
       ? [{ key: "bn", label: "Bar numbers", active: barNumbersVisible, swatch: "rgba(155, 161, 166, 0.85)", onToggle: onToggleBarNumbers }]
@@ -2618,7 +2683,8 @@ export function TradingViewTerminal() {
   const [volumeVisible, setVolumeVisible] = useState(() => symbolVolumeVisible(initialSymbol))
   const [emaVisible, setEmaVisible] = useState(() => symbolEmaVisible(initialSymbol))
   const [vwapVisible, setVwapVisible] = useState(() => symbolVwapVisible(initialSymbol))
-  const [htfEmaVisible, setHtfEmaVisible] = useState(() => symbolHtfEmaVisible(initialSymbol))
+  const [htfEmaVisibility, setHtfEmaVisibility] = useState<HtfVisibility>(() => symbolHtfEmaVisibility(initialSymbol))
+  const [htfBars, setHtfBars] = useState<Record<HtfKey, Bar[]>>(() => emptyHtfBars())
   const [barNumbersVisible, setBarNumbersVisible] = useState(() => symbolBarNumbersVisible(initialSymbol))
   const [drawnLines, setDrawnLines] = useState<number[]>(() => readDrawnLines(initialSymbol))
   // Replay mode. null = normal (live tail). A number freezes the chart
@@ -2663,10 +2729,10 @@ export function TradingViewTerminal() {
       volumeVisible,
       emaVisible,
       vwapVisible,
-      htfEmaVisible,
+      htfEmaVisibility,
       barNumbersVisible,
     })
-  }, [barNumbersVisible, barWindow, emaVisible, htfEmaVisible, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
+  }, [barNumbersVisible, barWindow, emaVisible, htfEmaVisibility, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
 
   const toggleVolume = useCallback(() => {
     setVolumeVisible((v) => !v)
@@ -2717,8 +2783,8 @@ export function TradingViewTerminal() {
   const toggleVwap = useCallback(() => {
     setVwapVisible((v) => !v)
   }, [])
-  const toggleHtfEma = useCallback(() => {
-    setHtfEmaVisible((v) => !v)
+  const toggleHtfEma = useCallback((key: HtfKey) => {
+    setHtfEmaVisibility((current) => ({ ...current, [key]: !current[key] }))
   }, [])
   const toggleBarNumbers = useCallback(() => {
     setBarNumbersVisible((v) => !v)
@@ -3034,6 +3100,45 @@ export function TradingViewTerminal() {
     }
   }, [barWindow, fetchBarsWithMemory, refreshNonce, selectedSymbol, sessionMode, timeframe])
 
+  // Higher-timeframe EMA20 fetch — for each enabled HTF, request enough
+  // history that EMA20 has a real warmup period. Daily / weekly aren't
+  // covered by the chart's main intraday fetch, and 1h needs more than
+  // the 1-3 day intraday window to settle, so each HTF fetches its own
+  // bars from /api/bars at its native timeframe.
+  useEffect(() => {
+    let cancelled = false
+    const sessionDate = todayEt()
+
+    const fetchOne = async (spec: typeof HTF_SPECS[number]) => {
+      if (!htfEmaVisibility[spec.key]) return
+      const fromCandidates = previousEtDates(sessionDate, spec.lookbackDays)
+      const fromDate = fromCandidates[fromCandidates.length - 1] ?? sessionDate
+      const qs = new URLSearchParams({
+        ticker: selectedSymbol,
+        from: fromDate,
+        to: sessionDate,
+        tf: spec.tf,
+        limit: "500",
+      })
+      if (spec.session) qs.set("session", spec.session)
+      const url = `/api/bars?${qs}`
+      try {
+        const payload = await fetchBarsWithMemory(url, 300_000)
+        if (cancelled) return
+        setHtfBars((current) => ({ ...current, [spec.key]: payload.bars }))
+      } catch {
+        if (cancelled) return
+        setHtfBars((current) => ({ ...current, [spec.key]: [] }))
+      }
+    }
+
+    for (const spec of HTF_SPECS) void fetchOne(spec)
+
+    return () => {
+      cancelled = true
+    }
+  }, [fetchBarsWithMemory, htfEmaVisibility, refreshNonce, selectedSymbol])
+
   useEffect(() => {
     const currentIndex = symbols.indexOf(selectedSymbol)
     if (currentIndex === -1 || symbols.length < 2) return
@@ -3267,7 +3372,7 @@ export function TradingViewTerminal() {
       volumeVisible,
       emaVisible,
       vwapVisible,
-      htfEmaVisible,
+      htfEmaVisibility,
       barNumbersVisible,
     })
     setTimeframe(symbolTimeframe(clean))
@@ -3277,7 +3382,8 @@ export function TradingViewTerminal() {
     setVolumeVisible(symbolVolumeVisible(clean))
     setEmaVisible(symbolEmaVisible(clean))
     setVwapVisible(symbolVwapVisible(clean))
-    setHtfEmaVisible(symbolHtfEmaVisible(clean))
+    setHtfEmaVisibility(symbolHtfEmaVisibility(clean))
+    setHtfBars(emptyHtfBars())
     setBarNumbersVisible(symbolBarNumbersVisible(clean))
     setDrawnLines(readDrawnLines(clean))
     setReplayIndex(null)
@@ -3285,7 +3391,7 @@ export function TradingViewTerminal() {
     setContextBars([])
     setSelectedSymbol(clean)
     setSymbolDraft(clean)
-  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisible, barNumbersVisible])
+  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisibility, barNumbersVisible])
 
   const toggleLevelGroup = useCallback((group: LevelGroup) => {
     setLevelVisibility((current) => ({ ...current, [group]: !current[group] }))
@@ -3413,10 +3519,10 @@ export function TradingViewTerminal() {
           </button>
           <IndicatorsMenu
             intraday={isIntradayTimeframe(timeframe)}
-            htfAvailable={htfMinutesFor(timeframe) != null}
+            availableHtfs={availableHtfsFor(timeframe)}
             volumeVisible={volumeVisible}
             emaVisible={emaVisible}
-            htfEmaVisible={htfEmaVisible}
+            htfEmaVisibility={htfEmaVisibility}
             vwapVisible={vwapVisible}
             barNumbersVisible={barNumbersVisible}
             levelVisibility={levelVisibility}
@@ -3482,7 +3588,8 @@ export function TradingViewTerminal() {
               volumeVisible={volumeVisible}
               emaVisible={emaVisible}
               vwapVisible={vwapVisible}
-              htfEmaVisible={htfEmaVisible}
+              htfEmaVisibility={htfEmaVisibility}
+              htfBars={htfBars}
               barNumbersVisible={barNumbersVisible}
               drawnLines={drawnLines}
               replayActive={replayIndex != null}
