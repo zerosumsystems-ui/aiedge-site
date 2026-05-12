@@ -799,7 +799,7 @@ function ChartSurface({
       rightPriceScale: {
         borderVisible: true,
         borderColor: AXIS,
-        scaleMargins: { top: 0.2, bottom: 0.08 },
+        scaleMargins: { top: 0.2, bottom: 0.2 },
       },
       timeScale: {
         borderVisible: true,
