@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.aiedge.live-bars</string>
+
+    <!--
+      Aggregator runs continuously and loads live config from .env.local.
+      Set LIVE_DATASET and LIVE_SCHEMA there after the market-hours
+      entitlement proof. Off-hours an accepted stream may only heartbeat; the
+      Upstash TTL keeps stale live bars from lingering indefinitely.
+    -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/williamkosloski/code/aiedge/scanner/.venv/bin/python3</string>
+        <string>/Users/williamkosloski/code/aiedge/site-live-bars/scripts/live_bars_aggregator.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/williamkosloski/code/aiedge/site-live-bars</string>
+
+    <!-- Start on boot. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!--
+      Restart on abnormal exit only. The script handles SIGTERM cleanly and
+      exits 0 — that's the signal Will would send via `launchctl stop` to
+      pause the aggregator. Crashes (non-zero exit) get respawned.
+      Matches the com.aiedge.scanner.plist convention.
+    -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Throttle rapid-restart loops on persistent crash. -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/williamkosloski/Library/Logs/aiedge-live-bars.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/williamkosloski/Library/Logs/aiedge-live-bars.err.log</string>
+</dict>
+</plist>
