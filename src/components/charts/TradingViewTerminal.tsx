@@ -226,16 +226,20 @@ function previousEtDates(date: string, count: number): string[] {
   })
 }
 
-function liveStatusColor(status: LiveStatus, liveFresh: boolean): string {
+function liveStatusColor(status: LiveStatus, liveFresh: boolean, subscribed: boolean): string {
   if (status === "upstash-not-configured") return "bg-red"
-  if (status === "empty-set") return "bg-yellow"
+  if (status === "empty-set") return subscribed ? "bg-yellow" : "bg-sub"
   if (status === "ok") return liveFresh ? "bg-teal" : "bg-yellow"
   return "bg-gray"
 }
 
-function liveStatusLabel(status: LiveStatus, liveFresh: boolean): string {
+function liveStatusLabel(status: LiveStatus, liveFresh: boolean, subscribed: boolean): string {
   if (status === "upstash-not-configured") return "Live feed not configured (Upstash env vars missing)"
-  if (status === "empty-set") return "Live feed configured — waiting for first bar from the aggregator"
+  if (status === "empty-set") {
+    return subscribed
+      ? "Live feed configured — waiting for first bar from the aggregator"
+      : "Live feed not subscribed for this symbol — chart is showing delayed historical only"
+  }
   if (status === "ok") return liveFresh ? "Live — data flowing" : "Live — last bar is stale"
   return "Connecting…"
 }
@@ -305,6 +309,65 @@ function emaLineData(bars: Bar[], period = 20, seed?: number) {
     ema = index === 0 && seed === undefined ? bar.c : bar.c * alpha + ema * (1 - alpha)
     return { time: bar.t as UTCTimestamp, value: ema }
   })
+}
+
+// Higher-timeframe EMA20 mapped onto LTF bars. The EMA is computed on
+// HTF aggregated bars (e.g., 15m EMA20 when looking at 5m candles).
+// Each LTF bar inherits the most-recent HTF EMA value so the overlay
+// renders as a smooth line on the LTF chart — Brooks-traditional
+// context indicator.
+function htfMinutesFor(timeframe: ChartViewTimeframe): number | null {
+  switch (timeframe) {
+    case "1min": return 5
+    case "5min": return 15
+    case "15min": return 60
+    case "30min": return 60
+    // 1h and non-intraday already are the "higher timeframe" — no
+    // overlay makes sense without fetching daily/weekly separately.
+    default: return null
+  }
+}
+
+function htfEmaLineData(bars: Bar[], htfMinutes: number, period = 20) {
+  if (bars.length === 0 || htfMinutes <= 0) return []
+  const htfBars = aggregateBars(bars, htfMinutes)
+  if (htfBars.length === 0) return []
+  const htfEma = emaLineData(htfBars, period)
+  const result: { time: UTCTimestamp; value: number }[] = []
+  let htfIdx = 0
+  for (const bar of bars) {
+    while (htfIdx + 1 < htfEma.length && (htfEma[htfIdx + 1].time as number) <= bar.t) {
+      htfIdx += 1
+    }
+    if ((htfEma[htfIdx].time as number) <= bar.t) {
+      result.push({ time: bar.t as UTCTimestamp, value: htfEma[htfIdx].value })
+    }
+  }
+  return result
+}
+
+// Brooks "always-in" direction classifier. At any moment the market
+// has a side that's currently winning; this proxy looks at where
+// the latest close sits vs the EMA20 and how the EMA20 itself has
+// moved over the trailing ~10 bars. Returns "long", "short", or
+// "neutral" when the two signals disagree.
+type AlwaysIn = "long" | "short" | "neutral"
+
+function alwaysInDirection(bars: Bar[], emaSeed?: number): AlwaysIn {
+  if (bars.length < 4) return "neutral"
+  const emaSeries = emaLineData(bars, 20, emaSeed)
+  const last = bars[bars.length - 1]
+  const lastEma = emaSeries[emaSeries.length - 1]?.value
+  if (lastEma == null) return "neutral"
+  const lookback = Math.min(10, emaSeries.length - 1)
+  const priorEma = emaSeries[emaSeries.length - 1 - lookback]?.value ?? lastEma
+  const emaSlopeUp = lastEma > priorEma
+  const emaSlopeDown = lastEma < priorEma
+  const above = last.c > lastEma
+  const below = last.c < lastEma
+  if (above && emaSlopeUp) return "long"
+  if (below && emaSlopeDown) return "short"
+  return "neutral"
 }
 
 // Per-session cumulative VWAP. Resets to bar #1's typical price at
@@ -558,6 +621,7 @@ interface SymbolPrefs {
   volumeVisible?: boolean
   emaVisible?: boolean
   vwapVisible?: boolean
+  htfEmaVisible?: boolean
 }
 
 const PER_SYMBOL_PREFS_KEY = "aiedge.chart.perSymbol.v1"
@@ -619,6 +683,12 @@ function symbolEmaVisible(symbol: string): boolean {
 function symbolVwapVisible(symbol: string): boolean {
   const stored = readSymbolPrefs(symbol).vwapVisible
   // Default off — VWAP is a power-user indicator, opt-in.
+  return typeof stored === "boolean" ? stored : false
+}
+
+function symbolHtfEmaVisible(symbol: string): boolean {
+  const stored = readSymbolPrefs(symbol).htfEmaVisible
+  // Default off — HTF EMA overlay is busy on the chart, opt-in.
   return typeof stored === "boolean" ? stored : false
 }
 
@@ -987,9 +1057,11 @@ function ChartSurface({
   levelVisibility,
   liveFresh,
   liveStatus,
+  liveSubscribed,
   volumeVisible,
   emaVisible,
   vwapVisible,
+  htfEmaVisible,
   drawnLines,
   onSelectSymbol,
   onAddSymbol,
@@ -1000,6 +1072,7 @@ function ChartSurface({
   onToggleVolume,
   onToggleEma,
   onToggleVwap,
+  onToggleHtfEma,
   onAddDrawnLine,
   onClearDrawnLines,
 }: {
@@ -1014,9 +1087,11 @@ function ChartSurface({
   levelVisibility: LevelVisibility
   liveFresh: boolean
   liveStatus: LiveStatus
+  liveSubscribed: boolean
   volumeVisible: boolean
   emaVisible: boolean
   vwapVisible: boolean
+  htfEmaVisible: boolean
   drawnLines: number[]
   onSelectSymbol: (symbol: string) => void
   onAddSymbol: (symbol: string) => void
@@ -1027,6 +1102,7 @@ function ChartSurface({
   onToggleVolume: () => void
   onToggleEma: () => void
   onToggleVwap: () => void
+  onToggleHtfEma: () => void
   onAddDrawnLine: (price: number) => void
   onClearDrawnLines: () => void
 }) {
@@ -1034,6 +1110,7 @@ function ChartSurface({
   const chartRef = useRef<IChartApi | null>(null)
   const candlesRef = useRef<ISeriesApi<"Candlestick"> | null>(null)
   const averageRef = useRef<ISeriesApi<"Line"> | null>(null)
+  const htfEmaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const vwapRef = useRef<ISeriesApi<"Line"> | null>(null)
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null)
   const priceLinesRef = useRef<IPriceLine[]>([])
@@ -1073,6 +1150,10 @@ function ChartSurface({
     if (seedBars.length === 0) return undefined
     return emaLineData(seedBars, 20).at(-1)?.value
   }, [seedBars])
+
+  // Brooks-style always-in classification. Refreshes whenever the bar
+  // series or seed shifts (so it auto-updates as live bars stream in).
+  const alwaysIn = useMemo(() => alwaysInDirection(bars, emaSeed), [bars, emaSeed])
 
   useEffect(() => {
     barsRef.current = bars
@@ -1295,6 +1376,17 @@ function ChartSurface({
       crosshairMarkerVisible: false,
     })
 
+    // Higher-timeframe EMA20 overlay — same blue family as the LTF EMA
+    // but more transparent so it reads as background context, not a
+    // primary indicator.
+    htfEmaSeriesRef.current = chart.addSeries(LineSeries, {
+      color: "rgba(91, 168, 230, 0.28)",
+      lineWidth: 3,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    })
+
     // Per-session VWAP — dashed purple line so it reads as distinct
     // from the EMA and from the Brooks level lines.
     vwapRef.current = chart.addSeries(LineSeries, {
@@ -1469,6 +1561,7 @@ function ChartSurface({
       chartRef.current = null
       candlesRef.current = null
       averageRef.current = null
+      htfEmaSeriesRef.current = null
       vwapRef.current = null
       volumeRef.current = null
       priceLinesRef.current = []
@@ -1518,6 +1611,12 @@ function ChartSurface({
     )
     average.setData(emaLineData(bars, 20, emaSeed))
     average.applyOptions({ visible: emaVisible })
+    if (htfEmaSeriesRef.current) {
+      const htfMinutes = htfMinutesFor(timeframe)
+      const htfData = htfEmaVisible && htfMinutes != null ? htfEmaLineData(bars, htfMinutes, 20) : []
+      htfEmaSeriesRef.current.setData(htfData)
+      htfEmaSeriesRef.current.applyOptions({ visible: htfEmaVisible && htfMinutes != null })
+    }
     if (vwap) {
       vwap.setData(vwapVisible ? vwapLineData(bars) : [])
       vwap.applyOptions({ visible: vwapVisible })
@@ -1639,7 +1738,7 @@ function ChartSurface({
     return () => {
       for (const timer of settleTimers) window.clearTimeout(timer)
     }
-  }, [barWindow, bars, emaSeed, emaVisible, fitChartToBarWindow, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
+  }, [barWindow, bars, emaSeed, emaVisible, fitChartToBarWindow, htfEmaVisible, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
 
   useEffect(() => {
     if (bars.length === 0) return
@@ -1667,9 +1766,9 @@ function ChartSurface({
           <div className="glass-chip inline-flex flex-col rounded-md px-2 py-1 sm:px-2.5 sm:py-1.5">
             <div className="flex items-center gap-1.5">
               <span
-                title={liveStatusLabel(liveStatus, liveFresh)}
-                aria-label={liveStatusLabel(liveStatus, liveFresh)}
-                className={`pointer-events-auto h-1.5 w-1.5 rounded-full ${liveStatusColor(liveStatus, liveFresh)}`}
+                title={liveStatusLabel(liveStatus, liveFresh, liveSubscribed)}
+                aria-label={liveStatusLabel(liveStatus, liveFresh, liveSubscribed)}
+                className={`pointer-events-auto h-1.5 w-1.5 rounded-full ${liveStatusColor(liveStatus, liveFresh, liveSubscribed)}`}
               />
               <span className="font-mono text-base font-semibold leading-none tabular-nums text-text sm:text-lg">
                 {formatPrice(latest?.c)}
@@ -1678,6 +1777,28 @@ function ChartSurface({
             <span className={`mt-1 font-mono text-[11px] leading-none tabular-nums ${(metrics.change ?? 0) >= 0 ? "text-teal" : "text-red"}`}>
               {(metrics.change ?? 0) >= 0 ? "▲" : "▼"} {signed(metrics.change)} ({signed(metrics.changePct, "%")})
             </span>
+            {/* Brooks always-in classification — read-only, no toggle.
+                Hidden on daily/weekly where the concept doesn't apply. */}
+            {isIntradayTimeframe(timeframe) ? (
+              <span
+                className={`mt-1.5 inline-flex w-fit items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${
+                  alwaysIn === "long"
+                    ? "bg-teal/15 text-teal"
+                    : alwaysIn === "short"
+                      ? "bg-red/15 text-red"
+                      : "bg-sub/15 text-sub"
+                }`}
+                title={
+                  alwaysIn === "long"
+                    ? "Always-in: Long (close above EMA20 and EMA20 rising)"
+                    : alwaysIn === "short"
+                      ? "Always-in: Short (close below EMA20 and EMA20 falling)"
+                      : "Always-in: Mixed signal (close and EMA20 slope disagree)"
+                }
+              >
+                {alwaysIn === "long" ? "Long" : alwaysIn === "short" ? "Short" : "Mixed"}
+              </span>
+            ) : null}
           </div>
           {/* Unified indicator strip — Brooks levels (intraday only)
               flow into Vol / EMA20 / VWAP toggles on a single row. */}
@@ -1699,6 +1820,15 @@ function ChartSurface({
               onClick={onToggleEma}
               ariaLabel={emaVisible ? "Hide EMA 20" : "Show EMA 20"}
             />
+            {htfMinutesFor(timeframe) != null ? (
+              <IndicatorPill
+                label="HTF"
+                active={htfEmaVisible}
+                swatchColor="rgba(91, 168, 230, 0.55)"
+                onClick={onToggleHtfEma}
+                ariaLabel={htfEmaVisible ? "Hide higher-timeframe EMA" : "Show higher-timeframe EMA"}
+              />
+            ) : null}
             <IndicatorPill
               label="VWAP"
               active={vwapVisible}
@@ -1932,6 +2062,11 @@ export function TradingViewTerminal() {
     const customs = readCustomSymbols()
     return Array.from(new Set([...DEFAULT_SYMBOLS, ...customs]))
   })
+  // Subset of `symbols` that the Fly aggregator actually subscribes to
+  // — populated from /api/bars/live/symbols. Used to distinguish
+  // "waiting for first bar" (legitimate subscribed symbol) from
+  // "not subscribed for this ticker" in the live status tooltip.
+  const [liveSubscribedSet, setLiveSubscribedSet] = useState<Set<string>>(() => new Set(DEFAULT_SYMBOLS))
   const [dataset, setDataset] = useState<string | null>(null)
   const [schema, setSchema] = useState<string | null>(null)
   // Hydrate initial symbol from global prefs, then layer the symbol-
@@ -1959,6 +2094,7 @@ export function TradingViewTerminal() {
   const [volumeVisible, setVolumeVisible] = useState(() => symbolVolumeVisible(initialSymbol))
   const [emaVisible, setEmaVisible] = useState(() => symbolEmaVisible(initialSymbol))
   const [vwapVisible, setVwapVisible] = useState(() => symbolVwapVisible(initialSymbol))
+  const [htfEmaVisible, setHtfEmaVisible] = useState(() => symbolHtfEmaVisible(initialSymbol))
   const [drawnLines, setDrawnLines] = useState<number[]>(() => readDrawnLines(initialSymbol))
   const barsCacheRef = useRef<Map<string, { payload: BarsPayload; fetchedAt: number }>>(new Map())
 
@@ -1991,8 +2127,9 @@ export function TradingViewTerminal() {
       volumeVisible,
       emaVisible,
       vwapVisible,
+      htfEmaVisible,
     })
-  }, [barWindow, emaVisible, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
+  }, [barWindow, emaVisible, htfEmaVisible, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
 
   const toggleVolume = useCallback(() => {
     setVolumeVisible((v) => !v)
@@ -2043,6 +2180,9 @@ export function TradingViewTerminal() {
   const toggleVwap = useCallback(() => {
     setVwapVisible((v) => !v)
   }, [])
+  const toggleHtfEma = useCallback(() => {
+    setHtfEmaVisible((v) => !v)
+  }, [])
 
   const fetchBarsWithMemory = useCallback(async (url: string, maxAgeMs: number): Promise<BarsPayload> => {
     const cached = barsCacheRef.current.get(url)
@@ -2064,6 +2204,7 @@ export function TradingViewTerminal() {
         const customs = readCustomSymbols()
         const merged = Array.from(new Set([...base, ...customs]))
         setSymbols(merged)
+        setLiveSubscribedSet(new Set(base))
         setDataset(payload.dataset)
         setSchema(payload.schema)
         if (!merged.includes(selectedSymbol)) {
@@ -2075,6 +2216,7 @@ export function TradingViewTerminal() {
         if (cancelled) return
         const customs = readCustomSymbols()
         setSymbols(Array.from(new Set([...DEFAULT_SYMBOLS, ...customs])))
+        setLiveSubscribedSet(new Set(DEFAULT_SYMBOLS))
       })
     return () => {
       cancelled = true
@@ -2470,6 +2612,7 @@ export function TradingViewTerminal() {
       volumeVisible,
       emaVisible,
       vwapVisible,
+      htfEmaVisible,
     })
     setTimeframe(symbolTimeframe(clean))
     setBarWindow(symbolBarWindow(clean))
@@ -2478,12 +2621,13 @@ export function TradingViewTerminal() {
     setVolumeVisible(symbolVolumeVisible(clean))
     setEmaVisible(symbolEmaVisible(clean))
     setVwapVisible(symbolVwapVisible(clean))
+    setHtfEmaVisible(symbolHtfEmaVisible(clean))
     setDrawnLines(readDrawnLines(clean))
     setPriorRthBars([])
     setContextBars([])
     setSelectedSymbol(clean)
     setSymbolDraft(clean)
-  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible])
+  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisible])
 
   const toggleLevelGroup = useCallback((group: LevelGroup) => {
     setLevelVisibility((current) => ({ ...current, [group]: !current[group] }))
@@ -2640,9 +2784,11 @@ export function TradingViewTerminal() {
               levelVisibility={levelVisibility}
               liveFresh={liveFresh}
               liveStatus={liveStatus}
+              liveSubscribed={liveSubscribedSet.has(selectedSymbol)}
               volumeVisible={volumeVisible}
               emaVisible={emaVisible}
               vwapVisible={vwapVisible}
+              htfEmaVisible={htfEmaVisible}
               drawnLines={drawnLines}
               onSelectSymbol={selectSymbol}
               onAddSymbol={addSymbol}
@@ -2653,6 +2799,7 @@ export function TradingViewTerminal() {
               onToggleVolume={toggleVolume}
               onToggleEma={toggleEma}
               onToggleVwap={toggleVwap}
+              onToggleHtfEma={toggleHtfEma}
               onAddDrawnLine={addDrawnLine}
               onClearDrawnLines={clearDrawnLines}
             />
