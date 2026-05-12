@@ -625,6 +625,7 @@ function ChartSurface({
   const emaByTimeRef = useRef<Map<number, number>>(new Map())
   const lastTapAtRef = useRef(0)
   const tapStartRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const priceScaleDragRef = useRef<{ startY: number; from: number; to: number } | null>(null)
   const [barNumberLabels, setBarNumberLabels] = useState<BarNumberLabel[]>([])
   const [crosshairReadout, setCrosshairReadout] = useState<CrosshairReadout | null>(null)
   const [viewState, setViewState] = useState({ visibleBars: barWindow, offDefault: false })
@@ -647,6 +648,7 @@ function ChartSurface({
     const chart = chartRef.current
     const container = containerRef.current
     if (!chart || !container) return
+    chart.priceScale("right").applyOptions({ autoScale: true })
     const currentBars = barsRef.current
     const usableWidth = Math.max(240, container.clientWidth - 58)
     const barSpacing = Math.min(14, Math.max(2.4, usableWidth / (targetWindow + 12)))
@@ -699,6 +701,20 @@ function ChartSurface({
       return
     }
     const touch = event.touches[0]
+    const container = containerRef.current
+    const chart = chartRef.current
+    if (container && chart) {
+      const rect = container.getBoundingClientRect()
+      const x = touch.clientX - rect.left
+      const priceScaleWidth = chart.priceScale("right").width() || 58
+      if (x >= container.clientWidth - priceScaleWidth - 10) {
+        const range = chart.priceScale("right").getVisibleRange()
+        if (range) {
+          chart.priceScale("right").applyOptions({ autoScale: false })
+          priceScaleDragRef.current = { startY: touch.clientY, from: range.from, to: range.to }
+        }
+      }
+    }
     tapStartRef.current = { x: touch.clientX, y: touch.clientY, moved: false }
   }, [])
 
@@ -706,6 +722,22 @@ function ChartSurface({
     const start = tapStartRef.current
     const touch = event.touches[0]
     if (!start || !touch) return
+    const priceScaleDrag = priceScaleDragRef.current
+    if (priceScaleDrag) {
+      const chart = chartRef.current
+      if (!chart) return
+      start.moved = true
+      const center = (priceScaleDrag.from + priceScaleDrag.to) / 2
+      const initialHalfRange = Math.max((priceScaleDrag.to - priceScaleDrag.from) / 2, 0.01)
+      const scale = Math.exp((touch.clientY - priceScaleDrag.startY) / 240)
+      const nextHalfRange = Math.max(initialHalfRange * scale, 0.01)
+      chart.priceScale("right").setVisibleRange({
+        from: center - nextHalfRange,
+        to: center + nextHalfRange,
+      })
+      scheduleLabelsRef.current()
+      return
+    }
     if (Math.abs(touch.clientX - start.x) > 12 || Math.abs(touch.clientY - start.y) > 12) {
       start.moved = true
     }
@@ -726,8 +758,10 @@ function ChartSurface({
   const handleTouchEnd = useCallback((event: TouchEvent<HTMLDivElement>) => {
     const target = event.target
     const start = tapStartRef.current
+    const hadPriceScaleDrag = priceScaleDragRef.current !== null
+    priceScaleDragRef.current = null
     tapStartRef.current = null
-    if (!start || start.moved) return
+    if (!start || start.moved || hadPriceScaleDrag) return
     if (target instanceof Element && target.closest("button")) return
     const now = Date.now()
     if (now - lastTapAtRef.current < 320) {
@@ -982,7 +1016,7 @@ function ChartSurface({
   return (
     <section className="flex min-h-0 min-w-0 flex-1 px-0 py-1 sm:px-3 sm:py-2">
       <div
-        className="relative h-[calc(100dvh-var(--nav-h)-5.75rem)] min-h-[560px] flex-1 overflow-hidden rounded border border-border bg-[#1A1A1A] sm:h-full sm:min-h-[560px] sm:rounded-lg"
+        className="relative h-[calc(100dvh-var(--nav-h)-5.75rem)] min-h-[560px] flex-1 touch-none overscroll-contain overflow-hidden rounded border border-border bg-[#1A1A1A] sm:h-full sm:min-h-[560px] sm:rounded-lg"
         onDoubleClick={(event) => {
           const target = event.target
           if (target instanceof Element && target.closest("button")) return
@@ -1415,12 +1449,6 @@ export function TradingViewTerminal() {
   }, [symbols])
 
   const combinedBars = useMemo(() => mergeBars(historyBars, liveBars), [historyBars, liveBars])
-  const combinedContextBars = useMemo(() => {
-    const sessionDate = todayEt()
-    const merged = mergeBars(contextBars, liveBars).filter((bar) => etDateForTimestamp(bar.t) === sessionDate)
-    return merged.length > 0 ? merged : combinedBars.filter((bar) => etDateForTimestamp(bar.t) === sessionDate)
-  }, [combinedBars, contextBars, liveBars])
-
   const visibleBaseBars = useMemo(() => {
     const rthBars = sessionMode === "rth" ? combinedBars.filter(isRthBar) : combinedBars
     const sessionBars = rthBars.length > 0 ? rthBars : combinedBars
@@ -1431,6 +1459,14 @@ export function TradingViewTerminal() {
     const minutes = TIMEFRAMES.find((item) => item.value === timeframe)?.minutes ?? 1
     return aggregateBars(visibleBaseBars, minutes).slice(-barWindow)
   }, [barWindow, timeframe, visibleBaseBars])
+  const activeSessionDate = useMemo(() => {
+    const latest = displayBars.at(-1) ?? combinedBars.at(-1)
+    return latest ? etDateForTimestamp(latest.t) : todayEt()
+  }, [combinedBars, displayBars])
+  const combinedContextBars = useMemo(() => {
+    const merged = mergeBars(contextBars, liveBars).filter((bar) => etDateForTimestamp(bar.t) === activeSessionDate)
+    return merged.length > 0 ? merged : combinedBars.filter((bar) => etDateForTimestamp(bar.t) === activeSessionDate)
+  }, [activeSessionDate, combinedBars, contextBars, liveBars])
 
   const brooksLevels = useMemo(() => buildBrooksLevels(combinedContextBars, priorRthBars), [combinedContextBars, priorRthBars])
   const visibleBrooksLevels = useMemo(

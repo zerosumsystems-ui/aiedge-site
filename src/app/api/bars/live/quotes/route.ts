@@ -60,13 +60,6 @@ function quoteFromBars(symbol: string, bars: Bar[], now: number): LiveQuote {
 }
 
 export async function GET(request: Request) {
-  if (!isUpstashConfigured()) {
-    return Response.json(
-      { error: "live cache not configured (UPSTASH_REDIS_REST_URL / _TOKEN missing)" },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
-    )
-  }
-
   const { searchParams } = new URL(request.url)
   const symbols = parseSymbols(searchParams.get("symbols"))
   const minutes = Math.min(Math.max(Number(searchParams.get("minutes") ?? 360) || 360, 1), 360)
@@ -80,6 +73,25 @@ export async function GET(request: Request) {
 
   const now = Math.floor(Date.now() / 1000)
   const from = now - minutes * 60
+
+  if (!isUpstashConfigured()) {
+    return Response.json(
+      {
+        quotes: symbols.map((symbol) => ({
+          symbol,
+          last: null,
+          changePct: null,
+          volume: 0,
+          stale: true,
+        })),
+        from: new Date(from * 1000).toISOString(),
+        to: new Date(now * 1000).toISOString(),
+        source: "databento-live",
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    )
+  }
+
   const quotes = await Promise.all(
     symbols.map(async (symbol) => {
       const members = await zrangebyscore(`bars:1m:${symbol}`, from, now)

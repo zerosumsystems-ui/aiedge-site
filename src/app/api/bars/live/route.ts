@@ -53,13 +53,6 @@ function parseBar(member: string): Bar | null {
 }
 
 export async function GET(request: Request) {
-  if (!isUpstashConfigured()) {
-    return Response.json(
-      { error: "live cache not configured (UPSTASH_REDIS_REST_URL / _TOKEN missing)" },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
-    )
-  }
-
   const { searchParams } = new URL(request.url)
   const ticker = (searchParams.get("ticker") ?? "").toUpperCase()
   const minutes = Math.min(Math.max(Number(searchParams.get("minutes") ?? 60) || 60, 1), 360)
@@ -73,6 +66,22 @@ export async function GET(request: Request) {
 
   const now = Math.floor(Date.now() / 1000)
   const from = now - minutes * 60
+
+  if (!isUpstashConfigured()) {
+    const payload: LiveBarsResponse = {
+      bars: [],
+      timeframe: "1min",
+      effectiveTimeframe: "1min",
+      ticker,
+      from: new Date(from * 1000).toISOString(),
+      to: new Date(now * 1000).toISOString(),
+      source: "databento-live",
+    }
+
+    return Response.json(payload, {
+      headers: { "Cache-Control": "no-store" },
+    })
+  }
 
   const members = await zrangebyscore(`bars:1m:${ticker}`, from, now)
   const bars = members

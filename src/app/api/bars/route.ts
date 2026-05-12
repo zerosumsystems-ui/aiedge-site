@@ -45,6 +45,8 @@ interface BarsResponse {
 
 type DatabentoSchema = 'ohlcv-1s' | 'ohlcv-1m' | 'ohlcv-1h' | 'ohlcv-1d'
 
+const DATABENTO_FEED_LAG_MS = 60 * 60 * 1000
+
 function pickSchema(fromMs: number, toMs: number): DatabentoSchema {
   const days = (toMs - fromMs) / 86_400_000
   if (days < 1) return 'ohlcv-1m'
@@ -104,6 +106,23 @@ function etDateTimeToUtc(date: string, hour: number, minute: number): Date {
   const [year, month, day] = date.split('-').map(Number)
   const offset = etOffsetHours(date)
   return new Date(Date.UTC(year, month - 1, day, hour - offset, minute))
+}
+
+function previousWeekday(date: string): string {
+  const [year, month, day] = date.split('-').map(Number)
+  if (!year || !month || !day) return date
+  const previous = new Date(Date.UTC(year, month - 1, day - 1, 12))
+  while (previous.getUTCDay() === 0 || previous.getUTCDay() === 6) {
+    previous.setUTCDate(previous.getUTCDate() - 1)
+  }
+  return previous.toISOString().slice(0, 10)
+}
+
+function resolveAvailableSessionDate(date: string, session: string | null, openingMinutes: number): string {
+  const window = sessionFetchWindow(date, session, openingMinutes)
+  if (!window) return date
+  const availableCutoff = Date.now() - DATABENTO_FEED_LAG_MS
+  return window.start.getTime() > availableCutoff ? previousWeekday(date) : date
 }
 
 function etDate(timestamp: number): string {
@@ -297,8 +316,12 @@ export async function GET(request: Request) {
     )
   }
 
-  const fromDate = new Date(from)
-  const toDate = new Date(to)
+  const sameDaySessionRequest = from === to && sessionFetchWindow(from, session, openingMinutes) !== null
+  const resolvedFrom = sameDaySessionRequest ? resolveAvailableSessionDate(from, session, openingMinutes) : from
+  const resolvedTo = sameDaySessionRequest ? resolvedFrom : to
+
+  const fromDate = new Date(resolvedFrom)
+  const toDate = new Date(resolvedTo)
   if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
     return Response.json({ error: 'invalid from/to' }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
   }
@@ -315,7 +338,7 @@ export async function GET(request: Request) {
   // side with a 24h floor — callers pass YYYY-MM-DD (parsed as UTC midnight),
   // so a same-day intraday trade (from == to) would land entirely outside US
   // RTH without ≥24h of pad. The 78-bar cap below still keeps the chart tight.
-  const explicitSessionWindow = sessionFetchWindow(from, session, openingMinutes)
+  const explicitSessionWindow = sessionFetchWindow(resolvedFrom, session, openingMinutes)
   const padMs =
     timeframe === 'weekly'
       ? 180 * 86_400_000
@@ -325,7 +348,6 @@ export async function GET(request: Request) {
   const paddedFrom = explicitSessionWindow?.start ?? new Date(fromDate.getTime() - padMs)
   // EQUS.MINI intraday publishes with a ~30 min lag; clamp past that or
   // Databento returns 422 "data_end_after_available_end" on near-realtime queries.
-  const DATABENTO_FEED_LAG_MS = 60 * 60 * 1000
   const paddedTo = explicitSessionWindow?.end ?? new Date(Math.min(toDate.getTime() + padMs, Date.now() - DATABENTO_FEED_LAG_MS))
 
   // Databento Historical API — HTTP Basic auth, key as username, empty pw.
@@ -369,7 +391,7 @@ export async function GET(request: Request) {
     }
 
     // Downsample for requested effective timeframe.
-    let bars = filterSessionBars(rawBars, from, session, openingMinutes)
+    let bars = filterSessionBars(rawBars, resolvedFrom, session, openingMinutes)
     let effectiveTimeframe: ChartTimeframe = timeframe
     if (schema === 'ohlcv-1m') {
       if (timeframe === '1min') {
@@ -407,8 +429,8 @@ export async function GET(request: Request) {
       timeframe,
       effectiveTimeframe,
       ticker,
-      from,
-      to,
+      from: resolvedFrom,
+      to: resolvedTo,
       source: 'databento',
     }
     return Response.json(payload, {
