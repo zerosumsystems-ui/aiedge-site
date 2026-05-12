@@ -109,10 +109,13 @@ const LEVEL_GROUPS: Array<{ key: LevelGroup; label: string; swatch: string }> = 
 ]
 
 const BAR_WINDOW_CHOICES = [
-  { value: 78, label: "78B" },
-  { value: 156, label: "156B" },
-  { value: 390, label: "All" },
+  { value: 78, label: "1D" },
+  { value: 156, label: "2D" },
+  { value: 234, label: "3D" },
 ]
+
+// Approximate RTH minutes in a single US equity session (9:30-16:00 ET).
+const RTH_MINUTES_PER_DAY = 390
 
 const ET_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/New_York",
@@ -239,17 +242,38 @@ function aggregateBars(bars: Bar[], minutesPerBucket: number): Bar[] {
   return output
 }
 
-function rawLimitFor(timeframe: IntradayTimeframe, barWindow: number): number {
+function rawLimitFor(timeframe: IntradayTimeframe, barWindow: number, fetchDays = 1): number {
   const minutes = TIMEFRAMES.find((item) => item.value === timeframe)?.minutes ?? 1
-  return Math.min(Math.max(barWindow * minutes, DEFAULT_BAR_WINDOW), 1000)
+  return Math.min(Math.max(barWindow * minutes * fetchDays, DEFAULT_BAR_WINDOW), 5000)
 }
 
-function emaLineData(bars: Bar[], period = 20) {
+// How many trading days of history to fetch for a given bar-window /
+// timeframe pair, plus +1 day of EMA warmup so the indicator is already
+// converged when the visible range starts. Caps display at ~234 bars
+// (3 days of 5m, the user's hard ceiling) but the fetched range can be
+// a touch wider to seed the EMA.
+function fetchDaysForBarWindow(barWindow: number, timeframe: IntradayTimeframe): number {
+  const minutes = TIMEFRAMES.find((item) => item.value === timeframe)?.minutes ?? 1
+  const displayDays = Math.max(1, Math.ceil((barWindow * minutes) / RTH_MINUTES_PER_DAY))
+  return displayDays + 1
+}
+
+// Earliest calendar date we need to query so that `fetchDays` worth of
+// trading bars are guaranteed in the response (over-fetches across
+// weekends + a holiday or two — the API filters non-trading time).
+function earliestFetchDate(sessionDate: string, fetchDays: number): string {
+  if (fetchDays <= 1) return sessionDate
+  const calendarDaysBack = fetchDays + 3
+  const candidates = previousEtDates(sessionDate, calendarDaysBack)
+  return candidates[candidates.length - 1] ?? sessionDate
+}
+
+function emaLineData(bars: Bar[], period = 20, seed?: number) {
   if (bars.length === 0) return []
   const alpha = 2 / (period + 1)
-  let ema = bars[0].c
+  let ema = seed ?? bars[0].c
   return bars.map((bar, index) => {
-    ema = index === 0 ? bar.c : bar.c * alpha + ema * (1 - alpha)
+    ema = index === 0 && seed === undefined ? bar.c : bar.c * alpha + ema * (1 - alpha)
     return { time: bar.t as UTCTimestamp, value: ema }
   })
 }
@@ -620,6 +644,7 @@ function SymbolScroller({
 function ChartSurface({
   symbol,
   bars,
+  seedBars,
   levels,
   timeframe,
   barWindow,
@@ -636,6 +661,7 @@ function ChartSurface({
 }: {
   symbol: string
   bars: Bar[]
+  seedBars: Bar[]
   levels: BrooksLevel[]
   timeframe: IntradayTimeframe
   barWindow: number
@@ -669,10 +695,20 @@ function ChartSurface({
   const latest = metrics.latest
   const sessionRange = metrics.high != null && metrics.low != null ? metrics.high - metrics.low : 0
 
+  // Final EMA value over the prior aggregated bars, used to seed the EMA
+  // line so it picks up where yesterday left off instead of resetting to
+  // close at bar #1 of the visible window.
+  const emaSeed = useMemo<number | undefined>(() => {
+    if (seedBars.length === 0) return undefined
+    return emaLineData(seedBars, 20).at(-1)?.value
+  }, [seedBars])
+
   useEffect(() => {
     barsRef.current = bars
-    emaByTimeRef.current = new Map(emaLineData(bars, 20).map((point) => [Number(point.time), point.value]))
-  }, [bars])
+    emaByTimeRef.current = new Map(
+      emaLineData(bars, 20, emaSeed).map((point) => [Number(point.time), point.value]),
+    )
+  }, [bars, emaSeed])
 
   useEffect(() => {
     barWindowRef.current = barWindow
@@ -987,7 +1023,7 @@ function ChartSurface({
         close: bar.c,
       })),
     )
-    average.setData(emaLineData(bars, 20))
+    average.setData(emaLineData(bars, 20, emaSeed))
 
     for (const priceLine of priceLinesRef.current) {
       candles.removePriceLine(priceLine)
@@ -1038,7 +1074,7 @@ function ChartSurface({
     return () => {
       for (const timer of settleTimers) window.clearTimeout(timer)
     }
-  }, [barWindow, bars, fitChartToBarWindow, levels, sessionMode, symbol, timeframe])
+  }, [barWindow, bars, emaSeed, fitChartToBarWindow, levels, sessionMode, symbol, timeframe])
 
   useEffect(() => {
     if (bars.length === 0) return
@@ -1353,13 +1389,15 @@ export function TradingViewTerminal() {
     async function load(silent: boolean) {
       if (!silent) setLoading(true)
       const sessionDate = todayEt()
+      const fetchDays = fetchDaysForBarWindow(barWindow, timeframe)
+      const historyFrom = earliestFetchDate(sessionDate, fetchDays)
       const historyQs = new URLSearchParams({
         ticker: selectedSymbol,
-        from: sessionDate,
+        from: historyFrom,
         to: sessionDate,
         tf: "1min",
         session: sessionMode === "rth" ? "rth" : "all",
-        limit: String(rawLimitFor(timeframe, barWindow)),
+        limit: String(rawLimitFor(timeframe, barWindow, fetchDays)),
       })
       const contextQs = new URLSearchParams({
         ticker: selectedSymbol,
@@ -1458,14 +1496,16 @@ export function TradingViewTerminal() {
 
     const timer = window.setTimeout(() => {
       const sessionDate = todayEt()
+      const fetchDays = fetchDaysForBarWindow(barWindow, timeframe)
+      const historyFrom = earliestFetchDate(sessionDate, fetchDays)
       for (const symbol of adjacentSymbols) {
         const historyQs = new URLSearchParams({
           ticker: symbol,
-          from: sessionDate,
+          from: historyFrom,
           to: sessionDate,
           tf: "1min",
           session: sessionMode === "rth" ? "rth" : "all",
-          limit: String(rawLimitFor(timeframe, barWindow)),
+          limit: String(rawLimitFor(timeframe, barWindow, fetchDays)),
         })
         const liveQs = new URLSearchParams({ ticker: symbol, minutes: "720" })
         void fetchBarsWithMemory(`/api/bars?${historyQs}`, 120_000).catch(() => undefined)
@@ -1511,10 +1551,18 @@ export function TradingViewTerminal() {
     return sessionBars
   }, [combinedBars, sessionMode])
 
-  const displayBars = useMemo(() => {
+  // Aggregate every fetched bar at the current timeframe, then split into
+  // the visible window (rendered on the chart) and the seed (used to warm
+  // up the EMA so it doesn't restart at bar #1).
+  const aggregatedBars = useMemo(() => {
     const minutes = TIMEFRAMES.find((item) => item.value === timeframe)?.minutes ?? 1
-    return aggregateBars(visibleBaseBars, minutes).slice(-barWindow)
-  }, [barWindow, timeframe, visibleBaseBars])
+    return aggregateBars(visibleBaseBars, minutes)
+  }, [timeframe, visibleBaseBars])
+  const displayBars = useMemo(() => aggregatedBars.slice(-barWindow), [aggregatedBars, barWindow])
+  const seedBars = useMemo(
+    () => aggregatedBars.slice(0, Math.max(0, aggregatedBars.length - barWindow)),
+    [aggregatedBars, barWindow],
+  )
   const activeSessionDate = useMemo(() => {
     const latest = displayBars.at(-1) ?? combinedBars.at(-1)
     return latest ? etDateForTimestamp(latest.t) : todayEt()
@@ -1622,6 +1670,7 @@ export function TradingViewTerminal() {
             <ChartSurface
               symbol={selectedSymbol}
               bars={displayBars}
+              seedBars={seedBars}
               levels={visibleBrooksLevels}
               timeframe={timeframe}
               barWindow={barWindow}
