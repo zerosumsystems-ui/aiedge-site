@@ -150,26 +150,35 @@ function etMinutes(timestamp: number): number {
   return hour * 60 + minute
 }
 
-function filterSessionBars(bars: Bar[], date: string, session: string | null, openingMinutes: number): Bar[] {
-  const sameDayBars = bars.filter((bar) => etDate(bar.t) === date)
+function filterSessionBars(
+  bars: Bar[],
+  fromDate: string,
+  toDate: string,
+  session: string | null,
+  openingMinutes: number,
+): Bar[] {
+  const inRange = bars.filter((bar) => {
+    const d = etDate(bar.t)
+    return d >= fromDate && d <= toDate
+  })
   if (session === 'open') {
     const openStart = 9 * 60 + 30
     const openEnd = openStart + openingMinutes
-    return sameDayBars.filter((bar) => {
+    return inRange.filter((bar) => {
       const minutes = etMinutes(bar.t)
       return minutes >= openStart && minutes < openEnd
     })
   }
   if (session === 'rth') {
-    return filterRegularSessionBars(sameDayBars)
+    return filterRegularSessionBars(inRange)
   }
   if (session === 'all' || session === 'ext') {
-    return sameDayBars.filter((bar) => {
+    return inRange.filter((bar) => {
       const minutes = etMinutes(bar.t)
       return minutes >= 4 * 60 && minutes < 20 * 60
     })
   }
-  return bars
+  return inRange
 }
 
 function sessionFetchWindow(date: string, session: string | null, openingMinutes: number): { start: Date; end: Date } | null {
@@ -342,7 +351,15 @@ export async function GET(request: Request) {
   // side with a 24h floor — callers pass YYYY-MM-DD (parsed as UTC midnight),
   // so a same-day intraday trade (from == to) would land entirely outside US
   // RTH without ≥24h of pad. The 78-bar cap below still keeps the chart tight.
-  const explicitSessionWindow = sessionFetchWindow(resolvedFrom, session, openingMinutes)
+  // Build a session window that spans from start-day open through end-day
+  // close. The old code only used resolvedFrom for both, which meant any
+  // multi-day RTH request stopped at the start day's 16:00 ET and the
+  // chart never saw today's bars.
+  const fromSessionWindow = sessionFetchWindow(resolvedFrom, session, openingMinutes)
+  const toSessionWindow = sessionFetchWindow(resolvedTo, session, openingMinutes)
+  const explicitSessionWindow = fromSessionWindow && toSessionWindow
+    ? { start: fromSessionWindow.start, end: toSessionWindow.end }
+    : null
   const padMs =
     timeframe === 'weekly'
       ? 180 * 86_400_000
@@ -402,7 +419,7 @@ export async function GET(request: Request) {
     }
 
     // Downsample for requested effective timeframe.
-    let bars = filterSessionBars(rawBars, resolvedFrom, session, openingMinutes)
+    let bars = filterSessionBars(rawBars, resolvedFrom, resolvedTo, session, openingMinutes)
     let effectiveTimeframe: ChartTimeframe = timeframe
     if (schema === 'ohlcv-1m') {
       if (timeframe === '1min') {
