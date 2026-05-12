@@ -473,9 +473,27 @@ export async function GET(request: Request) {
       to: resolvedTo,
       source: 'databento',
     }
+    // Cache aggressively when the requested range is entirely in the
+    // past — those bars never change, so Vercel's edge can absorb every
+    // repeat hit (incognito visits, new users, etc.). Today-inclusive
+    // requests still get a short edge cache because the live route
+    // (/api/bars/live) handles the trailing minutes.
+    const todayEt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
+    const fullyPast = resolvedTo < todayEt
+    // For today-inclusive requests, keep the edge cache short so custom
+    // symbols (no live aggregator subscription) refresh promptly. The
+    // chart also caches in-memory for 30s on the silent-poll path. For
+    // prior-day-only requests, cache aggressively forever.
+    const cacheControl = fullyPast
+      ? 'public, s-maxage=86400, max-age=86400, immutable'
+      : 'public, s-maxage=30, max-age=10, stale-while-revalidate=60'
     return Response.json(payload, {
-      // Historical bars are immutable — cache at edge.
-      headers: { 'Cache-Control': 'public, s-maxage=3600, max-age=600' },
+      headers: { 'Cache-Control': cacheControl },
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)

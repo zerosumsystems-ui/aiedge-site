@@ -116,6 +116,7 @@ const CHART_PREFS_KEY = "aiedge.chart.preferences.v1"
 const PRIOR_DAYS_CACHE_KEY = "aiedge.chart.priordays.v1"
 const MAX_PRIOR_DAYS_CACHE_ENTRIES = 200
 const CUSTOM_SYMBOLS_KEY = "aiedge.chart.customSymbols.v1"
+const DRAWN_LINES_KEY = "aiedge.chart.drawnLines.v1"
 
 const DEFAULT_LEVEL_VISIBILITY: LevelVisibility = {
   current: true,
@@ -643,6 +644,33 @@ function writeCustomSymbols(symbols: string[]): void {
   }
 }
 
+// User-drawn horizontal price lines, keyed by symbol. Long-press on
+// the chart drops one at the tap price; long-press near an existing
+// line (~0.1% tolerance) removes it.
+function readDrawnLines(symbol: string): number[] {
+  if (typeof window === "undefined") return []
+  try {
+    const raw = window.localStorage.getItem(DRAWN_LINES_KEY)
+    const parsed = raw ? (JSON.parse(raw) as Record<string, number[]>) : {}
+    const lines = parsed[symbol]
+    return Array.isArray(lines) ? lines.filter((n): n is number => Number.isFinite(n)) : []
+  } catch {
+    return []
+  }
+}
+
+function writeDrawnLines(symbol: string, lines: number[]): void {
+  if (typeof window === "undefined") return
+  try {
+    const raw = window.localStorage.getItem(DRAWN_LINES_KEY)
+    const parsed = raw ? (JSON.parse(raw) as Record<string, number[]>) : {}
+    parsed[symbol] = lines.slice(0, 50)
+    window.localStorage.setItem(DRAWN_LINES_KEY, JSON.stringify(parsed))
+  } catch {
+    // Best-effort.
+  }
+}
+
 function storedLevelVisibility(): LevelVisibility {
   const value = readChartPrefs().levelVisibility
   if (!value || typeof value !== "object") return DEFAULT_LEVEL_VISIBILITY
@@ -707,7 +735,7 @@ function Segment<T extends string>({
 }) {
   const wrapperClass = bare
     ? "flex shrink-0 items-center gap-0.5"
-    : "flex shrink-0 items-center gap-0.5 rounded-md border border-border/40 bg-black/65 p-0.5"
+    : "glass-chip flex shrink-0 items-center gap-0.5 rounded-md p-0.5"
   return (
     <div className={wrapperClass}>
       {options.map((option) => (
@@ -746,7 +774,7 @@ function IndicatorPill({
       aria-label={ariaLabel}
       aria-pressed={active}
       onClick={onClick}
-      className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-black/65 px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+      className={`glass-chip pointer-events-auto inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
         active ? "text-text" : "text-sub/45 hover:text-sub"
       }`}
     >
@@ -771,7 +799,7 @@ function LevelControls({
   onToggle: (group: LevelGroup) => void
 }) {
   return (
-    <div className="pointer-events-auto flex rounded-md border border-border/40 bg-black/65 p-0.5" aria-label="Brooks level visibility" data-testid="chart-level-controls">
+    <div className="glass-chip pointer-events-auto flex rounded-md p-0.5" aria-label="Brooks level visibility" data-testid="chart-level-controls">
       {LEVEL_GROUPS.map((group) => {
         const active = visibility[group.key]
         return (
@@ -839,7 +867,7 @@ function SymbolScroller({
         <div
           // Dropdown rises above the button into the chart canvas — the
           // chrome row that hosts the scroller sits below the chart.
-          className="absolute bottom-[calc(100%+0.5rem)] right-0 w-32 rounded-md border border-border/60 bg-black/[0.86] shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-md sm:w-40"
+          className="glass-panel absolute bottom-[calc(100%+0.5rem)] right-0 w-32 rounded-md sm:w-40"
         >
           <input
             type="text"
@@ -936,7 +964,7 @@ function SymbolScroller({
         onTouchEnd={() => {
           touchYRef.current = null
         }}
-        className="flex min-h-9 min-w-[60px] items-center justify-center gap-1.5 rounded-md border border-border/40 bg-black/65 px-2.5 py-1 text-center shadow-[0_8px_22px_rgba(0,0,0,0.32)] outline-none backdrop-blur-sm focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-[68px] sm:px-3"
+        className="glass-chip flex min-h-9 min-w-[60px] items-center justify-center gap-1.5 rounded-md px-2.5 py-1 text-center outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-[68px] sm:px-3"
       >
         <span className="font-mono text-[13px] font-semibold tracking-[0.06em] text-text sm:text-sm">{symbol}</span>
         <svg aria-hidden="true" viewBox="0 0 8 6" className="h-1.5 w-2 fill-sub/70">
@@ -962,6 +990,7 @@ function ChartSurface({
   volumeVisible,
   emaVisible,
   vwapVisible,
+  drawnLines,
   onSelectSymbol,
   onAddSymbol,
   onSelectTimeframe,
@@ -971,6 +1000,8 @@ function ChartSurface({
   onToggleVolume,
   onToggleEma,
   onToggleVwap,
+  onAddDrawnLine,
+  onClearDrawnLines,
 }: {
   symbol: string
   bars: Bar[]
@@ -986,6 +1017,7 @@ function ChartSurface({
   volumeVisible: boolean
   emaVisible: boolean
   vwapVisible: boolean
+  drawnLines: number[]
   onSelectSymbol: (symbol: string) => void
   onAddSymbol: (symbol: string) => void
   onSelectTimeframe: (timeframe: ChartViewTimeframe) => void
@@ -995,6 +1027,8 @@ function ChartSurface({
   onToggleVolume: () => void
   onToggleEma: () => void
   onToggleVwap: () => void
+  onAddDrawnLine: (price: number) => void
+  onClearDrawnLines: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -1008,6 +1042,9 @@ function ChartSurface({
   // views the level lines don't bleed across prior days where those
   // levels weren't yet defined.
   const levelSeriesRef = useRef<ISeriesApi<"Line">[]>([])
+  // User-drawn horizontal S/R lines as full-chart price lines.
+  const drawnLineHandlesRef = useRef<IPriceLine[]>([])
+  const longPressTimerRef = useRef<number | null>(null)
   const scheduleLabelsRef = useRef<() => void>(() => {})
   const rangeSignatureRef = useRef("")
   const barsRef = useRef(bars)
@@ -1121,7 +1158,29 @@ function ChartSurface({
       }
     }
     tapStartRef.current = { x: touch.clientX, y: touch.clientY, moved: false }
-  }, [])
+
+    // Long-press (500ms, no movement) → drop a horizontal line at the
+    // tap price. If the tap is within ~0.1% of an existing line the
+    // parent handler removes it instead.
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current)
+    }
+    const startX = touch.clientX
+    const startY = touch.clientY
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null
+      const candles = candlesRef.current
+      const containerNow = containerRef.current
+      const startState = tapStartRef.current
+      if (!candles || !containerNow || !startState || startState.moved) return
+      const rect = containerNow.getBoundingClientRect()
+      const yCoord = startY - rect.top
+      const price = candles.coordinateToPrice(yCoord)
+      if (price == null || !Number.isFinite(price)) return
+      onAddDrawnLine(Number(price))
+      void startX
+    }, 500)
+  }, [onAddDrawnLine])
 
   const handleTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
     const start = tapStartRef.current
@@ -1145,6 +1204,10 @@ function ChartSurface({
     }
     if (Math.abs(touch.clientX - start.x) > 12 || Math.abs(touch.clientY - start.y) > 12) {
       start.moved = true
+      if (longPressTimerRef.current !== null) {
+        window.clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
     }
     const container = containerRef.current
     const chart = chartRef.current
@@ -1410,6 +1473,11 @@ function ChartSurface({
       volumeRef.current = null
       priceLinesRef.current = []
       levelSeriesRef.current = []
+      drawnLineHandlesRef.current = []
+      if (longPressTimerRef.current !== null) {
+        window.clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
       scheduleLabelsRef.current = () => {}
     }
   }, [showReadoutForBar])
@@ -1533,6 +1601,23 @@ function ChartSurface({
     }
     priceLinesRef.current = nextPriceLines
 
+    // User-drawn S/R lines. Re-add on every render so additions /
+    // removals from the parent flow through. Solid white-ish line so
+    // they're distinct from the Brooks level palette.
+    for (const handle of drawnLineHandlesRef.current) {
+      candles.removePriceLine(handle)
+    }
+    drawnLineHandlesRef.current = drawnLines.map((price) =>
+      candles.createPriceLine({
+        price,
+        color: "rgba(232, 232, 232, 0.6)",
+        lineWidth: 1,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: "",
+      }),
+    )
+
     const nextRangeSignature = `${symbol}:${timeframe}:${barWindow}:${sessionMode}:${bars.length}`
     const shouldResetRange = bars.length > 0 && rangeSignatureRef.current !== nextRangeSignature
     if (bars.length > 0) {
@@ -1579,7 +1664,7 @@ function ChartSurface({
         onTouchEnd={handleTouchEnd}
       >
         <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col items-start gap-1.5 sm:left-4 sm:gap-2">
-          <div className="inline-flex flex-col rounded-md border border-border/40 bg-black/65 px-2 py-1 sm:px-2.5 sm:py-1.5">
+          <div className="glass-chip inline-flex flex-col rounded-md px-2 py-1 sm:px-2.5 sm:py-1.5">
             <div className="flex items-center gap-1.5">
               <span
                 title={liveStatusLabel(liveStatus, liveFresh)}
@@ -1621,6 +1706,18 @@ function ChartSurface({
               onClick={onToggleVwap}
               ariaLabel={vwapVisible ? "Hide VWAP" : "Show VWAP"}
             />
+            {drawnLines.length > 0 ? (
+              <button
+                type="button"
+                aria-label="Clear drawn lines"
+                onClick={onClearDrawnLines}
+                title="Tap to clear all drawn lines"
+                className="glass-chip pointer-events-auto inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums text-text outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+              >
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-text/70" />
+                S/R · {drawnLines.length} <span className="text-sub/60">×</span>
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -1663,7 +1760,7 @@ function ChartSurface({
 
         {crosshairReadout && (
           <div
-            className="pointer-events-none absolute z-20 rounded-md border border-border/40 bg-black/55 px-2.5 py-2 font-mono text-[11px] leading-[1.35] text-text/90 shadow-[0_8px_24px_rgba(0,0,0,0.3)] backdrop-blur-sm sm:text-[10px] sm:leading-4"
+            className="glass-chip pointer-events-none absolute z-20 rounded-md px-2.5 py-2 font-mono text-[11px] leading-[1.35] text-text/90 sm:text-[10px] sm:leading-4"
             style={{ left: crosshairReadout.x, top: crosshairReadout.y }}
           >
             {crosshairReadout.lines.map((line) => (
@@ -1677,7 +1774,7 @@ function ChartSurface({
             type="button"
             aria-label="Reset chart view"
             onClick={resetView}
-            className="absolute bottom-12 right-3 z-20 flex min-h-7 items-center gap-1 rounded-md border border-border/40 bg-black/65 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-sub shadow-[0_8px_22px_rgba(0,0,0,0.28)] outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-4"
+            className="glass-chip absolute bottom-12 right-3 z-20 flex min-h-7 items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-sub outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-4"
           >
             <span aria-hidden="true" className="text-[12px] leading-none">⟲</span>
             Reset
@@ -1693,7 +1790,7 @@ function ChartSurface({
       <div className="relative flex items-center gap-2 px-3 pb-[env(safe-area-inset-bottom,0px)] sm:px-4">
         <div
           data-testid="chart-bottom-toolbar"
-          className="flex min-w-0 flex-1 items-center overflow-x-auto scrollbar-none rounded-md border border-border/40 bg-black/65 p-0.5"
+          className="glass-chip flex min-w-0 flex-1 items-center overflow-x-auto scrollbar-none rounded-md p-0.5"
         >
           {isIntradayTimeframe(timeframe) ? (
             <>
@@ -1862,6 +1959,7 @@ export function TradingViewTerminal() {
   const [volumeVisible, setVolumeVisible] = useState(() => symbolVolumeVisible(initialSymbol))
   const [emaVisible, setEmaVisible] = useState(() => symbolEmaVisible(initialSymbol))
   const [vwapVisible, setVwapVisible] = useState(() => symbolVwapVisible(initialSymbol))
+  const [drawnLines, setDrawnLines] = useState<number[]>(() => readDrawnLines(initialSymbol))
   const barsCacheRef = useRef<Map<string, { payload: BarsPayload; fetchedAt: number }>>(new Map())
 
   useEffect(() => {
@@ -1899,6 +1997,28 @@ export function TradingViewTerminal() {
   const toggleVolume = useCallback(() => {
     setVolumeVisible((v) => !v)
   }, [])
+  const addDrawnLine = useCallback((price: number) => {
+    if (!Number.isFinite(price)) return
+    setDrawnLines((current) => {
+      // Hit-test: if a long-press lands within 0.1% of an existing
+      // line's price, treat it as a *remove* instead of a duplicate
+      // add. Tolerance scales with price so $5 stocks and $500 stocks
+      // both feel right.
+      const tolerance = Math.max(price * 0.001, 0.01)
+      const existingIdx = current.findIndex((p) => Math.abs(p - price) < tolerance)
+      const next = existingIdx >= 0
+        ? current.filter((_, i) => i !== existingIdx)
+        : [...current, price]
+      writeDrawnLines(selectedSymbol, next)
+      return next
+    })
+  }, [selectedSymbol])
+
+  const clearDrawnLines = useCallback(() => {
+    setDrawnLines([])
+    writeDrawnLines(selectedSymbol, [])
+  }, [selectedSymbol])
+
   const addSymbol = useCallback((symbol: string) => {
     const clean = symbol.trim().toUpperCase()
     if (!clean || !/^[A-Z][A-Z0-9.\-]{0,9}$/.test(clean)) return
@@ -2056,15 +2176,33 @@ export function TradingViewTerminal() {
         : null
 
       if (silent) {
-        const liveResult = await Promise.allSettled([fetchBarsWithMemory(liveUrl, 0)])
+        // Silent polls: always re-fetch the live feed (most recent
+        // partial bar) and also re-fetch today's historical at a
+        // throttled cadence. The historical refresh matters for
+        // symbols where the live aggregator isn't subscribed — without
+        // it those charts would freeze at the initial historical fetch.
+        const [liveResult, todayResult] = await Promise.allSettled([
+          fetchBarsWithMemory(liveUrl, 0),
+          fetchBarsWithMemory(todayUrl, 30_000),
+        ])
         if (cancelled) return
-        const [result] = liveResult
-        if (result.status === "fulfilled") {
-          setLiveBars(result.value.bars)
-          setLiveStatus(result.value.liveStatus ?? "unknown")
+        if (liveResult.status === "fulfilled") {
+          setLiveBars(liveResult.value.bars)
+          setLiveStatus(liveResult.value.liveStatus ?? "unknown")
           setLiveError(null)
         } else {
-          setLiveError(result.reason instanceof Error ? result.reason.message : String(result.reason))
+          setLiveError(liveResult.reason instanceof Error ? liveResult.reason.message : String(liveResult.reason))
+        }
+        if (todayResult.status === "fulfilled") {
+          // Reuse existing historyBars' prior-day prefix; only swap
+          // today's bars. Prior days don't change so re-fetching them
+          // would be wasted; the silent path doesn't touch the
+          // localStorage prior-day cache.
+          setHistoryBars((prev) => {
+            const yesterday = previousEtDates(sessionDate, 1)[0] ?? sessionDate
+            const prior = prev.filter((bar) => etDateForTimestamp(bar.t) <= yesterday)
+            return [...prior, ...todayResult.value.bars]
+          })
         }
         setLastFetchedAt(new Date())
         return
@@ -2086,7 +2224,10 @@ export function TradingViewTerminal() {
 
       const [priorResult, todayResult, liveResult] = await Promise.allSettled([
         priorPromise,
-        fetchBarsWithMemory(todayUrl, 120_000),
+        // 30s in-memory cache for today's historical — short enough
+        // that custom symbols (no live subscription) stay near-live,
+        // and the chart's silent poll keeps it refreshed afterward.
+        fetchBarsWithMemory(todayUrl, 30_000),
         // Live fetch — bypass the in-memory cache. The endpoint stitches
         // the in-progress partial bar in on every request, so each poll
         // can see a different last-candle state.
@@ -2337,6 +2478,7 @@ export function TradingViewTerminal() {
     setVolumeVisible(symbolVolumeVisible(clean))
     setEmaVisible(symbolEmaVisible(clean))
     setVwapVisible(symbolVwapVisible(clean))
+    setDrawnLines(readDrawnLines(clean))
     setPriorRthBars([])
     setContextBars([])
     setSelectedSymbol(clean)
@@ -2351,6 +2493,73 @@ export function TradingViewTerminal() {
     event.preventDefault()
     selectSymbol(symbolDraft)
   }
+
+  // Keyboard shortcuts. Skip when focus is inside a text input / select
+  // so typing into the symbol search doesn't toggle indicators. R is
+  // handled by the chart itself (double-click on canvas) and we don't
+  // need a global binding for it.
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target) {
+        const tag = target.tagName
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable) {
+          return
+        }
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+
+      const tfKeys: Record<string, ChartViewTimeframe> = {
+        "1": "1min",
+        "2": "5min",
+        "3": "15min",
+        "4": "30min",
+        "5": "1h",
+        "6": "daily",
+        "7": "weekly",
+      }
+      if (event.key in tfKeys) {
+        setTimeframe(tfKeys[event.key])
+        event.preventDefault()
+        return
+      }
+
+      if (event.key === "j" || event.key === "k") {
+        const direction = event.key === "k" ? 1 : -1
+        const idx = symbols.indexOf(selectedSymbol)
+        if (idx === -1 || symbols.length < 2) return
+        const next = symbols[(idx + direction + symbols.length) % symbols.length]
+        selectSymbol(next)
+        event.preventDefault()
+        return
+      }
+
+      if (event.key === "[" || event.key === "]") {
+        if (!isIntradayTimeframe(timeframe)) return
+        const choices = BAR_WINDOW_CHOICES.map((c) => c.value)
+        const idx = choices.indexOf(barWindow)
+        if (idx === -1) return
+        const direction = event.key === "]" ? 1 : -1
+        const nextIdx = Math.max(0, Math.min(choices.length - 1, idx + direction))
+        setBarWindow(choices[nextIdx])
+        event.preventDefault()
+        return
+      }
+
+      if (event.key === "v") {
+        setVolumeVisible((v) => !v)
+        event.preventDefault()
+      } else if (event.key === "e") {
+        setEmaVisible((v) => !v)
+        event.preventDefault()
+      } else if (event.key === "w") {
+        setVwapVisible((v) => !v)
+        event.preventDefault()
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [selectedSymbol, symbols, timeframe, barWindow, selectSymbol])
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-var(--nav-h))] max-w-[1600px] flex-col overflow-hidden bg-bg px-2 py-1 text-text sm:px-3 sm:py-3">
@@ -2434,6 +2643,7 @@ export function TradingViewTerminal() {
               volumeVisible={volumeVisible}
               emaVisible={emaVisible}
               vwapVisible={vwapVisible}
+              drawnLines={drawnLines}
               onSelectSymbol={selectSymbol}
               onAddSymbol={addSymbol}
               onSelectTimeframe={setTimeframe}
@@ -2443,6 +2653,8 @@ export function TradingViewTerminal() {
               onToggleVolume={toggleVolume}
               onToggleEma={toggleEma}
               onToggleVwap={toggleVwap}
+              onAddDrawnLine={addDrawnLine}
+              onClearDrawnLines={clearDrawnLines}
             />
           )}
         </main>

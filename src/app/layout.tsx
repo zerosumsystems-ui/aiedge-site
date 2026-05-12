@@ -17,6 +17,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AI Edge",
   description: "Brooks Price Action trading command center",
+  // PWA bits — manifest is served from app/manifest.ts; the SVG
+  // icons live at app/icon.svg + app/apple-icon.svg and Next.js
+  // wires up the appropriate <link rel> tags automatically.
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "AI Edge",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
