@@ -98,11 +98,11 @@ const DEFAULT_LEVEL_VISIBILITY: LevelVisibility = {
   opening: true,
 }
 
-const LEVEL_GROUPS: Array<{ key: LevelGroup; label: string }> = [
-  { key: "current", label: "DAY" },
-  { key: "prior", label: "YDAY" },
-  { key: "globex", label: "GX" },
-  { key: "opening", label: "18" },
+const LEVEL_GROUPS: Array<{ key: LevelGroup; label: string; swatch: string }> = [
+  { key: "current", label: "DAY", swatch: TEAL },
+  { key: "prior", label: "YDAY", swatch: "#C9A227" },
+  { key: "globex", label: "GX", swatch: "#6E737A" },
+  { key: "opening", label: "18", swatch: "#F5A623" },
 ]
 
 const BAR_WINDOW_CHOICES = [
@@ -435,20 +435,25 @@ function Segment<T extends string>({
   value,
   options,
   onChange,
+  bare = false,
 }: {
   value: T
   options: Array<{ value: T; label: string }>
   onChange: (next: T) => void
+  bare?: boolean
 }) {
+  const wrapperClass = bare
+    ? "flex shrink-0 items-center gap-0.5"
+    : "flex shrink-0 items-center gap-0.5 rounded-md border border-border/40 bg-black/65 p-0.5"
   return (
-    <div className="flex shrink-0 rounded border border-border/70 bg-black/75 p-0.5">
+    <div className={wrapperClass}>
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`min-h-7 rounded px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+          className={`min-h-7 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
             value === option.value ? "bg-teal text-bg" : "text-sub hover:text-text"
           }`}
         >
@@ -467,7 +472,7 @@ function LevelControls({
   onToggle: (group: LevelGroup) => void
 }) {
   return (
-    <div className="pointer-events-auto flex rounded border border-border/70 bg-black/75 p-0.5" aria-label="Brooks level visibility" data-testid="chart-level-controls">
+    <div className="pointer-events-auto flex rounded-md border border-border/40 bg-black/65 p-0.5" aria-label="Brooks level visibility" data-testid="chart-level-controls">
       {LEVEL_GROUPS.map((group) => {
         const active = visibility[group.key]
         return (
@@ -477,20 +482,21 @@ function LevelControls({
             aria-label={`Toggle ${group.label} Brooks levels`}
             aria-pressed={active}
             onClick={() => onToggle(group.key)}
-            className={`min-h-7 rounded px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+            className={`flex min-h-7 items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
               active ? "bg-surface-hover text-text" : "text-sub/45 hover:text-sub"
             }`}
           >
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: active ? group.swatch : "transparent", boxShadow: active ? "none" : `inset 0 0 0 1px ${group.swatch}99` }}
+            />
             {group.label}
           </button>
         )
       })}
     </div>
   )
-}
-
-function timeframeUnitLabel(timeframe: IntradayTimeframe): string {
-  return TIMEFRAMES.find((item) => item.value === timeframe)?.label ?? timeframe
 }
 
 function SymbolScroller({
@@ -521,13 +527,13 @@ function SymbolScroller({
   }, [open, symbol])
 
   return (
-    <div className="absolute bottom-[calc(0.875rem+env(safe-area-inset-bottom,0px))] right-3 z-20 font-mono sm:bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:right-4">
+    <div className="absolute bottom-[calc(2.25rem+env(safe-area-inset-bottom,0px))] right-3 z-20 font-mono sm:bottom-[calc(2.5rem+env(safe-area-inset-bottom,0px))] sm:right-4">
       {open && (
         <div
           ref={listRef}
           role="listbox"
           aria-label="Watchlist symbols"
-          className="absolute bottom-[3.5rem] right-0 max-h-[230px] w-28 snap-y snap-mandatory overflow-y-auto rounded-lg border border-border bg-black/[0.86] py-2 shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-md scrollbar-none sm:bottom-[3.75rem] sm:max-h-[260px] sm:w-36"
+          className="absolute bottom-[3.5rem] right-0 max-h-[230px] w-28 snap-y snap-mandatory overflow-y-auto rounded-md border border-border/60 bg-black/[0.86] py-2 shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-md scrollbar-none sm:bottom-[3.75rem] sm:max-h-[260px] sm:w-36"
         >
           {symbols.map((item) => {
             const active = item === symbol
@@ -583,7 +589,7 @@ function SymbolScroller({
         onTouchEnd={() => {
           touchYRef.current = null
         }}
-        className="flex min-h-11 min-w-[76px] flex-col items-center justify-center rounded border border-border/80 bg-black/[0.74] px-2.5 py-1 text-center shadow-[0_8px_22px_rgba(0,0,0,0.32)] outline-none backdrop-blur-sm focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-[86px] sm:bg-black/[0.82] sm:px-3"
+        className="flex min-h-11 min-w-[76px] flex-col items-center justify-center rounded-md border border-border/40 bg-black/65 px-2.5 py-1 text-center shadow-[0_8px_22px_rgba(0,0,0,0.32)] outline-none backdrop-blur-sm focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-[86px] sm:px-3"
       >
         <span className="text-[10px] uppercase tracking-[0.14em] text-sub sm:text-[9px] sm:tracking-[0.16em]">symbol</span>
         <span className="text-sm font-semibold tracking-[0.1em] text-text">{symbol}</span>
@@ -601,6 +607,7 @@ function ChartSurface({
   sessionMode,
   symbols,
   levelVisibility,
+  liveFresh,
   onSelectSymbol,
   onSelectTimeframe,
   onSelectBarWindow,
@@ -616,6 +623,7 @@ function ChartSurface({
   sessionMode: SessionMode
   symbols: string[]
   levelVisibility: LevelVisibility
+  liveFresh: boolean
   onSelectSymbol: (symbol: string) => void
   onSelectTimeframe: (timeframe: IntradayTimeframe) => void
   onSelectBarWindow: (barWindow: number) => void
@@ -638,8 +646,6 @@ function ChartSurface({
   const [barNumberLabels, setBarNumberLabels] = useState<BarNumberLabel[]>([])
   const [crosshairReadout, setCrosshairReadout] = useState<CrosshairReadout | null>(null)
   const [viewState, setViewState] = useState({ visibleBars: barWindow, offDefault: false })
-  const title = `${barWindow}x${timeframeUnitLabel(timeframe)}`
-  const sessionLabel = sessionMode === "rth" ? "9:30" : "EXT"
   const metrics = useMemo(() => metricsFor(bars), [bars])
   const latest = metrics.latest
   const sessionRange = metrics.high != null && metrics.low != null ? metrics.high - metrics.low : 0
@@ -832,7 +838,7 @@ function ChartSurface({
     })
 
     averageRef.current = chart.addSeries(LineSeries, {
-      color: "rgba(91, 168, 230, 0.62)",
+      color: "rgba(91, 168, 230, 0.45)",
       lineWidth: 2,
       priceLineVisible: false,
       lastValueVisible: false,
@@ -1018,7 +1024,7 @@ function ChartSurface({
   return (
     <section className="flex min-h-0 min-w-0 flex-1 px-0 py-1 sm:px-3 sm:py-2">
       <div
-        className="relative h-full min-h-0 flex-1 touch-none overscroll-contain overflow-hidden rounded border border-border bg-[#1A1A1A] sm:rounded-lg"
+        className="relative h-full min-h-0 flex-1 touch-none overscroll-contain overflow-hidden rounded-lg border border-border bg-[#1A1A1A]"
         onDoubleClick={(event) => {
           const target = event.target
           if (target instanceof Element && target.closest("button")) return
@@ -1028,38 +1034,32 @@ function ChartSurface({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="pointer-events-none absolute left-3 top-3 z-10 sm:left-4">
-          <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2">
-            <span className="rounded bg-black/75 px-2 py-0.5 font-mono text-[11px] font-semibold text-teal sm:px-2.5 sm:py-1 sm:text-sm">~</span>
-            <span className="font-mono text-sm tracking-tight text-text sm:text-base">
-              {formatPrice(latest?.c)} <span className={(metrics.change ?? 0) >= 0 ? "text-teal" : "text-red"}>{signed(metrics.change)} ({signed(metrics.changePct, "%")})</span>
+        <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col items-start gap-1.5 sm:left-4 sm:gap-2">
+          <div className="inline-flex flex-col rounded-md border border-border/40 bg-black/65 px-2 py-1 sm:px-2.5 sm:py-1.5">
+            <div className="flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 rounded-full ${liveFresh ? "bg-teal" : "bg-yellow"}`}
+              />
+              <span className="font-mono text-base font-semibold leading-none tabular-nums text-text sm:text-lg">
+                {formatPrice(latest?.c)}
+              </span>
+            </div>
+            <span className={`mt-1 font-mono text-[11px] leading-none tabular-nums ${(metrics.change ?? 0) >= 0 ? "text-teal" : "text-red"}`}>
+              {(metrics.change ?? 0) >= 0 ? "▲" : "▼"} {signed(metrics.change)} ({signed(metrics.changePct, "%")})
             </span>
           </div>
           <LevelControls visibility={levelVisibility} onToggle={onToggleLevel} />
         </div>
 
-        <div className="pointer-events-none absolute right-[132px] top-4 z-10 hidden min-w-[230px] text-right lg:block">
-          <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-sub">
-            <div>{title}</div>
-            <div>{symbol} / {sessionLabel}</div>
-          </div>
-          <div className="grid grid-cols-[1fr_auto] gap-x-5 gap-y-1.5 text-[13px] leading-none text-sub/65 xl:text-sm">
-            <span>session range</span>
-            <span className="font-mono tabular-nums">{sessionRange.toFixed(2)}</span>
-            <span>bar window</span>
-            <span className="font-mono tabular-nums">{bars.length}/{barWindow}</span>
-            <span>scalp</span>
-            <span className="font-mono tabular-nums">{(sessionRange * 0.07).toFixed(2)}</span>
-            <span>swing</span>
-            <span className="font-mono tabular-nums">{(sessionRange * 0.55).toFixed(2)}-{(sessionRange * 0.85).toFixed(2)}</span>
-            <span>stop</span>
-            <span className="font-mono tabular-nums">{(sessionRange * 0.22).toFixed(2)}-{(sessionRange * 0.44).toFixed(2)}</span>
-          </div>
-        </div>
-
-        <div className="pointer-events-none absolute right-3 top-3 z-10 text-right font-mono text-[11px] uppercase tracking-[0.1em] text-sub sm:right-4 sm:tracking-[0.12em] lg:hidden">
-          <div>{title}</div>
-          <div>{symbol} / {sessionLabel}</div>
+        <div className="pointer-events-none absolute right-3 top-3 z-10 hidden flex-wrap items-center justify-end gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-sub/80 lg:flex">
+          <span>SR {sessionRange.toFixed(2)}</span>
+          <span className="text-sub/40">·</span>
+          <span>scalp {(sessionRange * 0.07).toFixed(2)}</span>
+          <span className="text-sub/40">·</span>
+          <span>swing {(sessionRange * 0.55).toFixed(2)}-{(sessionRange * 0.85).toFixed(2)}</span>
+          <span className="text-sub/40">·</span>
+          <span>stop {(sessionRange * 0.22).toFixed(2)}-{(sessionRange * 0.44).toFixed(2)}</span>
         </div>
 
         <div ref={containerRef} className="h-full w-full" />
@@ -1082,7 +1082,7 @@ function ChartSurface({
 
         {crosshairReadout && (
           <div
-            className="pointer-events-none absolute z-20 rounded border border-border/80 bg-black/[0.88] px-2.5 py-2 font-mono text-[11px] leading-[1.35] text-text/90 shadow-[0_8px_24px_rgba(0,0,0,0.3)] sm:text-[10px] sm:leading-4 sm:backdrop-blur-sm"
+            className="pointer-events-none absolute z-20 rounded-md border border-border/40 bg-black/[0.88] px-2.5 py-2 font-mono text-[11px] leading-[1.35] text-text/90 shadow-[0_8px_24px_rgba(0,0,0,0.3)] sm:text-[10px] sm:leading-4 sm:backdrop-blur-sm"
             style={{ left: crosshairReadout.x, top: crosshairReadout.y }}
           >
             {crosshairReadout.lines.map((line) => (
@@ -1095,7 +1095,7 @@ function ChartSurface({
           <button
             type="button"
             onClick={resetViewTo78}
-            className="absolute bottom-[calc(4.35rem+env(safe-area-inset-bottom,0px))] right-3 z-20 min-h-11 rounded border border-border/80 bg-black/[0.82] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-sub shadow-[0_8px_22px_rgba(0,0,0,0.28)] outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-h-0 sm:right-4 sm:text-[10px]"
+            className="absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-3 z-20 min-h-9 rounded-md border border-border/40 bg-black/65 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-sub shadow-[0_8px_22px_rgba(0,0,0,0.28)] outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-h-0 sm:right-4 sm:text-[10px]"
           >
             view {viewState.visibleBars} · reset 78
           </button>
@@ -1103,19 +1103,24 @@ function ChartSurface({
 
         <div
           data-testid="chart-bottom-toolbar"
-          className="absolute bottom-[calc(0.875rem+env(safe-area-inset-bottom,0px))] left-3 z-10 flex max-w-[calc(100%-6rem)] gap-1.5 overflow-x-auto scrollbar-none sm:bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:left-4 sm:max-w-[calc(100%-7rem)] sm:gap-2"
+          className="absolute bottom-[calc(2.25rem+env(safe-area-inset-bottom,0px))] left-3 z-10 flex max-w-[calc(100%-6rem)] items-center overflow-x-auto scrollbar-none rounded-md border border-border/40 bg-black/65 p-0.5 sm:bottom-[calc(2.5rem+env(safe-area-inset-bottom,0px))] sm:left-4 sm:max-w-[calc(100%-7rem)]"
         >
           <Segment
+            bare
             value={String(barWindow)}
             options={BAR_WINDOW_CHOICES.map(({ value, label }) => ({ value: String(value), label }))}
             onChange={(next) => onSelectBarWindow(Number(next))}
           />
+          <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border/40" />
           <Segment
+            bare
             value={timeframe}
             options={TIMEFRAMES.map(({ value, label }) => ({ value, label }))}
             onChange={onSelectTimeframe}
           />
+          <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border/40" />
           <Segment<SessionMode>
+            bare
             value={sessionMode}
             options={[
               { value: "rth", label: "RTH" },
@@ -1143,7 +1148,7 @@ function Watchlist({
   onSelect: (symbol: string) => void
 }) {
   return (
-    <div className="rounded border border-border bg-surface">
+    <div className="rounded-md border border-border bg-surface">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-sub">Watchlist</h2>
         <span className="text-[10px] text-sub">1m cache</span>
@@ -1198,7 +1203,7 @@ function SidePanel({
 
   return (
     <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto bg-bg p-3 xl:w-[320px] xl:border-l xl:border-border">
-      <div className="rounded border border-border bg-surface p-3">
+      <div className="rounded-md border border-border bg-surface p-3">
         <div className="mb-2 flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-bold tracking-tight">{symbol}</h2>
           <span className={`font-mono text-xs tabular-nums ${positive ? "text-teal" : "text-red"}`}>
@@ -1220,7 +1225,7 @@ function SidePanel({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-border bg-bg px-2 py-2">
+    <div className="rounded-md border border-border bg-bg px-2 py-2">
       <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-sub">{label}</div>
       <div className="font-mono text-xs tabular-nums text-text">{value}</div>
     </div>
@@ -1485,8 +1490,6 @@ export function TradingViewTerminal() {
   const latestLive = liveBars.at(-1)
   const liveAgeSeconds = latestLive && lastFetchedAt ? Math.max(0, lastFetchedAt.getTime() / 1000 - latestLive.t) : null
   const liveFresh = liveAgeSeconds != null && liveAgeSeconds < 15 * 60
-  const statusText = liveFresh ? "Live" : liveBars.length > 0 ? "Cached" : "No live cache"
-  const statusTone = liveFresh ? "text-teal" : liveBars.length > 0 ? "text-yellow" : "text-red"
   const blockingError = displayBars.length === 0 ? historyError ?? liveError : null
 
   const selectSymbol = useCallback((symbol: string) => {
@@ -1513,9 +1516,9 @@ export function TradingViewTerminal() {
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-var(--nav-h))] max-w-[1600px] flex-col overflow-hidden bg-bg px-2 py-1 text-text sm:px-3 sm:py-3">
-      <header className="mb-1 flex flex-wrap items-center gap-2 border-b border-border pb-1 sm:mb-2 sm:justify-between sm:pb-2">
+      <header className="mb-1 flex flex-wrap items-center gap-2 sm:mb-2 sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          <form onSubmit={submitSymbol} className="flex min-h-7 items-center gap-2 rounded border border-border bg-surface px-2 py-0.5">
+          <form onSubmit={submitSymbol} className="flex min-h-7 items-center gap-2 rounded-md border border-border/60 bg-surface px-2 py-0.5">
             <label htmlFor="chart-symbol" className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-sub sm:block">
               Symbol
             </label>
@@ -1524,7 +1527,7 @@ export function TradingViewTerminal() {
               type="text"
               value={symbolDraft}
               onChange={(event) => setSymbolDraft(event.target.value.toUpperCase())}
-              className="w-16 rounded bg-transparent font-mono text-base font-semibold uppercase text-text outline-none focus-visible:ring-2 focus-visible:ring-teal/70 sm:w-20 sm:text-sm"
+              className="w-16 rounded-md bg-transparent font-mono text-base font-semibold uppercase text-text outline-none focus-visible:ring-2 focus-visible:ring-teal/70 sm:w-20 sm:text-sm"
               spellCheck={false}
               autoCapitalize="characters"
               autoCorrect="off"
@@ -1537,7 +1540,7 @@ export function TradingViewTerminal() {
             type="button"
             aria-pressed={watchlistVisible}
             onClick={() => setWatchlistVisible((visible) => !visible)}
-            className="min-h-7 rounded border border-border bg-surface px-2 py-0.5 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            className="min-h-7 rounded-md border border-border/60 bg-surface px-2 py-0.5 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
           >
             <span className="sm:hidden">List</span>
             <span className="hidden sm:inline">{watchlistVisible ? "Hide list" : "Show list"}</span>
@@ -1545,18 +1548,10 @@ export function TradingViewTerminal() {
           <button
             type="button"
             onClick={() => setRefreshNonce((value) => value + 1)}
-            className="hidden min-h-7 rounded border border-border bg-surface px-2 py-0.5 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:inline-flex"
+            className="hidden min-h-7 rounded-md border border-border/60 bg-surface px-2 py-0.5 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:inline-flex"
           >
             Refresh
           </button>
-          <div
-            className={`flex min-h-7 items-center gap-1.5 rounded border border-border bg-surface px-2 py-0.5 text-[11px] font-semibold ${statusTone}`}
-            aria-label={`Live status: ${statusText}`}
-            title={statusText}
-          >
-            <SymbolIcon active={liveFresh} />
-            <span className="hidden sm:inline">{statusText}</span>
-          </div>
         </div>
       </header>
 
@@ -1576,7 +1571,7 @@ export function TradingViewTerminal() {
 
           {loading ? (
             <div className="flex min-h-0 flex-1 items-center justify-center bg-bg">
-              <div className="skeleton h-[420px] w-[92%] rounded" />
+              <div className="skeleton h-[420px] w-[92%] rounded-md" />
             </div>
           ) : blockingError ? (
             <div className="flex min-h-0 flex-1 items-center justify-center bg-bg px-6 text-center">
@@ -1595,6 +1590,7 @@ export function TradingViewTerminal() {
               sessionMode={sessionMode}
               symbols={symbols}
               levelVisibility={levelVisibility}
+              liveFresh={liveFresh}
               onSelectSymbol={selectSymbol}
               onSelectTimeframe={setTimeframe}
               onSelectBarWindow={setBarWindow}
@@ -1628,12 +1624,13 @@ export function TradingViewTerminal() {
             className="absolute inset-0 bg-black/55"
           />
           <div className="relative max-h-[78dvh] overflow-hidden rounded-t-2xl border-t border-border bg-bg pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-12px_36px_rgba(0,0,0,0.45)]">
+            <div aria-hidden="true" className="mx-auto mt-2 h-1 w-9 rounded-full bg-border" />
             <div className="flex items-center justify-between border-b border-border px-3 pt-2 pb-2">
               <span className="text-xs font-semibold uppercase tracking-[0.14em] text-sub">Watchlist</span>
               <button
                 type="button"
                 onClick={() => setWatchlistVisible(false)}
-                className="-mr-2 flex h-11 min-w-11 items-center justify-center rounded px-3 text-sm font-semibold text-sub outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70"
+                className="-mr-2 flex h-11 min-w-11 items-center justify-center rounded-md px-3 text-sm font-semibold text-sub outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70"
               >
                 Done
               </button>
