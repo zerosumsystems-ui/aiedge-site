@@ -258,60 +258,66 @@ def backfill_recent_bars(
         log.warning("Backfill skipped: get_range failed: %s", exc)
         return
 
-    FIXED_PRICE_SCALE = db_module.FIXED_PRICE_SCALE
-    OHLCVMsg = db_module.OHLCVMsg
-
-    # Historical responses don't emit SymbolMappingMsg as iterable records
-    # — the instrument_id ↔ raw_symbol mapping comes from the response's
-    # metadata, exposed as DBNStore.symbology_map. Collect the records
-    # first, then map symbols once the metadata is fully read.
-    collected: list[tuple[int, int, float, float, float, float, int]] = []
+    # Convert to a pandas DataFrame so the SDK resolves instrument_id ↔
+    # raw_symbol for us via the response's metadata. pandas is already a
+    # transitive dep of the databento package. Iterating raw records and
+    # trying to use DBNStore.symbology_map directly returned an empty map
+    # under SDK 0.77 — to_df handles the resolution correctly.
     try:
-        for rec in data:
-            if not isinstance(rec, OHLCVMsg):
-                continue
-            iid = getattr(rec, "instrument_id", None)
-            ts_ns = getattr(rec, "ts_event", None)
-            if iid is None or ts_ns is None:
-                continue
-            collected.append(
-                (
-                    int(iid),
-                    int(ts_ns) // 1_000_000_000,
-                    float(rec.open) / FIXED_PRICE_SCALE,
-                    float(rec.high) / FIXED_PRICE_SCALE,
-                    float(rec.low) / FIXED_PRICE_SCALE,
-                    float(rec.close) / FIXED_PRICE_SCALE,
-                    int(rec.volume or 0),
-                )
-            )
+        df = data.to_df(pretty_ts=False, map_symbols=True)
     except Exception as exc:
-        log.warning("Backfill stream errored after %d records: %s", len(collected), exc)
+        log.warning("Backfill skipped: to_df failed: %s", exc)
         return
 
-    sym_map: dict[int, str] = {}
-    try:
-        raw_map = getattr(data, "symbology_map", None) or {}
-        for iid, sym in raw_map.items():
-            if iid is not None and sym:
-                sym_map[int(iid)] = str(sym).upper()
-    except Exception as exc:
-        log.warning("Backfill symbology_map read failed: %s", exc)
+    if df is None or len(df) == 0:
+        log.info("Backfilled 0 bars from historical (empty response)")
+        return
 
     written = 0
     skipped = 0
-    for iid, t, o, h, l, c, v in collected:
-        sym = sym_map.get(iid)
-        if sym is None:
+    for index, row in df.iterrows():
+        try:
+            sym_raw = row.get("symbol")
+            if not sym_raw:
+                skipped += 1
+                continue
+            sym = str(sym_raw).upper()
+
+            # ts_event arrives either as a pandas Timestamp (pretty_ts=True
+            # default) or as int64 nanoseconds. With pretty_ts=False the
+            # column should be ns int, but iterrows can vary by SDK
+            # version, so handle both. Falls back to the index, which is
+            # the ts_event in some configurations.
+            ts_val = row.get("ts_event")
+            if ts_val is None:
+                ts_val = index
+            if hasattr(ts_val, "timestamp"):
+                t = int(ts_val.timestamp())
+            elif hasattr(ts_val, "value"):
+                t = int(ts_val.value) // 1_000_000_000
+            else:
+                t = int(ts_val) // 1_000_000_000
+
+            cache.write_bar(
+                sym,
+                Bar(
+                    t=t,
+                    o=float(row["open"]),
+                    h=float(row["high"]),
+                    l=float(row["low"]),
+                    c=float(row["close"]),
+                    v=int(row.get("volume", 0) or 0),
+                ),
+            )
+            written += 1
+        except Exception as exc:
             skipped += 1
-            continue
-        cache.write_bar(sym, Bar(t=t, o=o, h=h, l=l, c=c, v=v))
-        written += 1
+            log.debug("Backfill row failed: %s", exc)
 
     log.info(
-        "Backfilled %d bars from historical (saw %d records, skipped %d for missing symbology)",
+        "Backfilled %d bars from historical (rows=%d skipped=%d)",
         written,
-        len(collected),
+        len(df),
         skipped,
     )
 
