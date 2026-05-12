@@ -517,6 +517,11 @@ function storedWatchlistVisible(): boolean {
   return typeof value === "boolean" ? value : true
 }
 
+function storedVolumeVisible(): boolean {
+  const value = readChartPrefs().volumeVisible
+  return typeof value === "boolean" ? value : true
+}
+
 function storedLevelVisibility(): LevelVisibility {
   const value = readChartPrefs().levelVisibility
   if (!value || typeof value !== "object") return DEFAULT_LEVEL_VISIBILITY
@@ -749,11 +754,13 @@ function ChartSurface({
   levelVisibility,
   liveFresh,
   liveStatus,
+  volumeVisible,
   onSelectSymbol,
   onSelectTimeframe,
   onSelectBarWindow,
   onSelectSessionMode,
   onToggleLevel,
+  onToggleVolume,
 }: {
   symbol: string
   bars: Bar[]
@@ -766,11 +773,13 @@ function ChartSurface({
   levelVisibility: LevelVisibility
   liveFresh: boolean
   liveStatus: LiveStatus
+  volumeVisible: boolean
   onSelectSymbol: (symbol: string) => void
   onSelectTimeframe: (timeframe: ChartViewTimeframe) => void
   onSelectBarWindow: (barWindow: number) => void
   onSelectSessionMode: (mode: SessionMode) => void
   onToggleLevel: (group: LevelGroup) => void
+  onToggleVolume: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -1183,6 +1192,15 @@ function ChartSurface({
           color: bar.c >= bar.o ? "rgba(0, 200, 150, 0.45)" : "rgba(239, 83, 80, 0.45)",
         })),
       )
+      volume.applyOptions({ visible: volumeVisible })
+      chart.priceScale("volume").applyOptions({
+        // Collapse the volume scale entirely when hidden so the price
+        // action reclaims the bottom 18%.
+        scaleMargins: volumeVisible ? { top: 0.82, bottom: 0 } : { top: 1, bottom: 0 },
+      })
+      chart.priceScale("right").applyOptions({
+        scaleMargins: { top: 0.08, bottom: volumeVisible ? 0.22 : 0.08 },
+      })
     }
 
     // Drop the previous render's level segments before drawing this
@@ -1264,7 +1282,7 @@ function ChartSurface({
     return () => {
       for (const timer of settleTimers) window.clearTimeout(timer)
     }
-  }, [barWindow, bars, emaSeed, fitChartToBarWindow, levels, sessionMode, symbol, timeframe])
+  }, [barWindow, bars, emaSeed, fitChartToBarWindow, levels, sessionMode, symbol, timeframe, volumeVisible])
 
   useEffect(() => {
     if (bars.length === 0) return
@@ -1307,6 +1325,25 @@ function ChartSurface({
           {isIntradayTimeframe(timeframe) ? (
             <LevelControls visibility={levelVisibility} onToggle={onToggleLevel} />
           ) : null}
+          <button
+            type="button"
+            aria-label={volumeVisible ? "Hide volume" : "Show volume"}
+            aria-pressed={volumeVisible}
+            onClick={onToggleVolume}
+            className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-black/65 px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+              volumeVisible ? "text-text" : "text-sub/45 hover:text-sub"
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 rounded-full"
+              style={{
+                backgroundColor: volumeVisible ? "rgba(0, 200, 150, 0.7)" : "transparent",
+                boxShadow: volumeVisible ? "none" : "inset 0 0 0 1px rgba(0, 200, 150, 0.6)",
+              }}
+            />
+            Vol
+          </button>
         </div>
 
         <div className="pointer-events-none absolute right-3 top-3 z-10 hidden flex-wrap items-center justify-end gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-sub/80 lg:flex">
@@ -1521,6 +1558,7 @@ export function TradingViewTerminal() {
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
   const [watchlistVisible, setWatchlistVisible] = useState(storedWatchlistVisible)
   const [levelVisibility, setLevelVisibility] = useState<LevelVisibility>(storedLevelVisibility)
+  const [volumeVisible, setVolumeVisible] = useState(storedVolumeVisible)
   const barsCacheRef = useRef<Map<string, { payload: BarsPayload; fetchedAt: number }>>(new Map())
 
   useEffect(() => {
@@ -1531,8 +1569,13 @@ export function TradingViewTerminal() {
       sessionMode,
       watchlistVisible,
       levelVisibility,
+      volumeVisible,
     })
-  }, [barWindow, levelVisibility, selectedSymbol, sessionMode, timeframe, watchlistVisible])
+  }, [barWindow, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, watchlistVisible])
+
+  const toggleVolume = useCallback(() => {
+    setVolumeVisible((v) => !v)
+  }, [])
 
   const fetchBarsWithMemory = useCallback(async (url: string, maxAgeMs: number): Promise<BarsPayload> => {
     const cached = barsCacheRef.current.get(url)
@@ -1988,11 +2031,13 @@ export function TradingViewTerminal() {
               levelVisibility={levelVisibility}
               liveFresh={liveFresh}
               liveStatus={liveStatus}
+              volumeVisible={volumeVisible}
               onSelectSymbol={selectSymbol}
               onSelectTimeframe={setTimeframe}
               onSelectBarWindow={setBarWindow}
               onSelectSessionMode={setSessionMode}
               onToggleLevel={toggleLevelGroup}
+              onToggleVolume={toggleVolume}
             />
           )}
         </main>
