@@ -79,7 +79,10 @@ export async function GET(request: Request) {
     }
 
     return Response.json(payload, {
-      headers: { "Cache-Control": "no-store" },
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Live-Status": "upstash-not-configured",
+      },
     })
   }
 
@@ -100,6 +103,9 @@ export async function GET(request: Request) {
   }
 
   return Response.json(payload, {
-    headers: { "Cache-Control": "no-store" },
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Live-Status": bars.length > 0 ? "ok" : "empty-set",
+    },
   })
 }
