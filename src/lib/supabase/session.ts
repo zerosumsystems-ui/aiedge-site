@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isAllowed } from '@/lib/auth/allowlist'
 
-const PROTECTED_PREFIXES = ['/journal', '/brooks']
+const PROTECTED_PREFIXES = ['/account', '/journal', '/brooks', '/patterns', '/review', '/trades']
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(

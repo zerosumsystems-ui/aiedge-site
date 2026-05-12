@@ -1,5 +1,4 @@
 import type { Bar, ChartTimeframe } from '@/lib/types'
-import { requireSession } from '@/lib/auth/require-session'
 import { filterRegularSessionBars } from '@/lib/opening-features'
 
 export const dynamic = 'force-dynamic'
@@ -302,9 +301,6 @@ function parseBar(row: DatabentoOhlcv): Bar | null {
 }
 
 export async function GET(request: Request) {
-  const unauth = await requireSession(request)
-  if (unauth) return unauth
-
   const apiKey = process.env.DATABENTO_API_KEY
   if (!apiKey) {
     return Response.json(

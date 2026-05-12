@@ -1,6 +1,5 @@
 import type { DailySnapshot, HistoryPayload } from '@/lib/types'
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
-import { requireSession } from '@/lib/auth/require-session'
 import { getSnapshot, setSnapshot } from '@/lib/snapshots'
 import { normalizeDailySnapshotSession } from '@/lib/scan-session'
 
@@ -15,8 +14,6 @@ const CORS_HEADERS = {
 const EMPTY_PAYLOAD: HistoryPayload = { snapshots: [], syncedAt: '' }
 
 export async function GET(request: Request) {
-  const unauth = await requireSession(request)
-  if (unauth) return unauth
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')
 

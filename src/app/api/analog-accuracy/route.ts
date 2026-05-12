@@ -18,7 +18,6 @@
  * snapshot the /history pages already use.
  */
 import type { DailySnapshot, HistoryPayload, ScanResult, AnalogMatch } from '@/lib/types'
-import { requireSession } from '@/lib/auth/require-session'
 import { getSnapshot } from '@/lib/snapshots'
 
 export const dynamic = 'force-dynamic'
@@ -180,8 +179,7 @@ function binomialPvalue(correct: number, n: number): number | null {
 }
 
 export async function GET(request: Request) {
-  const unauth = await requireSession(request)
-  if (unauth) return unauth
+  void request
 
   const history = await getSnapshot<HistoryPayload>('scan-history', { snapshots: [], syncedAt: '' })
   if (!history.snapshots.length) {

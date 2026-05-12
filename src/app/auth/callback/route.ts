@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isAllowed } from '@/lib/auth/allowlist'
 
+function safeNextPath(value: string): string {
+  return value.startsWith('/') && !value.startsWith('//') ? value : '/'
+}
+
 /**
  * Magic-link return target. Supabase appends ?code=<otp> and ?next=<path>.
  * Exchange the code for a session, re-check the allowlist (belt +
@@ -13,7 +17,7 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const nextParam = searchParams.get('next') ?? '/'
   // Prevent open-redirect: only allow same-origin absolute paths.
-  const next = nextParam.startsWith('/') ? nextParam : '/'
+  const next = safeNextPath(nextParam)
 
   if (!code) {
     console.warn('[auth/callback] no code in query string')

@@ -1,6 +1,5 @@
 import type { ScanPayload } from '@/lib/types'
 import { requireSyncSecret } from '@/lib/auth/sync-secret'
-import { requireSession } from '@/lib/auth/require-session'
 import { getSnapshot, setSnapshot } from '@/lib/snapshots'
 import { normalizeScanPayloadSession } from '@/lib/scan-session'
 
@@ -23,8 +22,7 @@ const EMPTY_PAYLOAD: ScanPayload = {
 }
 
 export async function GET(request: Request) {
-  const unauth = await requireSession(request)
-  if (unauth) return unauth
+  void request
   const payload = await getSnapshot<ScanPayload>('scan', EMPTY_PAYLOAD)
   return Response.json(normalizeScanPayloadSession(payload), { headers: CORS_HEADERS })
 }

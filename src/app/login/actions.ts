@@ -13,6 +13,10 @@ export type LoginState = {
   intent?: 'signin' | 'setup'
 }
 
+function safeNextPath(value: string): string {
+  return value.startsWith('/') && !value.startsWith('//') ? value : '/'
+}
+
 /**
  * Send a magic-link email. Allowlist is checked up-front so we don't leak
  * confirmation emails to uninvited addresses. The email template uses
@@ -29,7 +33,7 @@ export async function sendMagicLink(
   // button sets intent=setup to land the user on /account after sign-in.
   const intent = String(formData.get('intent') ?? 'signin')
   const requestedNext = String(formData.get('next') ?? '/') || '/'
-  const next = intent === 'setup' ? '/account' : requestedNext
+  const next = intent === 'setup' ? '/account' : safeNextPath(requestedNext)
 
   if (!rawEmail) return { error: 'Enter an email address.', mode: 'magic' }
   if (!isAllowed(rawEmail)) {
@@ -72,7 +76,7 @@ export async function signInWithPassword(
 ): Promise<LoginState> {
   const rawEmail = String(formData.get('email') ?? '').trim()
   const password = String(formData.get('password') ?? '')
-  const next = String(formData.get('next') ?? '/') || '/'
+  const next = safeNextPath(String(formData.get('next') ?? '/') || '/')
 
   if (!rawEmail || !password) {
     return {

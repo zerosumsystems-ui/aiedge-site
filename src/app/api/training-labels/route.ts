@@ -1,4 +1,6 @@
 import { getSnapshot, setSnapshot } from '@/lib/snapshots'
+import { requireSession } from '@/lib/auth/require-session'
+import { requireSyncSecret } from '@/lib/auth/sync-secret'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,6 +72,11 @@ async function readPayload() {
   }
 }
 
+async function requireWriteAuth(request: Request): Promise<Response | null> {
+  if (request.headers.has('authorization')) return requireSyncSecret(request)
+  return requireSession(request)
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -84,6 +91,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const unauth = await requireWriteAuth(request)
+  if (unauth) return unauth
+
   try {
     const body = (await request.json()) as Record<string, unknown>
     const deckId = normalizeText(body.deckId)
@@ -132,6 +142,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const unauth = await requireWriteAuth(request)
+  if (unauth) return unauth
+
   try {
     const { searchParams } = new URL(request.url)
     const deckId = searchParams.get('deckId')

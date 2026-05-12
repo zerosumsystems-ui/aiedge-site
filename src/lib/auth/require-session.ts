@@ -1,15 +1,35 @@
+import { isAllowed } from './allowlist'
+import { createClient } from '@/lib/supabase/server'
+
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' }
+
 /**
- * Auth gate shim for Route Handler reads.
- *
- * AI Edge is intentionally public in this build so the mobile training tool and
- * supporting pages can be used without signing in. Keep the helper shape so API
- * routes do not need to change; callers receive `null` and continue.
+ * Auth gate for Route Handlers that expose account, trade, broker, or
+ * review data. Public APIs should not call this helper; they should be
+ * public by explicit route choice, not because auth is a no-op.
  */
 export async function requireAuth(request: Request): Promise<Response | null> {
   void request
-  return null
+
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return Response.json({ error: 'unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+    }
+
+    if (!isAllowed(user.email)) {
+      await supabase.auth.signOut()
+      return Response.json({ error: 'not_invited' }, { status: 403, headers: NO_STORE_HEADERS })
+    }
+
+    return null
+  } catch {
+    return Response.json({ error: 'auth not configured' }, { status: 503, headers: NO_STORE_HEADERS })
+  }
 }
 
-// Backwards-compatible alias so any imports that already say requireSession
-// keep working. New code should use requireAuth.
 export const requireSession = requireAuth

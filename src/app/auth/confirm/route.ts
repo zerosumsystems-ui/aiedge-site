@@ -3,6 +3,10 @@ import type { EmailOtpType } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { isAllowed } from '@/lib/auth/allowlist'
 
+function safeNextPath(value: string): string {
+  return value.startsWith('/') && !value.startsWith('//') ? value : '/'
+}
+
 /**
  * Token-hash magic-link handler. The email template points here with
  * `?token_hash=...&type=magiclink&next=/...`. Unlike /auth/callback (which
@@ -20,7 +24,7 @@ export async function GET(request: NextRequest) {
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
   const nextParam = searchParams.get('next') ?? '/'
-  const next = nextParam.startsWith('/') ? nextParam : '/'
+  const next = safeNextPath(nextParam)
 
   if (!tokenHash || !type) {
     console.warn('[auth/confirm] missing token_hash or type', { hasToken: Boolean(tokenHash), type })
