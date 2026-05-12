@@ -24,10 +24,12 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "invalid ticker" }, { status: 400 })
   }
 
-  const upstreamBase = process.env.LIVE_BARS_INTERNAL_URL
-  if (!upstreamBase) {
-    return Response.json({ ok: false, error: "aggregator url not configured" }, { status: 503 })
-  }
+  // Default to the production Fly app — overridable via env for
+  // staging or local testing. Without this default, every Vercel
+  // env that hadn't set LIVE_BARS_INTERNAL_URL would silently 503
+  // and custom symbols would stay 35 min behind even though the
+  // aggregator was happy to accept the subscribe.
+  const upstreamBase = process.env.LIVE_BARS_INTERNAL_URL || "https://aiedge-live-bars.fly.dev"
 
   const headers: Record<string, string> = {}
   const token = process.env.LIVE_SUBSCRIBE_TOKEN

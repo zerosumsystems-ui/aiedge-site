@@ -5,6 +5,13 @@
 # Redis. /api/bars/live (in this same repo) reads from the same key.
 #
 # Build context is the repo root so we can grab scripts/live_bars_aggregator.py.
+#
+# To build from behind a TLS-intercepting proxy (e.g. a sandbox), pass
+# the host's CA bundle as a BuildKit secret so pip can verify pypi:
+#   docker build -f Dockerfile.live-bars \
+#     --secret id=ca,src=/etc/ssl/certs/ca-certificates.crt \
+#     -t registry.fly.io/aiedge-live-bars:tag .
+# On a normal dev machine, omit --secret and the build is hermetic.
 
 FROM python:3.12-slim
 
@@ -19,7 +26,12 @@ WORKDIR /app
 # (Upstash REST via urllib, signal handling, env loading, bar bucketing).
 # Pin databento so unrelated SDK changes don't break the aggregator
 # silently — bump intentionally after testing.
-RUN pip install "databento>=0.55,<0.60"
+RUN --mount=type=secret,id=ca,target=/tmp/ca-extra.crt \
+    if [ -s /tmp/ca-extra.crt ]; then \
+        pip install --cert /tmp/ca-extra.crt "databento>=0.55,<0.60"; \
+    else \
+        pip install "databento>=0.55,<0.60"; \
+    fi
 
 COPY scripts/live_bars_aggregator.py /app/live_bars_aggregator.py
 
