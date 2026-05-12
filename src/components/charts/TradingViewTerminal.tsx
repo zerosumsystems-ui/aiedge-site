@@ -1917,28 +1917,6 @@ function ChartSurface({
             <span className={`mt-1 font-mono text-[11px] leading-none tabular-nums ${(metrics.change ?? 0) >= 0 ? "text-teal" : "text-red"}`}>
               {(metrics.change ?? 0) >= 0 ? "▲" : "▼"} {signed(metrics.change)} ({signed(metrics.changePct, "%")})
             </span>
-            {/* Brooks always-in classification — read-only, no toggle.
-                Hidden on daily/weekly where the concept doesn't apply. */}
-            {isIntradayTimeframe(timeframe) ? (
-              <span
-                className={`mt-1.5 inline-flex w-fit items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${
-                  alwaysIn === "long"
-                    ? "bg-teal/15 text-teal"
-                    : alwaysIn === "short"
-                      ? "bg-red/15 text-red"
-                      : "bg-sub/15 text-sub"
-                }`}
-                title={
-                  alwaysIn === "long"
-                    ? "Always-in: Long (close above EMA20 and EMA20 rising)"
-                    : alwaysIn === "short"
-                      ? "Always-in: Short (close below EMA20 and EMA20 falling)"
-                      : "Always-in: Mixed signal (close and EMA20 slope disagree)"
-                }
-              >
-                {alwaysIn === "long" ? "Long" : alwaysIn === "short" ? "Short" : "Mixed"}
-              </span>
-            ) : null}
           </div>
           {/* Unified indicator strip — Brooks levels (intraday only)
               flow into Vol / EMA20 / VWAP toggles on a single row. */}
@@ -2025,14 +2003,46 @@ function ChartSurface({
           </div>
         </div>
 
-        <div className="pointer-events-none absolute right-3 top-3 z-10 hidden flex-wrap items-center justify-end gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-sub/80 lg:flex">
-          <span>SR {sessionRange.toFixed(2)}</span>
-          <span className="text-sub/40">·</span>
-          <span>scalp {(sessionRange * 0.07).toFixed(2)}</span>
-          <span className="text-sub/40">·</span>
-          <span>swing {(sessionRange * 0.55).toFixed(2)}-{(sessionRange * 0.85).toFixed(2)}</span>
-          <span className="text-sub/40">·</span>
-          <span>stop {(sessionRange * 0.22).toFixed(2)}-{(sessionRange * 0.44).toFixed(2)}</span>
+        <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col items-end gap-1.5">
+          {/* Always-in: Brooks long/short/mixed classification.
+              Intraday only — daily/weekly bars don't carry the concept. */}
+          {isIntradayTimeframe(timeframe) ? (
+            <span
+              className={`glass-chip pointer-events-auto inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${
+                alwaysIn === "long"
+                  ? "text-teal"
+                  : alwaysIn === "short"
+                    ? "text-red"
+                    : "text-sub"
+              }`}
+              title={
+                alwaysIn === "long"
+                  ? "Always-in: Long (close above EMA20 and EMA20 rising)"
+                  : alwaysIn === "short"
+                    ? "Always-in: Short (close below EMA20 and EMA20 falling)"
+                    : "Always-in: Mixed signal (close and EMA20 slope disagree)"
+              }
+            >
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 rounded-full ${
+                  alwaysIn === "long" ? "bg-teal" : alwaysIn === "short" ? "bg-red" : "bg-sub"
+                }`}
+              />
+              {alwaysIn === "long" ? "Long" : alwaysIn === "short" ? "Short" : "Mixed"}
+            </span>
+          ) : null}
+          {sessionRange > 0 ? (
+            <div className="glass-chip pointer-events-auto flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 rounded-md px-2 py-1 font-mono text-[10px] tabular-nums text-sub/90 sm:text-[11px]">
+              <span><span className="text-sub/60">SR</span> {sessionRange.toFixed(2)}</span>
+              <span className="text-sub/40">·</span>
+              <span><span className="text-sub/60">scalp</span> {(sessionRange * 0.07).toFixed(2)}</span>
+              <span className="text-sub/40">·</span>
+              <span><span className="text-sub/60">swing</span> {(sessionRange * 0.55).toFixed(2)}-{(sessionRange * 0.85).toFixed(2)}</span>
+              <span className="text-sub/40">·</span>
+              <span><span className="text-sub/60">stop</span> {(sessionRange * 0.22).toFixed(2)}-{(sessionRange * 0.44).toFixed(2)}</span>
+            </div>
+          ) : null}
         </div>
 
         <div ref={containerRef} className="h-full w-full" />
