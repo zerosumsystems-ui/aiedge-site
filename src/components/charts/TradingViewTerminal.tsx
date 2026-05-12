@@ -669,13 +669,15 @@ function SymbolScroller({
   }, [open, symbol])
 
   return (
-    <div className="absolute bottom-[calc(2.25rem+env(safe-area-inset-bottom,0px))] right-3 z-20 font-mono sm:bottom-[calc(2.5rem+env(safe-area-inset-bottom,0px))] sm:right-4">
+    <div className="relative z-20 font-mono">
       {open && (
         <div
           ref={listRef}
           role="listbox"
           aria-label="Watchlist symbols"
-          className="absolute bottom-[3.5rem] right-0 max-h-[230px] w-28 snap-y snap-mandatory overflow-y-auto rounded-md border border-border/60 bg-black/[0.86] py-2 shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-md scrollbar-none sm:bottom-[3.75rem] sm:max-h-[260px] sm:w-36"
+          // Dropdown rises above the button into the chart canvas — the
+          // chrome row that hosts the scroller sits below the chart.
+          className="absolute bottom-[calc(100%+0.5rem)] right-0 max-h-[230px] w-28 snap-y snap-mandatory overflow-y-auto rounded-md border border-border/60 bg-black/[0.86] py-2 shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-md scrollbar-none sm:max-h-[260px] sm:w-36"
         >
           {symbols.map((item) => {
             const active = item === symbol
@@ -868,7 +870,7 @@ function ChartSurface({
       `EMA20 ${formatPrice(ema)}`,
     ]
     if (mode === "corner") {
-      setCrosshairReadout({ x: 12, y: Math.max(72, containerHeight - 180), lines })
+      setCrosshairReadout({ x: 12, y: Math.max(72, containerHeight - 110), lines })
       return
     }
     setCrosshairReadout({
@@ -1294,7 +1296,7 @@ function ChartSurface({
   }, [bars.length, fitChartToBarWindow, sessionMode, symbol, timeframe])
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 px-0 py-1 sm:px-3 sm:py-2">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 px-0 py-1 sm:px-3 sm:py-2">
       <div
         className="relative h-full min-h-0 flex-1 touch-none overscroll-contain overflow-hidden rounded-lg border border-border bg-[#1A1A1A]"
         onDoubleClick={(event) => {
@@ -1390,16 +1392,23 @@ function ChartSurface({
             type="button"
             aria-label="Reset chart view"
             onClick={resetView}
-            className="absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-3 z-20 flex min-h-7 items-center gap-1 rounded-md border border-border/40 bg-black/65 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-sub shadow-[0_8px_22px_rgba(0,0,0,0.28)] outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-4"
+            className="absolute bottom-12 right-3 z-20 flex min-h-7 items-center gap-1 rounded-md border border-border/40 bg-black/65 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-sub shadow-[0_8px_22px_rgba(0,0,0,0.28)] outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-4"
           >
             <span aria-hidden="true" className="text-[12px] leading-none">⟲</span>
             Reset
           </button>
         )}
 
+      </div>
+
+      {/* Chrome row sits below the chart frame (and the time axis), in
+          its own flex track. Toolbar on the left, symbol scroller on
+          the right. Both are static now — no absolute overlays inside
+          the chart canvas. */}
+      <div className="relative flex items-center gap-2 px-3 pb-[env(safe-area-inset-bottom,0px)] sm:px-4">
         <div
           data-testid="chart-bottom-toolbar"
-          className="absolute bottom-[calc(2.25rem+env(safe-area-inset-bottom,0px))] left-3 z-10 flex max-w-[calc(100%-7rem)] items-center overflow-x-auto scrollbar-none rounded-md border border-border/40 bg-black/65 p-0.5 sm:bottom-[calc(2.5rem+env(safe-area-inset-bottom,0px))] sm:left-4 sm:max-w-[calc(100%-8rem)]"
+          className="flex min-w-0 flex-1 items-center overflow-x-auto scrollbar-none rounded-md border border-border/40 bg-black/65 p-0.5"
         >
           {isIntradayTimeframe(timeframe) ? (
             <>
