@@ -666,7 +666,7 @@ function ChartSurface({
     chart.priceScale("right").applyOptions({ autoScale: true })
     const currentBars = barsRef.current
     const usableWidth = Math.max(240, container.clientWidth - 58)
-    const barSpacing = Math.min(14, Math.max(2.4, usableWidth / (targetWindow + 6)))
+    const barSpacing = Math.min(14, Math.max(2.4, usableWidth / (targetWindow + 12)))
     chart.applyOptions({ timeScale: { barSpacing, rightOffset: 6 } })
     chart.timeScale().applyOptions({ barSpacing, rightOffset: 6 })
     const first = currentBars[0]
@@ -677,7 +677,7 @@ function ChartSurface({
     }
     const stepSeconds = currentBars[1] ? Math.max(60, currentBars[1].t - first.t) : 60
     chart.timeScale().setVisibleRange({
-      from: first.t as UTCTimestamp,
+      from: (first.t - stepSeconds * 6) as UTCTimestamp,
       to: (last.t + stepSeconds * 6) as UTCTimestamp,
     })
   }, [])
