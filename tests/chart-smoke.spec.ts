@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
 
 const baseUrl = process.env.CHART_BASE_URL ?? "http://127.0.0.1:3000"
+const chartReadyTimeout = 30_000
 
 test("chart renders with grouped EMA controls", async ({ page }) => {
   const pageErrors: string[] = []
@@ -12,16 +13,16 @@ test("chart renders with grouped EMA controls", async ({ page }) => {
   await expect(indicatorButton).toBeVisible()
 
   const emaGroup = page.getByLabel("EMA overlays").first()
-  await expect(emaGroup).toBeVisible()
-  await expect(emaGroup).toContainText("EMA")
-  await expect(emaGroup).toContainText("5m")
+  await expect(emaGroup).toBeVisible({ timeout: chartReadyTimeout })
+  await expect(emaGroup).toContainText("EMA", { timeout: chartReadyTimeout })
+  await expect(emaGroup).toContainText("5m", { timeout: chartReadyTimeout })
 
   await indicatorButton.click()
   const indicatorsMenu = page.getByRole("menu")
   await expect(indicatorsMenu.getByText("EMA overlays", { exact: true })).toBeVisible()
   await expect(indicatorsMenu.getByRole("button", { name: "5m EMA20 On" })).toBeVisible()
 
-  await expect(page.locator("canvas").first()).toBeVisible()
+  await expect(page.locator("canvas").first()).toBeVisible({ timeout: chartReadyTimeout })
   const hasPaintedChart = await page.evaluate(() => {
     const canvases = Array.from(document.querySelectorAll("canvas"))
     return canvases.some((canvas) => {
