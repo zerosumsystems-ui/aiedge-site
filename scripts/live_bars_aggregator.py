@@ -1,7 +1,6 @@
 """Phase 1 of issue #26 — live bar aggregator.
 
-Subscribes to Databento's live trades feed, aggregates ticks into
-1-minute OHLCV bars, and writes each closed bar to Upstash Redis
+Subscribes to Databento live data, writes 1-minute OHLCV bars to Upstash Redis
 (sorted set, keyed by ticker, scored by bar timestamp). The Next.js
 /api/bars/live route reads from the same key.
 
@@ -14,6 +13,9 @@ Required env vars (load from your existing scanner .env or the repo
     DATABENTO_API_KEY       — your live API key
     LIVE_DATASET            — e.g. "DBEQ.BASIC" or "EQUS.MINI" (depends
                               on what the entitlements probe shows)
+    LIVE_SCHEMA             — "trades" to aggregate ticks locally, or
+                              "ohlcv-1m" to write Databento native bars
+                              directly. Defaults to "trades".
     LIVE_SYMBOLS            — comma-separated tickers, e.g. "SPY,QQQ,NVDA"
     UPSTASH_REDIS_REST_URL  — e.g. https://us1-xxxx.upstash.io
     UPSTASH_REDIS_REST_TOKEN— Bearer token for the same database
@@ -25,7 +27,9 @@ Install once (on the Mac mini):
     pip install databento
 
 The Databento Python SDK handles the WebSocket reconnection logic and
-gives us decoded record objects; we just bucket their timestamps.
+gives us decoded record objects. With LIVE_SCHEMA=trades we bucket trade
+ticks locally; with LIVE_SCHEMA=ohlcv-1m we persist Databento's native bar
+records directly.
 """
 
 from __future__ import annotations
@@ -77,6 +81,11 @@ def require_env(name: str) -> str:
         log.error("Missing required env var: %s", name)
         sys.exit(2)
     return value
+
+
+def optional_env(name: str, default: str) -> str:
+    value = os.environ.get(name)
+    return value.strip() if value else default
 
 
 # ---------- bar aggregation -------------------------------------------------
@@ -168,16 +177,21 @@ def run() -> None:
     load_env()
     api_key = require_env("DATABENTO_API_KEY")
     dataset = require_env("LIVE_DATASET")
+    live_schema = optional_env("LIVE_SCHEMA", "trades").lower()
     symbols_csv = require_env("LIVE_SYMBOLS")
     upstash_url = require_env("UPSTASH_REDIS_REST_URL")
     upstash_token = require_env("UPSTASH_REDIS_REST_TOKEN")
+
+    if live_schema not in {"trades", "ohlcv-1m"}:
+        log.error("Unsupported LIVE_SCHEMA=%s; expected trades or ohlcv-1m", live_schema)
+        sys.exit(2)
 
     symbols = [s.strip().upper() for s in symbols_csv.split(",") if s.strip()]
     if not symbols:
         log.error("LIVE_SYMBOLS is empty")
         sys.exit(2)
 
-    log.info("Starting aggregator: dataset=%s symbols=%s", dataset, symbols)
+    log.info("Starting aggregator: dataset=%s schema=%s symbols=%s", dataset, live_schema, symbols)
 
     cache = Upstash(upstash_url, upstash_token)
 
@@ -196,12 +210,13 @@ def run() -> None:
         log.error("Missing dep: pip install databento")
         sys.exit(2)
     FIXED_PRICE_SCALE = db.FIXED_PRICE_SCALE
+    OHLCVMsg = db.OHLCVMsg
     SymbolMappingMsg = db.SymbolMappingMsg
 
     # Live client. The SDK handles reconnect with replay so a brief drop
     # doesn't gap the cache.
     client = db.Live(key=api_key)
-    client.subscribe(dataset=dataset, schema="trades", symbols=symbols, stype_in="raw_symbol")
+    client.subscribe(dataset=dataset, schema=live_schema, symbols=symbols, stype_in="raw_symbol")
 
     # Graceful shutdown — flush any in-progress bars on SIGINT/SIGTERM so
     # we don't lose the partial last minute.
@@ -220,11 +235,12 @@ def run() -> None:
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
 
-    # The Live iterator yields two kinds of records we care about:
+    # The Live iterator yields records we care about:
     #   - SymbolMappingMsg: instrument_id ↔ raw_symbol mapping. These arrive
     #     at session start and whenever a subscription resolves a new symbol.
     #   - Trade records (rtype=TRADE / MBP-0): carry only instrument_id, not
     #     raw_symbol. We resolve via the map we built from SymbolMappingMsg.
+    #   - OHLCV records: native bars with instrument_id and scaled prices.
     instrument_to_symbol: dict[int, str] = {}
     record_count = 0
     for rec in client:
@@ -244,20 +260,37 @@ def run() -> None:
         sym = instrument_to_symbol.get(int(iid))
         if sym is None:
             continue
-        agg = aggs.get(sym)
-        if agg is None:
-            continue
 
-        ts_ns = getattr(rec, "ts_event", None)
-        raw_price = getattr(rec, "price", None)
-        size = getattr(rec, "size", 0)
-        if ts_ns is None or raw_price is None:
-            continue
+        if live_schema == "ohlcv-1m":
+            if not isinstance(rec, OHLCVMsg):
+                continue
+            ts_ns = getattr(rec, "ts_event", None)
+            if ts_ns is None:
+                continue
+            bar = Bar(
+                t=int(ts_ns / 1e9),
+                o=float(rec.open) / FIXED_PRICE_SCALE,
+                h=float(rec.high) / FIXED_PRICE_SCALE,
+                l=float(rec.low) / FIXED_PRICE_SCALE,
+                c=float(rec.close) / FIXED_PRICE_SCALE,
+                v=int(rec.volume or 0),
+            )
+            on_close(sym, bar)
+        else:
+            agg = aggs.get(sym)
+            if agg is None:
+                continue
 
-        # DBN prices are int64 in 1e-9 fixed point — $580.12 arrives as
-        # 580_120_000_000. Scale to a float before bucketing.
-        price = float(raw_price) / FIXED_PRICE_SCALE
-        agg.add_trade(ts_seconds=ts_ns / 1e9, price=price, size=int(size or 0))
+            ts_ns = getattr(rec, "ts_event", None)
+            raw_price = getattr(rec, "price", None)
+            size = getattr(rec, "size", 0)
+            if ts_ns is None or raw_price is None:
+                continue
+
+            # DBN prices are int64 in 1e-9 fixed point — $580.12 arrives as
+            # 580_120_000_000. Scale to a float before bucketing.
+            price = float(raw_price) / FIXED_PRICE_SCALE
+            agg.add_trade(ts_seconds=ts_ns / 1e9, price=price, size=int(size or 0))
 
         record_count += 1
         if record_count % 1000 == 0:

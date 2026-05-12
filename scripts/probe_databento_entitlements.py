@@ -7,6 +7,11 @@ schemas publish (i.e. how close to "now" we can request without a 422).
 Usage:
     DATABENTO_API_KEY=... python3 scripts/probe_databento_entitlements.py
 
+Optional live probe knobs:
+    LIVE_PROBE_SCHEMAS=trades,ohlcv-1m
+    LIVE_PROBE_SYMBOLS=SPY,QQQ
+    LIVE_PROBE_TIMEOUT_SECONDS=8
+
 Reads DATABENTO_API_KEY from the environment, or from the same
 credentials/.env file the existing scanner scripts use, or from a local
 .env.local at the repo root.
@@ -30,9 +35,20 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HIST = "https://hist.databento.com/v0"
-LIVE_PROBE_SCHEMA = "trades"
-LIVE_PROBE_SYMBOL = "SPY"
 LIVE_PROBE_TIMEOUT_SECONDS = float(os.environ.get("LIVE_PROBE_TIMEOUT_SECONDS", "8"))
+LIVE_PROBE_SCHEMAS = [
+    s.strip()
+    for s in os.environ.get("LIVE_PROBE_SCHEMAS", "trades,ohlcv-1m").split(",")
+    if s.strip()
+]
+LIVE_PROBE_SYMBOLS = [
+    s.strip().upper()
+    for s in os.environ.get(
+        "LIVE_PROBE_SYMBOLS",
+        os.environ.get("LIVE_SYMBOLS", "SPY"),
+    ).split(",")
+    if s.strip()
+]
 
 # Datasets we care about for the live wiring decision. DBEQ.BASIC is
 # Databento's own consolidated equities feed (likely real-time on the
@@ -143,7 +159,7 @@ def classify_live_error(message: str) -> str:
     return "LICENSE_REQUIRED"
 
 
-def probe_live_dataset(key: str, dataset: str) -> tuple[str, str]:
+def probe_live_dataset(key: str, dataset: str, schema: str, symbols: list[str]) -> tuple[str, str]:
     try:
         import databento as db  # type: ignore[import-not-found]
         import databento_dbn as dbn  # type: ignore[import-not-found]
@@ -176,8 +192,8 @@ def probe_live_dataset(key: str, dataset: str) -> tuple[str, str]:
         client.add_callback(on_record)
         client.subscribe(
             dataset=dataset,
-            schema=LIVE_PROBE_SCHEMA,
-            symbols=LIVE_PROBE_SYMBOL,
+            schema=schema,
+            symbols=symbols,
             stype_in="raw_symbol",
         )
         client.start()
@@ -191,7 +207,7 @@ def probe_live_dataset(key: str, dataset: str) -> tuple[str, str]:
             time.sleep(0.1)
         return (
             "LICENSED_BUT_SILENT",
-            f"subscription accepted; no {LIVE_PROBE_SCHEMA} record within "
+            f"subscription accepted; no {schema} record within "
             f"{LIVE_PROBE_TIMEOUT_SECONDS:g}s"
             + (
                 f" (control messages: {result['control_count']})"
@@ -269,13 +285,14 @@ def main() -> None:
 
     section("4. Live stream entitlement smoke test")
     print(
-        f"  Attempting db.Live.subscribe(schema={LIVE_PROBE_SCHEMA!r}, "
-        f"symbols={LIVE_PROBE_SYMBOL!r}) per dataset"
+        f"  Attempting db.Live.subscribe() per dataset/schema with "
+        f"symbols={LIVE_PROBE_SYMBOLS!r}"
     )
     print(f"  Wait per accepted subscription: {LIVE_PROBE_TIMEOUT_SECONDS:g}s")
     for ds in CANDIDATE_DATASETS:
-        live_status, detail = probe_live_dataset(key, ds)
-        print(f"  {ds:20s} {live_status:22s} {detail}")
+        for schema in LIVE_PROBE_SCHEMAS:
+            live_status, detail = probe_live_dataset(key, ds, schema, LIVE_PROBE_SYMBOLS)
+            print(f"  {ds:20s} {schema:10s} {live_status:22s} {detail}")
 
     print()
     print("Done. Paste this output back to the chat / issue #26.")
