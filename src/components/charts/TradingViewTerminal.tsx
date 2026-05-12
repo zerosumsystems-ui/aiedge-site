@@ -115,6 +115,7 @@ const DEFAULT_BAR_WINDOW = 1  // days
 const CHART_PREFS_KEY = "aiedge.chart.preferences.v1"
 const PRIOR_DAYS_CACHE_KEY = "aiedge.chart.priordays.v1"
 const MAX_PRIOR_DAYS_CACHE_ENTRIES = 200
+const CUSTOM_SYMBOLS_KEY = "aiedge.chart.customSymbols.v1"
 
 const DEFAULT_LEVEL_VISIBILITY: LevelVisibility = {
   current: true,
@@ -302,6 +303,29 @@ function emaLineData(bars: Bar[], period = 20, seed?: number) {
   return bars.map((bar, index) => {
     ema = index === 0 && seed === undefined ? bar.c : bar.c * alpha + ema * (1 - alpha)
     return { time: bar.t as UTCTimestamp, value: ema }
+  })
+}
+
+// Per-session cumulative VWAP. Resets to bar #1's typical price at
+// each new ET trading day, then accumulates Σ(typicalPrice × volume) /
+// Σ(volume) within the session. Bars with zero volume don't move it.
+function vwapLineData(bars: Bar[]) {
+  if (bars.length === 0) return []
+  let sumPV = 0
+  let sumV = 0
+  let prevDate: string | null = null
+  return bars.map((bar) => {
+    const date = etDateForTimestamp(bar.t)
+    if (date !== prevDate) {
+      prevDate = date
+      sumPV = 0
+      sumV = 0
+    }
+    const tp = (bar.h + bar.l + bar.c) / 3
+    const v = bar.v ?? 0
+    sumPV += tp * v
+    sumV += v
+    return { time: bar.t as UTCTimestamp, value: sumV > 0 ? sumPV / sumV : tp }
   })
 }
 
@@ -522,6 +546,103 @@ function storedVolumeVisible(): boolean {
   return typeof value === "boolean" ? value : true
 }
 
+// Per-symbol overrides for timeframe / scope / toggles, layered on top
+// of the global defaults above. Stored separately so a missing entry
+// just falls back to global. Keyed by symbol.
+interface SymbolPrefs {
+  timeframe?: ChartViewTimeframe
+  barWindow?: number
+  sessionMode?: SessionMode
+  levelVisibility?: LevelVisibility
+  volumeVisible?: boolean
+  emaVisible?: boolean
+  vwapVisible?: boolean
+}
+
+const PER_SYMBOL_PREFS_KEY = "aiedge.chart.perSymbol.v1"
+
+function readAllSymbolPrefs(): Record<string, SymbolPrefs> {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(PER_SYMBOL_PREFS_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, SymbolPrefs>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function readSymbolPrefs(symbol: string): SymbolPrefs {
+  return readAllSymbolPrefs()[symbol] ?? {}
+}
+
+function writeSymbolPrefs(symbol: string, prefs: SymbolPrefs): void {
+  if (typeof window === "undefined") return
+  try {
+    const all = readAllSymbolPrefs()
+    all[symbol] = prefs
+    window.localStorage.setItem(PER_SYMBOL_PREFS_KEY, JSON.stringify(all))
+  } catch {
+    // Quota / private mode — best-effort.
+  }
+}
+
+function symbolTimeframe(symbol: string): ChartViewTimeframe {
+  const stored = readSymbolPrefs(symbol).timeframe
+  return TIMEFRAMES.some((item) => item.value === stored) ? (stored as ChartViewTimeframe) : storedTimeframe()
+}
+
+function symbolBarWindow(symbol: string): number {
+  const stored = readSymbolPrefs(symbol).barWindow
+  return BAR_WINDOW_CHOICES.some((item) => item.value === stored) ? (stored as number) : storedBarWindow()
+}
+
+function symbolSessionMode(symbol: string): SessionMode {
+  const stored = readSymbolPrefs(symbol).sessionMode
+  return stored === "rth" || stored === "all" ? stored : storedSessionMode()
+}
+
+function symbolLevelVisibility(symbol: string): LevelVisibility {
+  return readSymbolPrefs(symbol).levelVisibility ?? storedLevelVisibility()
+}
+
+function symbolVolumeVisible(symbol: string): boolean {
+  const stored = readSymbolPrefs(symbol).volumeVisible
+  return typeof stored === "boolean" ? stored : storedVolumeVisible()
+}
+
+function symbolEmaVisible(symbol: string): boolean {
+  const stored = readSymbolPrefs(symbol).emaVisible
+  return typeof stored === "boolean" ? stored : true
+}
+
+function symbolVwapVisible(symbol: string): boolean {
+  const stored = readSymbolPrefs(symbol).vwapVisible
+  // Default off — VWAP is a power-user indicator, opt-in.
+  return typeof stored === "boolean" ? stored : false
+}
+
+// User-added symbols that aren't in the live aggregator's default list.
+// Capped at 50 to keep localStorage tidy.
+function readCustomSymbols(): string[] {
+  if (typeof window === "undefined") return []
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_SYMBOLS_KEY)
+    const parsed = raw ? (JSON.parse(raw) as unknown) : []
+    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === "string") : []
+  } catch {
+    return []
+  }
+}
+
+function writeCustomSymbols(symbols: string[]): void {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(CUSTOM_SYMBOLS_KEY, JSON.stringify(symbols.slice(0, 50)))
+  } catch {
+    // Best-effort; quota/private mode just means symbols don't persist.
+  }
+}
+
 function storedLevelVisibility(): LevelVisibility {
   const value = readChartPrefs().levelVisibility
   if (!value || typeof value !== "object") return DEFAULT_LEVEL_VISIBILITY
@@ -606,6 +727,42 @@ function Segment<T extends string>({
   )
 }
 
+function IndicatorPill({
+  label,
+  active,
+  swatchColor,
+  onClick,
+  ariaLabel,
+}: {
+  label: string
+  active: boolean
+  swatchColor: string
+  onClick: () => void
+  ariaLabel: string
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      aria-pressed={active}
+      onClick={onClick}
+      className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-black/65 px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+        active ? "text-text" : "text-sub/45 hover:text-sub"
+      }`}
+    >
+      <span
+        aria-hidden="true"
+        className="h-1.5 w-1.5 rounded-full"
+        style={{
+          backgroundColor: active ? swatchColor : "transparent",
+          boxShadow: active ? "none" : `inset 0 0 0 1px ${swatchColor.replace(/[\d.]+\)$/, "0.6)")}`,
+        }}
+      />
+      {label}
+    </button>
+  )
+}
+
 function LevelControls({
   visibility,
   onToggle,
@@ -645,16 +802,24 @@ function SymbolScroller({
   symbol,
   symbols,
   onSelect,
+  onAdd,
 }: {
   symbol: string
   symbols: string[]
   onSelect: (symbol: string) => void
+  onAdd: (symbol: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
   const listRef = useRef<HTMLDivElement>(null)
   const wheelLockedUntilRef = useRef(0)
   const touchYRef = useRef<number | null>(null)
   const currentIndex = Math.max(symbols.indexOf(symbol), 0)
+  const filteredSymbols = useMemo(() => {
+    const q = query.trim().toUpperCase()
+    if (!q) return symbols
+    return symbols.filter((s) => s.includes(q))
+  }, [query, symbols])
 
   const cycleSymbol = useCallback((direction: -1 | 1) => {
     if (symbols.length === 0) return
@@ -672,34 +837,72 @@ function SymbolScroller({
     <div className="relative z-20 font-mono">
       {open && (
         <div
-          ref={listRef}
-          role="listbox"
-          aria-label="Watchlist symbols"
           // Dropdown rises above the button into the chart canvas — the
           // chrome row that hosts the scroller sits below the chart.
-          className="absolute bottom-[calc(100%+0.5rem)] right-0 max-h-[230px] w-28 snap-y snap-mandatory overflow-y-auto rounded-md border border-border/60 bg-black/[0.86] py-2 shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-md scrollbar-none sm:max-h-[260px] sm:w-36"
+          className="absolute bottom-[calc(100%+0.5rem)] right-0 w-32 rounded-md border border-border/60 bg-black/[0.86] shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-md sm:w-40"
         >
-          {symbols.map((item) => {
-            const active = item === symbol
-            return (
-              <button
-                key={item}
-                type="button"
-                role="option"
-                aria-selected={active}
-                data-symbol={item}
-                onClick={() => {
-                  onSelect(item)
-                  setOpen(false)
-                }}
-                className={`block h-11 w-full snap-center px-4 text-center transition-none outline-none focus-visible:bg-surface-hover focus-visible:text-text ${
-                  active ? "text-xl font-semibold tracking-[0.08em] text-text" : "text-sm font-medium tracking-[0.04em] text-sub/60"
-                }`}
-              >
-                {item}
-              </button>
-            )
-          })}
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value.toUpperCase())}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return
+              const target = query.trim().toUpperCase()
+              if (!target) return
+              if (filteredSymbols.includes(target)) {
+                onSelect(target)
+              } else if (filteredSymbols.length === 1) {
+                onSelect(filteredSymbols[0])
+              } else {
+                onAdd(target)
+                onSelect(target)
+              }
+              setQuery("")
+              setOpen(false)
+            }}
+            placeholder="Find / add"
+            aria-label="Find or add symbol"
+            spellCheck={false}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            autoComplete="off"
+            className="w-full rounded-t-md border-b border-border/60 bg-transparent px-3 py-2 text-center font-mono text-sm tracking-[0.06em] text-text placeholder:text-sub/50 outline-none focus-visible:border-teal/60"
+          />
+          <div
+            ref={listRef}
+            role="listbox"
+            aria-label="Watchlist symbols"
+            className="max-h-[200px] snap-y snap-mandatory overflow-y-auto py-2 scrollbar-none sm:max-h-[230px]"
+          >
+            {filteredSymbols.length === 0 ? (
+              <div className="px-3 py-2 text-center text-[11px] text-sub/60">
+                press Enter to add {query.trim().toUpperCase()}
+              </div>
+            ) : (
+              filteredSymbols.map((item) => {
+                const active = item === symbol
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    data-symbol={item}
+                    onClick={() => {
+                      onSelect(item)
+                      setQuery("")
+                      setOpen(false)
+                    }}
+                    className={`block h-11 w-full snap-center px-4 text-center transition-none outline-none focus-visible:bg-surface-hover focus-visible:text-text ${
+                      active ? "text-xl font-semibold tracking-[0.08em] text-text" : "text-sm font-medium tracking-[0.04em] text-sub/60"
+                    }`}
+                  >
+                    {item}
+                  </button>
+                )
+              })
+            )}
+          </div>
         </div>
       )}
       <button
@@ -757,12 +960,17 @@ function ChartSurface({
   liveFresh,
   liveStatus,
   volumeVisible,
+  emaVisible,
+  vwapVisible,
   onSelectSymbol,
+  onAddSymbol,
   onSelectTimeframe,
   onSelectBarWindow,
   onSelectSessionMode,
   onToggleLevel,
   onToggleVolume,
+  onToggleEma,
+  onToggleVwap,
 }: {
   symbol: string
   bars: Bar[]
@@ -776,17 +984,23 @@ function ChartSurface({
   liveFresh: boolean
   liveStatus: LiveStatus
   volumeVisible: boolean
+  emaVisible: boolean
+  vwapVisible: boolean
   onSelectSymbol: (symbol: string) => void
+  onAddSymbol: (symbol: string) => void
   onSelectTimeframe: (timeframe: ChartViewTimeframe) => void
   onSelectBarWindow: (barWindow: number) => void
   onSelectSessionMode: (mode: SessionMode) => void
   onToggleLevel: (group: LevelGroup) => void
   onToggleVolume: () => void
+  onToggleEma: () => void
+  onToggleVwap: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const candlesRef = useRef<ISeriesApi<"Candlestick"> | null>(null)
   const averageRef = useRef<ISeriesApi<"Line"> | null>(null)
+  const vwapRef = useRef<ISeriesApi<"Line"> | null>(null)
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null)
   const priceLinesRef = useRef<IPriceLine[]>([])
   // Per-session Brooks level segments. Each level becomes a bounded
@@ -805,6 +1019,10 @@ function ChartSurface({
   const tapStartRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   const priceScaleDragRef = useRef<{ startY: number; from: number; to: number } | null>(null)
   const [barNumberLabels, setBarNumberLabels] = useState<BarNumberLabel[]>([])
+  // Each entry = the x-coordinate of a session-open bar. Rendered as a
+  // thin vertical line that visually separates ET trading days in 2D /
+  // 3D views. Re-computed alongside the bar number labels.
+  const [sessionDividers, setSessionDividers] = useState<{ id: string; x: number }[]>([])
   const [crosshairReadout, setCrosshairReadout] = useState<CrosshairReadout | null>(null)
   const [viewState, setViewState] = useState({ visibleBars: bars.length, offDefault: false })
   const metrics = useMemo(() => metricsFor(bars), [bars])
@@ -1014,6 +1232,17 @@ function ChartSurface({
       crosshairMarkerVisible: false,
     })
 
+    // Per-session VWAP — dashed purple line so it reads as distinct
+    // from the EMA and from the Brooks level lines.
+    vwapRef.current = chart.addSeries(LineSeries, {
+      color: "rgba(180, 130, 230, 0.65)",
+      lineWidth: 2,
+      lineStyle: LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    })
+
     // Volume histogram sits on its own overlay price scale at the
     // bottom of the chart. Bars are colored by candle direction (teal
     // for closing up, red for down).
@@ -1035,6 +1264,7 @@ function ChartSurface({
       const currentBars = barsRef.current
       if (currentBars.length === 0) {
         setBarNumberLabels([])
+        setSessionDividers([])
         return
       }
       // Brooks bar numbers are an intraday concept. On daily/weekly
@@ -1042,13 +1272,15 @@ function ChartSurface({
       // counter to "1" on every bar. Detect that case and skip labels.
       const firstDate = etDateForTimestamp(currentBars[0].t)
       const lastDate = etDateForTimestamp(currentBars[currentBars.length - 1].t)
-      if (firstDate !== lastDate && currentBars.length >= 2) {
-        const probe = etDateForTimestamp(currentBars[1].t)
-        if (probe !== firstDate) {
-          // Adjacent bars have distinct ET dates ⇒ daily or weekly.
-          setBarNumberLabels([])
-          return
-        }
+      const nonIntraday =
+        firstDate !== lastDate &&
+        currentBars.length >= 2 &&
+        etDateForTimestamp(currentBars[1].t) !== firstDate
+      if (nonIntraday) {
+        // Adjacent bars have distinct ET dates ⇒ daily or weekly.
+        setBarNumberLabels([])
+        setSessionDividers([])
+        return
       }
       let minPrice = Infinity
       let maxPrice = -Infinity
@@ -1059,6 +1291,7 @@ function ChartSurface({
       const minY = candles.priceToCoordinate(minPrice)
       if (minY == null) {
         setBarNumberLabels([])
+        setSessionDividers([])
         return
       }
       const labelY = Number(minY) + 14
@@ -1068,13 +1301,25 @@ function ChartSurface({
       const totalBars = currentBars.length
       const labelStep = totalBars > 500 ? 24 : totalBars > 250 ? 12 : totalBars > 130 ? 8 : 4
       const nextLabels: BarNumberLabel[] = []
+      const nextDividers: { id: string; x: number }[] = []
       let prevDate: string | null = null
       let dayCount = 0
+      let isFirstSession = true
       for (const bar of currentBars) {
         const date = etDateForTimestamp(bar.t)
         if (date !== prevDate) {
+          // Capture a vertical divider at every session-open EXCEPT the
+          // first one (it sits at the chart's left edge and would just
+          // look like a redundant chart border).
+          if (!isFirstSession) {
+            const dividerX = chart.timeScale().timeToCoordinate(bar.t as UTCTimestamp)
+            if (dividerX != null) {
+              nextDividers.push({ id: date, x: Number(dividerX) })
+            }
+          }
           prevDate = date
           dayCount = 0
+          isFirstSession = false
         }
         dayCount += 1
         if (dayCount !== 1 && dayCount % labelStep !== 0) continue
@@ -1088,6 +1333,7 @@ function ChartSurface({
           tone: bar.c >= bar.o ? "bull" : "bear",
         })
       }
+      setSessionDividers(nextDividers)
       setBarNumberLabels(nextLabels)
     }
     const scheduleLabels = () => {
@@ -1160,6 +1406,7 @@ function ChartSurface({
       chartRef.current = null
       candlesRef.current = null
       averageRef.current = null
+      vwapRef.current = null
       volumeRef.current = null
       priceLinesRef.current = []
       levelSeriesRef.current = []
@@ -1171,19 +1418,42 @@ function ChartSurface({
     const chart = chartRef.current
     const candles = candlesRef.current
     const average = averageRef.current
+    const vwap = vwapRef.current
     const volume = volumeRef.current
     if (!chart || !candles || !average) return
 
     candles.setData(
-      bars.map((bar) => ({
-        time: bar.t as UTCTimestamp,
-        open: bar.o,
-        high: bar.h,
-        low: bar.l,
-        close: bar.c,
-      })),
+      bars.map((bar) => {
+        const base = {
+          time: bar.t as UTCTimestamp,
+          open: bar.o,
+          high: bar.h,
+          low: bar.l,
+          close: bar.c,
+        }
+        // In EXT mode, fade pre-market (4:00–9:30 ET) and post-market
+        // (16:00–20:00 ET) bars so the RTH session reads as the
+        // primary one at a glance. In RTH mode every bar is RTH so
+        // there's nothing to fade.
+        if (sessionMode === "all" && !isRthBar(bar)) {
+          const isUp = bar.c >= bar.o
+          const faded = isUp ? "rgba(0, 200, 150, 0.4)" : "rgba(239, 83, 80, 0.4)"
+          return {
+            ...base,
+            color: faded,
+            borderColor: faded,
+            wickColor: faded,
+          }
+        }
+        return base
+      }),
     )
     average.setData(emaLineData(bars, 20, emaSeed))
+    average.applyOptions({ visible: emaVisible })
+    if (vwap) {
+      vwap.setData(vwapVisible ? vwapLineData(bars) : [])
+      vwap.applyOptions({ visible: vwapVisible })
+    }
     if (volume) {
       volume.setData(
         bars.map((bar) => ({
@@ -1284,7 +1554,7 @@ function ChartSurface({
     return () => {
       for (const timer of settleTimers) window.clearTimeout(timer)
     }
-  }, [barWindow, bars, emaSeed, fitChartToBarWindow, levels, sessionMode, symbol, timeframe, volumeVisible])
+  }, [barWindow, bars, emaSeed, emaVisible, fitChartToBarWindow, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
 
   useEffect(() => {
     if (bars.length === 0) return
@@ -1324,28 +1594,34 @@ function ChartSurface({
               {(metrics.change ?? 0) >= 0 ? "▲" : "▼"} {signed(metrics.change)} ({signed(metrics.changePct, "%")})
             </span>
           </div>
-          {isIntradayTimeframe(timeframe) ? (
-            <LevelControls visibility={levelVisibility} onToggle={onToggleLevel} />
-          ) : null}
-          <button
-            type="button"
-            aria-label={volumeVisible ? "Hide volume" : "Show volume"}
-            aria-pressed={volumeVisible}
-            onClick={onToggleVolume}
-            className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-black/65 px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
-              volumeVisible ? "text-text" : "text-sub/45 hover:text-sub"
-            }`}
-          >
-            <span
-              aria-hidden="true"
-              className="h-1.5 w-1.5 rounded-full"
-              style={{
-                backgroundColor: volumeVisible ? "rgba(0, 200, 150, 0.7)" : "transparent",
-                boxShadow: volumeVisible ? "none" : "inset 0 0 0 1px rgba(0, 200, 150, 0.6)",
-              }}
+          {/* Unified indicator strip — Brooks levels (intraday only)
+              flow into Vol / EMA20 / VWAP toggles on a single row. */}
+          <div className="pointer-events-auto flex flex-wrap items-center gap-1">
+            {isIntradayTimeframe(timeframe) ? (
+              <LevelControls visibility={levelVisibility} onToggle={onToggleLevel} />
+            ) : null}
+            <IndicatorPill
+              label="Vol"
+              active={volumeVisible}
+              swatchColor="rgba(0, 200, 150, 0.7)"
+              onClick={onToggleVolume}
+              ariaLabel={volumeVisible ? "Hide volume" : "Show volume"}
             />
-            Vol
-          </button>
+            <IndicatorPill
+              label="EMA"
+              active={emaVisible}
+              swatchColor="rgba(91, 168, 230, 0.85)"
+              onClick={onToggleEma}
+              ariaLabel={emaVisible ? "Hide EMA 20" : "Show EMA 20"}
+            />
+            <IndicatorPill
+              label="VWAP"
+              active={vwapVisible}
+              swatchColor="rgba(180, 130, 230, 0.85)"
+              onClick={onToggleVwap}
+              ariaLabel={vwapVisible ? "Hide VWAP" : "Show VWAP"}
+            />
+          </div>
         </div>
 
         <div className="pointer-events-none absolute right-3 top-3 z-10 hidden flex-wrap items-center justify-end gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-sub/80 lg:flex">
@@ -1361,6 +1637,15 @@ function ChartSurface({
         <div ref={containerRef} className="h-full w-full" />
 
         <div className="pointer-events-none absolute inset-0 z-[5]">
+          {sessionDividers.map((divider) => (
+            <span
+              key={`divider-${divider.id}`}
+              aria-hidden="true"
+              data-testid="session-divider"
+              className="absolute top-0 bottom-0 w-px bg-border/30"
+              style={{ left: divider.x - 0.5 }}
+            />
+          ))}
           {barNumberLabels.map((label) => (
             <span
               key={label.id}
@@ -1443,7 +1728,7 @@ function ChartSurface({
           ) : null}
         </div>
 
-        <SymbolScroller symbol={symbol} symbols={symbols} onSelect={onSelectSymbol} />
+        <SymbolScroller symbol={symbol} symbols={symbols} onSelect={onSelectSymbol} onAdd={onAddSymbol} />
       </div>
     </section>
   )
@@ -1546,14 +1831,21 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export function TradingViewTerminal() {
-  const [symbols, setSymbols] = useState(DEFAULT_SYMBOLS)
+  const [symbols, setSymbols] = useState<string[]>(() => {
+    const customs = readCustomSymbols()
+    return Array.from(new Set([...DEFAULT_SYMBOLS, ...customs]))
+  })
   const [dataset, setDataset] = useState<string | null>(null)
   const [schema, setSchema] = useState<string | null>(null)
-  const [selectedSymbol, setSelectedSymbol] = useState(storedSymbol)
+  // Hydrate initial symbol from global prefs, then layer the symbol-
+  // specific overrides on top for the rest of the state. selectSymbol
+  // is responsible for saving/loading these on subsequent switches.
+  const initialSymbol = storedSymbol()
+  const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol)
   const [symbolDraft, setSymbolDraft] = useState(storedSymbol)
-  const [timeframe, setTimeframe] = useState<ChartViewTimeframe>(storedTimeframe)
-  const [barWindow, setBarWindow] = useState(storedBarWindow)
-  const [sessionMode, setSessionMode] = useState<SessionMode>(storedSessionMode)
+  const [timeframe, setTimeframe] = useState<ChartViewTimeframe>(() => symbolTimeframe(initialSymbol))
+  const [barWindow, setBarWindow] = useState(() => symbolBarWindow(initialSymbol))
+  const [sessionMode, setSessionMode] = useState<SessionMode>(() => symbolSessionMode(initialSymbol))
   const [refreshNonce, setRefreshNonce] = useState(0)
   const [historyBars, setHistoryBars] = useState<Bar[]>([])
   const [liveBars, setLiveBars] = useState<Bar[]>([])
@@ -1566,11 +1858,16 @@ export function TradingViewTerminal() {
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null)
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
   const [watchlistVisible, setWatchlistVisible] = useState(storedWatchlistVisible)
-  const [levelVisibility, setLevelVisibility] = useState<LevelVisibility>(storedLevelVisibility)
-  const [volumeVisible, setVolumeVisible] = useState(storedVolumeVisible)
+  const [levelVisibility, setLevelVisibility] = useState<LevelVisibility>(() => symbolLevelVisibility(initialSymbol))
+  const [volumeVisible, setVolumeVisible] = useState(() => symbolVolumeVisible(initialSymbol))
+  const [emaVisible, setEmaVisible] = useState(() => symbolEmaVisible(initialSymbol))
+  const [vwapVisible, setVwapVisible] = useState(() => symbolVwapVisible(initialSymbol))
   const barsCacheRef = useRef<Map<string, { payload: BarsPayload; fetchedAt: number }>>(new Map())
 
   useEffect(() => {
+    // Global prefs still hold the last-used symbol + the global
+    // defaults (used as the fallback when a never-viewed symbol is
+    // selected). Per-symbol overrides live in PER_SYMBOL_PREFS_KEY.
     writeChartPrefs({
       symbol: selectedSymbol,
       timeframe,
@@ -1582,8 +1879,49 @@ export function TradingViewTerminal() {
     })
   }, [barWindow, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, watchlistVisible])
 
+  useEffect(() => {
+    // Per-symbol overrides — written on every state change so the
+    // current symbol's prefs reflect the latest state at all times.
+    // selectSymbol also writes the previous symbol's bucket as part of
+    // its switch logic, so this effect's first-firing-after-switch
+    // duplicates that save harmlessly.
+    writeSymbolPrefs(selectedSymbol, {
+      timeframe,
+      barWindow,
+      sessionMode,
+      levelVisibility,
+      volumeVisible,
+      emaVisible,
+      vwapVisible,
+    })
+  }, [barWindow, emaVisible, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
+
   const toggleVolume = useCallback(() => {
     setVolumeVisible((v) => !v)
+  }, [])
+  const addSymbol = useCallback((symbol: string) => {
+    const clean = symbol.trim().toUpperCase()
+    if (!clean || !/^[A-Z][A-Z0-9.\-]{0,9}$/.test(clean)) return
+    setSymbols((prev) => {
+      if (prev.includes(clean)) return prev
+      const next = [...prev, clean]
+      // Persist anything that's not in the live aggregator's default
+      // list. The live route may include extras (LIVE_SYMBOLS env var);
+      // we only persist user-added entries to keep the storage clean.
+      if (!DEFAULT_SYMBOLS.includes(clean)) {
+        const customs = readCustomSymbols()
+        if (!customs.includes(clean)) {
+          writeCustomSymbols([...customs, clean])
+        }
+      }
+      return next
+    })
+  }, [])
+  const toggleEma = useCallback(() => {
+    setEmaVisible((v) => !v)
+  }, [])
+  const toggleVwap = useCallback(() => {
+    setVwapVisible((v) => !v)
   }, [])
 
   const fetchBarsWithMemory = useCallback(async (url: string, maxAgeMs: number): Promise<BarsPayload> => {
@@ -1602,17 +1940,21 @@ export function TradingViewTerminal() {
     fetchJson<SymbolsPayload>("/api/bars/live/symbols")
       .then((payload) => {
         if (cancelled) return
-        const nextSymbols = payload.symbols.length > 0 ? payload.symbols : DEFAULT_SYMBOLS
-        setSymbols(nextSymbols)
+        const base = payload.symbols.length > 0 ? payload.symbols : DEFAULT_SYMBOLS
+        const customs = readCustomSymbols()
+        const merged = Array.from(new Set([...base, ...customs]))
+        setSymbols(merged)
         setDataset(payload.dataset)
         setSchema(payload.schema)
-        if (!nextSymbols.includes(selectedSymbol)) {
-          setSelectedSymbol(nextSymbols[0])
-          setSymbolDraft(nextSymbols[0])
+        if (!merged.includes(selectedSymbol)) {
+          setSelectedSymbol(merged[0])
+          setSymbolDraft(merged[0])
         }
       })
       .catch(() => {
-        if (!cancelled) setSymbols(DEFAULT_SYMBOLS)
+        if (cancelled) return
+        const customs = readCustomSymbols()
+        setSymbols(Array.from(new Set([...DEFAULT_SYMBOLS, ...customs])))
       })
     return () => {
       cancelled = true
@@ -1791,14 +2133,41 @@ export function TradingViewTerminal() {
     // Silent poll cadence — the live route blends closed bars with an
     // in-progress partial bar that the Fly aggregator updates every
     // ~500ms. Polling at 1s gives the chart's last candle a near-live
-    // feel without hammering Upstash. Skip the interval on daily /
-    // weekly where there is no intraday data to refresh.
-    const interval = isIntradayTimeframe(timeframe)
-      ? window.setInterval(() => load(true), 1_000)
-      : null
+    // feel without hammering Upstash.
+    //
+    // Skip when (a) on daily/weekly (no intraday data to refresh) and
+    // (b) when the tab is in the background — Visibility API. Resume
+    // on visibilitychange. Halves Vercel/Upstash usage for the common
+    // "chart left open in a tab" case.
+    let interval: number | null = null
+    const startPolling = () => {
+      if (interval !== null) return
+      if (!isIntradayTimeframe(timeframe)) return
+      interval = window.setInterval(() => load(true), 1_000)
+    }
+    const stopPolling = () => {
+      if (interval !== null) {
+        window.clearInterval(interval)
+        interval = null
+      }
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        // Immediate refresh on tab focus so the chart isn't stale.
+        load(true)
+        startPolling()
+      } else {
+        stopPolling()
+      }
+    }
+    if (typeof document !== "undefined" && document.visibilityState === "visible") {
+      startPolling()
+    }
+    document.addEventListener("visibilitychange", onVisibility)
     return () => {
       cancelled = true
-      if (interval !== null) window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisibility)
+      stopPolling()
     }
   }, [barWindow, fetchBarsWithMemory, refreshNonce, selectedSymbol, sessionMode, timeframe])
 
@@ -1945,12 +2314,34 @@ export function TradingViewTerminal() {
 
   const selectSymbol = useCallback((symbol: string) => {
     const clean = symbol.trim().toUpperCase()
-    if (!clean) return
+    if (!clean || clean === selectedSymbol) {
+      setSymbolDraft(clean || selectedSymbol)
+      return
+    }
+    // Save the OLD symbol's prefs before switching so its layout is
+    // restored on return. Then load the NEW symbol's prefs (falling
+    // back to global defaults if it's never been viewed) and apply.
+    writeSymbolPrefs(selectedSymbol, {
+      timeframe,
+      barWindow,
+      sessionMode,
+      levelVisibility,
+      volumeVisible,
+      emaVisible,
+      vwapVisible,
+    })
+    setTimeframe(symbolTimeframe(clean))
+    setBarWindow(symbolBarWindow(clean))
+    setSessionMode(symbolSessionMode(clean))
+    setLevelVisibility(symbolLevelVisibility(clean))
+    setVolumeVisible(symbolVolumeVisible(clean))
+    setEmaVisible(symbolEmaVisible(clean))
+    setVwapVisible(symbolVwapVisible(clean))
     setPriorRthBars([])
     setContextBars([])
     setSelectedSymbol(clean)
     setSymbolDraft(clean)
-  }, [])
+  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible])
 
   const toggleLevelGroup = useCallback((group: LevelGroup) => {
     setLevelVisibility((current) => ({ ...current, [group]: !current[group] }))
@@ -2041,12 +2432,17 @@ export function TradingViewTerminal() {
               liveFresh={liveFresh}
               liveStatus={liveStatus}
               volumeVisible={volumeVisible}
+              emaVisible={emaVisible}
+              vwapVisible={vwapVisible}
               onSelectSymbol={selectSymbol}
+              onAddSymbol={addSymbol}
               onSelectTimeframe={setTimeframe}
               onSelectBarWindow={setBarWindow}
               onSelectSessionMode={setSessionMode}
               onToggleLevel={toggleLevelGroup}
               onToggleVolume={toggleVolume}
+              onToggleEma={toggleEma}
+              onToggleVwap={toggleVwap}
             />
           )}
         </main>
