@@ -701,7 +701,7 @@ function ChartSurface({
       `EMA9 ${formatPrice(ema)}`,
     ]
     if (mode === "corner") {
-      setCrosshairReadout({ x: 12, y: Math.max(72, containerHeight - 96), lines })
+      setCrosshairReadout({ x: 12, y: Math.max(72, containerHeight - 180), lines })
       return
     }
     setCrosshairReadout({
@@ -1080,7 +1080,7 @@ function ChartSurface({
 
         {crosshairReadout && (
           <div
-            className="pointer-events-none absolute z-20 rounded-md border border-border/40 bg-black/[0.88] px-2.5 py-2 font-mono text-[11px] leading-[1.35] text-text/90 shadow-[0_8px_24px_rgba(0,0,0,0.3)] sm:text-[10px] sm:leading-4 sm:backdrop-blur-sm"
+            className="pointer-events-none absolute z-20 rounded-md border border-border/40 bg-black/55 px-2.5 py-2 font-mono text-[11px] leading-[1.35] text-text/90 shadow-[0_8px_24px_rgba(0,0,0,0.3)] backdrop-blur-sm sm:text-[10px] sm:leading-4"
             style={{ left: crosshairReadout.x, top: crosshairReadout.y }}
           >
             {crosshairReadout.lines.map((line) => (
