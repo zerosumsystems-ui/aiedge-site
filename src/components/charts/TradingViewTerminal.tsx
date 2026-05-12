@@ -109,6 +109,10 @@ const TIMEFRAMES: Array<{ value: ChartViewTimeframe; label: string; minutes: num
   { value: "weekly", label: "Wk", minutes: 1950 },
 ]
 
+function timeframeLabel(timeframe: ChartViewTimeframe): string {
+  return TIMEFRAMES.find((item) => item.value === timeframe)?.label ?? timeframe
+}
+
 const DEFAULT_BAR_WINDOW = 1  // days
 
 const CHART_PREFS_KEY = "aiedge.chart.preferences.v1"
@@ -947,22 +951,30 @@ function IndicatorPill({
   swatchColor,
   onClick,
   ariaLabel,
+  title,
+  grouped = false,
 }: {
   label: string
   active: boolean
   swatchColor: string
   onClick: () => void
   ariaLabel: string
+  title?: string
+  grouped?: boolean
 }) {
+  const chromeClass = grouped ? "min-h-6 px-1.5 py-0.5" : "glass-chip px-2 py-0.5"
+  let stateClass = "text-sub/45 hover:text-sub"
+  if (grouped) stateClass = "text-sub/45 hover:bg-surface/70 hover:text-sub"
+  if (active) stateClass = grouped ? "bg-surface-hover text-text" : "text-text"
+
   return (
     <button
       type="button"
       aria-label={ariaLabel}
       aria-pressed={active}
+      title={title ?? ariaLabel}
       onClick={onClick}
-      className={`glass-chip pointer-events-auto inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
-        active ? "text-text" : "text-sub/45 hover:text-sub"
-      }`}
+      className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-md text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${chromeClass} ${stateClass}`}
     >
       <span
         aria-hidden="true"
@@ -974,6 +986,54 @@ function IndicatorPill({
       />
       {label}
     </button>
+  )
+}
+
+function EmaIndicatorControls({
+  timeframe,
+  availableHtfs,
+  emaVisible,
+  htfEmaVisibility,
+  onToggleEma,
+  onToggleHtfEma,
+}: {
+  timeframe: ChartViewTimeframe
+  availableHtfs: typeof HTF_SPECS
+  emaVisible: boolean
+  htfEmaVisibility: HtfVisibility
+  onToggleEma: () => void
+  onToggleHtfEma: (key: HtfKey) => void
+}) {
+  const baseTimeframeLabel = timeframeLabel(timeframe)
+  const baseEmaLabel = `${baseTimeframeLabel} EMA20`
+
+  return (
+    <div className="glass-chip pointer-events-auto inline-flex items-center gap-0.5 rounded-md p-0.5" aria-label="EMA overlays">
+      <span className="px-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-sub/70">
+        EMA
+      </span>
+      <IndicatorPill
+        grouped
+        label={baseTimeframeLabel}
+        active={emaVisible}
+        swatchColor="rgba(91, 168, 230, 0.85)"
+        onClick={onToggleEma}
+        ariaLabel={emaVisible ? `Hide ${baseEmaLabel}` : `Show ${baseEmaLabel}`}
+        title={baseEmaLabel}
+      />
+      {availableHtfs.map((spec) => (
+        <IndicatorPill
+          grouped
+          key={spec.key}
+          label={spec.chipLabel}
+          active={htfEmaVisibility[spec.key]}
+          swatchColor={spec.color}
+          onClick={() => onToggleHtfEma(spec.key)}
+          ariaLabel={htfEmaVisibility[spec.key] ? `Hide ${spec.label}` : `Show ${spec.label}`}
+          title={spec.label}
+        />
+      ))}
+    </div>
   )
 }
 
@@ -1288,6 +1348,7 @@ function ChartSurface({
   const metrics = useMemo(() => metricsFor(bars), [bars])
   const latest = metrics.latest
   const sessionRange = metrics.high != null && metrics.low != null ? metrics.high - metrics.low : 0
+  const chartEmaLabel = `${timeframeLabel(timeframe)} EMA20`
 
   // Final EMA value over the prior aggregated bars, used to seed the EMA
   // line so it picks up where yesterday left off instead of resetting to
@@ -1368,7 +1429,7 @@ function ChartSurface({
       `#${index + 1}  ${formatBarTime(bar.t, displayTimezoneRef.current)}`,
       `O ${formatPrice(bar.o)}  H ${formatPrice(bar.h)}`,
       `L ${formatPrice(bar.l)}  C ${formatPrice(bar.c)}`,
-      `EMA20 ${formatPrice(ema)}`,
+      `${chartEmaLabel} ${formatPrice(ema)}`,
     ]
     if (mode === "corner") {
       setCrosshairReadout({ x: 12, y: Math.max(72, containerHeight - 110), lines })
@@ -1379,7 +1440,7 @@ function ChartSurface({
       y: Math.min(Math.max(y - 54, 84), Math.max(84, containerHeight - 92)),
       lines,
     })
-  }, [])
+  }, [chartEmaLabel])
 
   const handleTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
     const target = event.target
@@ -2015,7 +2076,7 @@ function ChartSurface({
             </span>
           </div>
           {/* Unified indicator strip — Brooks levels (intraday only)
-              flow into Vol / EMA20 / VWAP toggles on a single row. */}
+              flow into grouped EMA overlays and the remaining toggles. */}
           <div className="pointer-events-auto flex flex-wrap items-center gap-1">
             {isIntradayTimeframe(timeframe) ? (
               <LevelControls visibility={levelVisibility} onToggle={onToggleLevel} />
@@ -2027,23 +2088,14 @@ function ChartSurface({
               onClick={onToggleVolume}
               ariaLabel={volumeVisible ? "Hide volume" : "Show volume"}
             />
-            <IndicatorPill
-              label="EMA"
-              active={emaVisible}
-              swatchColor="rgba(91, 168, 230, 0.85)"
-              onClick={onToggleEma}
-              ariaLabel={emaVisible ? "Hide EMA 20" : "Show EMA 20"}
+            <EmaIndicatorControls
+              timeframe={timeframe}
+              availableHtfs={availableHtfsFor(timeframe)}
+              emaVisible={emaVisible}
+              htfEmaVisibility={htfEmaVisibility}
+              onToggleEma={onToggleEma}
+              onToggleHtfEma={onToggleHtfEma}
             />
-            {availableHtfsFor(timeframe).map((spec) => (
-              <IndicatorPill
-                key={spec.key}
-                label={spec.chipLabel}
-                active={htfEmaVisibility[spec.key]}
-                swatchColor={spec.color}
-                onClick={() => onToggleHtfEma(spec.key)}
-                ariaLabel={htfEmaVisibility[spec.key] ? `Hide ${spec.label}` : `Show ${spec.label}`}
-              />
-            ))}
             <IndicatorPill
               label="VWAP"
               active={vwapVisible}
@@ -2502,6 +2554,7 @@ function SettingsMenu({
 // active as quick-toggles for the indicators that are currently on.
 function IndicatorsMenu({
   intraday,
+  timeframe,
   availableHtfs,
   volumeVisible,
   emaVisible,
@@ -2519,6 +2572,7 @@ function IndicatorsMenu({
   onClearDrawnLines,
 }: {
   intraday: boolean
+  timeframe: ChartViewTimeframe
   availableHtfs: typeof HTF_SPECS
   volumeVisible: boolean
   emaVisible: boolean
@@ -2557,9 +2611,10 @@ function IndicatorsMenu({
     }
   }, [open])
 
-  const overlays: Array<{ key: string; label: string; active: boolean; swatch: string; onToggle: () => void }> = [
-    { key: "vol", label: "Volume", active: volumeVisible, swatch: "rgba(0, 200, 150, 0.7)", onToggle: onToggleVolume },
-    { key: "ema", label: "EMA 20", active: emaVisible, swatch: "rgba(91, 168, 230, 0.85)", onToggle: onToggleEma },
+  type IndicatorMenuItem = { key: string; label: string; active: boolean; swatch: string; onToggle: () => void }
+  const baseEmaLabel = `${timeframeLabel(timeframe)} EMA20`
+  const emaOverlays: IndicatorMenuItem[] = [
+    { key: "ema", label: baseEmaLabel, active: emaVisible, swatch: "rgba(91, 168, 230, 0.85)", onToggle: onToggleEma },
     ...availableHtfs.map((spec) => ({
       key: `htf-${spec.key}`,
       label: spec.label,
@@ -2567,11 +2622,42 @@ function IndicatorsMenu({
       swatch: spec.color,
       onToggle: () => onToggleHtfEma(spec.key),
     })),
+  ]
+  const chartOverlays: IndicatorMenuItem[] = [
+    { key: "vol", label: "Volume", active: volumeVisible, swatch: "rgba(0, 200, 150, 0.7)", onToggle: onToggleVolume },
     { key: "vwap", label: "VWAP", active: vwapVisible, swatch: "rgba(180, 130, 230, 0.85)", onToggle: onToggleVwap },
     ...(intraday
       ? [{ key: "bn", label: "Bar numbers", active: barNumbersVisible, swatch: "rgba(155, 161, 166, 0.85)", onToggle: onToggleBarNumbers }]
       : []),
   ]
+  const renderOverlayButton = (overlay: IndicatorMenuItem) => (
+    <button
+      key={overlay.key}
+      type="button"
+      onClick={overlay.onToggle}
+      aria-pressed={overlay.active}
+      className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-left text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+        overlay.active
+          ? "border-border bg-surface text-text"
+          : "border-border/40 bg-bg text-sub hover:border-border-hover hover:text-text"
+      }`}
+    >
+      <span className="flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          className="h-1.5 w-1.5 rounded-full"
+          style={{
+            backgroundColor: overlay.active ? overlay.swatch : "transparent",
+            boxShadow: overlay.active ? "none" : `inset 0 0 0 1px ${overlay.swatch}80`,
+          }}
+        />
+        {overlay.label}
+      </span>
+      <span className={`text-[10px] font-semibold uppercase ${overlay.active ? "text-teal" : "text-sub"}`}>
+        {overlay.active ? "On" : "Off"}
+      </span>
+    </button>
+  )
 
   return (
     <div ref={containerRef} className="relative">
@@ -2595,37 +2681,17 @@ function IndicatorsMenu({
           className="glass-panel absolute left-0 top-[calc(100%+6px)] z-30 w-64 max-w-[calc(100vw-1rem)] rounded-md p-3 text-[12px] text-text sm:left-auto sm:right-0"
         >
           <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
-            Overlays
+            EMA overlays
           </div>
           <div className="flex flex-col gap-1">
-            {overlays.map((overlay) => (
-              <button
-                key={overlay.key}
-                type="button"
-                onClick={overlay.onToggle}
-                aria-pressed={overlay.active}
-                className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-left text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
-                  overlay.active
-                    ? "border-border bg-surface text-text"
-                    : "border-border/40 bg-bg text-sub hover:border-border-hover hover:text-text"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{
-                      backgroundColor: overlay.active ? overlay.swatch : "transparent",
-                      boxShadow: overlay.active ? "none" : `inset 0 0 0 1px ${overlay.swatch}80`,
-                    }}
-                  />
-                  {overlay.label}
-                </span>
-                <span className={`text-[10px] font-semibold uppercase ${overlay.active ? "text-teal" : "text-sub"}`}>
-                  {overlay.active ? "On" : "Off"}
-                </span>
-              </button>
-            ))}
+            {emaOverlays.map(renderOverlayButton)}
+          </div>
+
+          <div className="mb-1.5 mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
+            Chart overlays
+          </div>
+          <div className="flex flex-col gap-1">
+            {chartOverlays.map(renderOverlayButton)}
           </div>
 
           {intraday && (
@@ -3550,6 +3616,7 @@ export function TradingViewTerminal() {
           </button>
           <IndicatorsMenu
             intraday={isIntradayTimeframe(timeframe)}
+            timeframe={timeframe}
             availableHtfs={availableHtfsFor(timeframe)}
             volumeVisible={volumeVisible}
             emaVisible={emaVisible}
