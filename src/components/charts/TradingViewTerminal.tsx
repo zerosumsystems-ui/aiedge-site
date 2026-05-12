@@ -90,7 +90,7 @@ const TIMEFRAMES: Array<{ value: IntradayTimeframe; label: string; minutes: numb
   { value: "1h", label: "1H", minutes: 60 },
 ]
 
-const DEFAULT_BAR_WINDOW = 78
+const DEFAULT_BAR_WINDOW = 1  // days
 
 const CHART_PREFS_KEY = "aiedge.chart.preferences.v1"
 
@@ -108,10 +108,14 @@ const LEVEL_GROUPS: Array<{ key: LevelGroup; label: string; swatch: string }> = 
   { key: "opening", label: "18", swatch: "#F5A623" },
 ]
 
+// `value` is the number of trailing trading days to display on the
+// chart. The chart filters its bar series by ET date, so the bar count
+// scales with the user's selected timeframe (1D at 5m = 78 bars, at
+// 1m = ~390 bars, etc).
 const BAR_WINDOW_CHOICES = [
-  { value: 78, label: "1D" },
-  { value: 156, label: "2D" },
-  { value: 234, label: "3D" },
+  { value: 1, label: "1D" },
+  { value: 2, label: "2D" },
+  { value: 3, label: "3D" },
 ]
 
 // Approximate RTH minutes in a single US equity session (9:30-16:00 ET).
@@ -242,20 +246,21 @@ function aggregateBars(bars: Bar[], minutesPerBucket: number): Bar[] {
   return output
 }
 
+// Max 1-min bars we expect to fetch for `fetchDays` of trading data
+// when querying tf=1min. Includes a buffer for extended-hours requests
+// (session=all spans 04:00-20:00 = 16h = 960m/day, vs RTH's 390m/day).
 function rawLimitFor(timeframe: IntradayTimeframe, barWindow: number, fetchDays = 1): number {
-  const minutes = TIMEFRAMES.find((item) => item.value === timeframe)?.minutes ?? 1
-  return Math.min(Math.max(barWindow * minutes * fetchDays, DEFAULT_BAR_WINDOW), 5000)
+  void timeframe
+  void barWindow
+  return Math.min(Math.max(960 * fetchDays, 78), 5000)
 }
 
-// How many trading days of history to fetch for a given bar-window /
-// timeframe pair, plus +1 day of EMA warmup so the indicator is already
-// converged when the visible range starts. Caps display at ~234 bars
-// (3 days of 5m, the user's hard ceiling) but the fetched range can be
-// a touch wider to seed the EMA.
+// How many trading days of bars to *fetch* for a given trading-day
+// scope (barWindow). One extra day on top of the scope so the EMA has
+// a warmup period before the first visible bar.
 function fetchDaysForBarWindow(barWindow: number, timeframe: IntradayTimeframe): number {
-  const minutes = TIMEFRAMES.find((item) => item.value === timeframe)?.minutes ?? 1
-  const displayDays = Math.max(1, Math.ceil((barWindow * minutes) / RTH_MINUTES_PER_DAY))
-  return displayDays + 1
+  void timeframe
+  return Math.max(1, barWindow) + 1
 }
 
 // Earliest calendar date we need to query so that `fetchDays` worth of
@@ -684,13 +689,16 @@ function ChartSurface({
   const scheduleLabelsRef = useRef<() => void>(() => {})
   const rangeSignatureRef = useRef("")
   const barsRef = useRef(bars)
-  const barWindowRef = useRef(barWindow)
+  // Tracks the current visible *bar count* (not the day-count prop).
+  // Used by the range-change handler to decide if the user has zoomed
+  // away from the fitted view.
+  const visibleBarCountRef = useRef(bars.length)
   const emaByTimeRef = useRef<Map<number, number>>(new Map())
   const tapStartRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   const priceScaleDragRef = useRef<{ startY: number; from: number; to: number } | null>(null)
   const [barNumberLabels, setBarNumberLabels] = useState<BarNumberLabel[]>([])
   const [crosshairReadout, setCrosshairReadout] = useState<CrosshairReadout | null>(null)
-  const [viewState, setViewState] = useState({ visibleBars: barWindow, offDefault: false })
+  const [viewState, setViewState] = useState({ visibleBars: bars.length, offDefault: false })
   const metrics = useMemo(() => metricsFor(bars), [bars])
   const latest = metrics.latest
   const sessionRange = metrics.high != null && metrics.low != null ? metrics.high - metrics.low : 0
@@ -711,8 +719,8 @@ function ChartSurface({
   }, [bars, emaSeed])
 
   useEffect(() => {
-    barWindowRef.current = barWindow
-  }, [barWindow])
+    visibleBarCountRef.current = bars.length
+  }, [bars.length])
 
   const fitChartToBarWindow = useCallback((targetWindow: number) => {
     const chart = chartRef.current
@@ -735,10 +743,11 @@ function ChartSurface({
   }, [])
 
   const resetView = useCallback(() => {
-    fitChartToBarWindow(barWindow)
+    const count = bars.length
+    fitChartToBarWindow(count)
     scheduleLabelsRef.current()
-    setViewState({ visibleBars: barWindow, offDefault: false })
-  }, [barWindow, fitChartToBarWindow])
+    setViewState({ visibleBars: count, offDefault: false })
+  }, [bars.length, fitChartToBarWindow])
 
   const showReadoutForBar = useCallback((bar: Bar, index: number, x: number, y: number, mode: "follow" | "corner" = "follow") => {
     const container = containerRef.current
@@ -960,7 +969,7 @@ function ChartSurface({
       scheduleLabels()
       if (!range) return
       const visibleBars = Math.max(1, Math.round(range.to - range.from))
-      const targetVisibleBars = Math.min(barWindowRef.current, barsRef.current.length || barWindowRef.current)
+      const targetVisibleBars = visibleBarCountRef.current || barsRef.current.length || 1
       const targetVisibleBarsWithPadding = targetVisibleBars + 12
       const zoomedAwayFromWindow = Math.abs(visibleBars - targetVisibleBarsWithPadding) > 8
       const shiftedAwayFromWindow = range.from > 4 || range.to < targetVisibleBars - 4
@@ -1071,7 +1080,7 @@ function ChartSurface({
 
     const syncLabels = () => {
       if (shouldResetRange) {
-        fitChartToBarWindow(barWindow)
+        fitChartToBarWindow(bars.length)
       }
       scheduleLabelsRef.current()
     }
@@ -1089,11 +1098,11 @@ function ChartSurface({
   useEffect(() => {
     if (bars.length === 0) return
     const timer = window.setTimeout(() => {
-      fitChartToBarWindow(barWindow)
+      fitChartToBarWindow(bars.length)
       scheduleLabelsRef.current()
     }, 120)
     return () => window.clearTimeout(timer)
-  }, [barWindow, bars.length, fitChartToBarWindow, sessionMode, symbol, timeframe])
+  }, [bars.length, fitChartToBarWindow, sessionMode, symbol, timeframe])
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 px-0 py-1 sm:px-3 sm:py-2">
@@ -1563,15 +1572,30 @@ export function TradingViewTerminal() {
 
   // Aggregate every fetched bar at the current timeframe, then split into
   // the visible window (rendered on the chart) and the seed (used to warm
-  // up the EMA so it doesn't restart at bar #1).
+  // up the EMA so it doesn't restart at bar #1). The visible window is
+  // the most recent `barWindow` *trading days* — e.g. barWindow=2 keeps
+  // every bar whose ET date is in the last 2 unique dates present in
+  // the aggregated series. Everything older becomes EMA seed.
   const aggregatedBars = useMemo(() => {
     const minutes = TIMEFRAMES.find((item) => item.value === timeframe)?.minutes ?? 1
     return aggregateBars(visibleBaseBars, minutes)
   }, [timeframe, visibleBaseBars])
-  const displayBars = useMemo(() => aggregatedBars.slice(-barWindow), [aggregatedBars, barWindow])
+  const displayDateSet = useMemo(() => {
+    if (aggregatedBars.length === 0) return new Set<string>()
+    const dates = new Set<string>()
+    for (let i = aggregatedBars.length - 1; i >= 0; i--) {
+      dates.add(etDateForTimestamp(aggregatedBars[i].t))
+      if (dates.size >= barWindow) break
+    }
+    return dates
+  }, [aggregatedBars, barWindow])
+  const displayBars = useMemo(
+    () => aggregatedBars.filter((bar) => displayDateSet.has(etDateForTimestamp(bar.t))),
+    [aggregatedBars, displayDateSet],
+  )
   const seedBars = useMemo(
-    () => aggregatedBars.slice(0, Math.max(0, aggregatedBars.length - barWindow)),
-    [aggregatedBars, barWindow],
+    () => aggregatedBars.filter((bar) => !displayDateSet.has(etDateForTimestamp(bar.t))),
+    [aggregatedBars, displayDateSet],
   )
   const activeSessionDate = useMemo(() => {
     const latest = displayBars.at(-1) ?? combinedBars.at(-1)
