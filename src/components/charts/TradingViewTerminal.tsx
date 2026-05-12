@@ -441,14 +441,14 @@ function Segment<T extends string>({
   onChange: (next: T) => void
 }) {
   return (
-    <div className="flex min-h-11 rounded border border-border bg-surface p-0.5 sm:min-h-0">
+    <div className="flex rounded border border-border bg-surface p-0.5">
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`min-w-11 rounded px-2.5 py-1 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-0 ${
+          className={`min-h-7 min-w-9 rounded px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-0 ${
             value === option.value ? "bg-teal text-bg" : "text-sub hover:text-text"
           }`}
         >
@@ -467,7 +467,7 @@ function LevelControls({
   onToggle: (group: LevelGroup) => void
 }) {
   return (
-    <div className="flex min-h-11 rounded border border-border bg-surface p-0.5 sm:min-h-0" aria-label="Brooks level visibility" data-testid="chart-level-controls">
+    <div className="flex rounded border border-border bg-surface p-0.5" aria-label="Brooks level visibility" data-testid="chart-level-controls">
       {LEVEL_GROUPS.map((group) => {
         const active = visibility[group.key]
         return (
@@ -477,7 +477,7 @@ function LevelControls({
             aria-label={`Toggle ${group.label} Brooks levels`}
             aria-pressed={active}
             onClick={() => onToggle(group.key)}
-            className={`min-w-11 rounded px-2.5 py-1 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-0 ${
+            className={`min-h-7 min-w-9 rounded px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-0 ${
               active ? "bg-surface-hover text-text" : "text-sub/45 hover:text-sub"
             }`}
           >
@@ -768,8 +768,8 @@ function ChartSurface({
     const container = containerRef.current
     if (!container) return
 
-    const height = Math.max(360, Math.floor(container.clientHeight || 680))
-    const width = Math.max(320, Math.floor(container.clientWidth))
+    const height = Math.max(200, Math.floor(container.clientHeight || 680))
+    const width = Math.max(280, Math.floor(container.clientWidth))
     const chart = createChart(container, {
       width,
       height,
@@ -902,8 +902,8 @@ function ChartSurface({
 
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const nextWidth = Math.max(320, Math.floor(entry.contentRect.width))
-        const nextHeight = Math.max(360, Math.floor(entry.contentRect.height))
+        const nextWidth = Math.max(280, Math.floor(entry.contentRect.width))
+        const nextHeight = Math.max(200, Math.floor(entry.contentRect.height))
         chart.applyOptions({ width: nextWidth, height: nextHeight })
         scheduleLabels()
       }
@@ -1008,7 +1008,7 @@ function ChartSurface({
   return (
     <section className="flex min-h-0 min-w-0 flex-1 px-0 py-1 sm:px-3 sm:py-2">
       <div
-        className="relative h-[calc(100dvh-var(--nav-h)-5.75rem)] min-h-[360px] flex-1 touch-none overscroll-contain overflow-hidden rounded border border-border bg-[#1A1A1A] sm:h-full sm:min-h-[560px] sm:rounded-lg"
+        className="relative h-full min-h-0 flex-1 touch-none overscroll-contain overflow-hidden rounded border border-border bg-[#1A1A1A] sm:rounded-lg"
         onDoubleClick={(event) => {
           const target = event.target
           if (target instanceof Element && target.closest("button")) return
@@ -1055,7 +1055,7 @@ function ChartSurface({
           <div>{symbol} / {sessionLabel}</div>
         </div>
 
-        <div ref={containerRef} className="h-full min-h-[360px] w-full sm:min-h-[560px]" />
+        <div ref={containerRef} className="h-full w-full" />
 
         <div className="pointer-events-none absolute inset-0 z-[5]">
           {barNumberLabels.map((label) => (
@@ -1481,11 +1481,11 @@ export function TradingViewTerminal() {
   }
 
   return (
-    <div className="mx-auto flex h-auto min-h-[calc(100dvh-var(--nav-h))] max-w-[1600px] flex-col bg-bg px-2 py-1 text-text sm:px-3 sm:py-3 xl:h-[calc(100dvh-var(--nav-h))] xl:overflow-hidden">
+    <div className="mx-auto flex h-[calc(100dvh-var(--nav-h))] max-w-[1600px] flex-col overflow-hidden bg-bg px-2 py-1 text-text sm:px-3 sm:py-3">
       <header className="mb-1 flex flex-wrap items-center gap-2 border-b border-border pb-1 sm:mb-2 sm:justify-between sm:pb-2">
         <div className="flex flex-wrap items-center gap-2">
-          <form onSubmit={submitSymbol} className="flex min-h-11 items-center gap-2 rounded border border-border bg-surface px-2 py-1.5 sm:min-h-0">
-            <label htmlFor="chart-symbol" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
+          <form onSubmit={submitSymbol} className="flex min-h-7 items-center gap-2 rounded border border-border bg-surface px-2 py-0.5">
+            <label htmlFor="chart-symbol" className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-sub sm:block">
               Symbol
             </label>
             <input
@@ -1493,7 +1493,7 @@ export function TradingViewTerminal() {
               type="text"
               value={symbolDraft}
               onChange={(event) => setSymbolDraft(event.target.value.toUpperCase())}
-              className="w-20 rounded bg-transparent font-mono text-base font-semibold uppercase text-text outline-none focus-visible:ring-2 focus-visible:ring-teal/70 sm:text-sm"
+              className="w-16 rounded bg-transparent font-mono text-base font-semibold uppercase text-text outline-none focus-visible:ring-2 focus-visible:ring-teal/70 sm:w-20 sm:text-sm"
               spellCheck={false}
               autoCapitalize="characters"
               autoCorrect="off"
@@ -1529,19 +1529,20 @@ export function TradingViewTerminal() {
             type="button"
             aria-pressed={watchlistVisible}
             onClick={() => setWatchlistVisible((visible) => !visible)}
-            className="min-h-11 rounded border border-border bg-surface px-3 py-1 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-h-0"
+            className="min-h-7 rounded border border-border bg-surface px-2 py-0.5 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
           >
-            {watchlistVisible ? "Hide list" : "Show list"}
+            <span className="sm:hidden">List</span>
+            <span className="hidden sm:inline">{watchlistVisible ? "Hide list" : "Show list"}</span>
           </button>
           <button
             type="button"
             onClick={() => setRefreshNonce((value) => value + 1)}
-            className="hidden min-h-11 rounded border border-border bg-surface px-3 py-1 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:inline-flex sm:min-h-0"
+            className="hidden min-h-7 rounded border border-border bg-surface px-2 py-0.5 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:inline-flex"
           >
             Refresh
           </button>
           <div
-            className={`flex min-h-11 items-center gap-1.5 rounded border border-border bg-surface px-2.5 py-1 text-[11px] font-semibold sm:min-h-0 ${statusTone}`}
+            className={`flex min-h-7 items-center gap-1.5 rounded border border-border bg-surface px-2 py-0.5 text-[11px] font-semibold ${statusTone}`}
             aria-label={`Live status: ${statusText}`}
             title={statusText}
           >
@@ -1552,7 +1553,7 @@ export function TradingViewTerminal() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
-        <main className="flex min-h-[360px] min-w-0 flex-1 flex-col sm:min-h-[560px]">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="hidden flex-wrap items-center justify-between gap-2 border-b border-border bg-bg px-3 py-2 sm:flex">
             <div className="flex min-w-0 items-center gap-3">
               <h1 className="truncate text-base font-bold tracking-tight">{selectedSymbol}</h1>
@@ -1566,11 +1567,11 @@ export function TradingViewTerminal() {
           </div>
 
           {loading ? (
-            <div className="flex min-h-[360px] sm:min-h-[520px] flex-1 items-center justify-center bg-bg">
+            <div className="flex min-h-0 flex-1 items-center justify-center bg-bg">
               <div className="skeleton h-[420px] w-[92%] rounded" />
             </div>
           ) : blockingError ? (
-            <div className="flex min-h-[360px] sm:min-h-[520px] flex-1 items-center justify-center bg-bg px-6 text-center">
+            <div className="flex min-h-0 flex-1 items-center justify-center bg-bg px-6 text-center">
               <div>
                 <div className="mb-2 text-sm font-semibold text-red">Chart unavailable</div>
                 <div className="max-w-xl text-xs leading-5 text-sub">{blockingError}</div>
