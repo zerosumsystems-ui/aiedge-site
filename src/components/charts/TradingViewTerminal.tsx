@@ -20,7 +20,21 @@ import {
 import type { Bar, ChartTimeframe } from "@/lib/types"
 
 type IntradayTimeframe = Extract<ChartTimeframe, "1min" | "5min" | "15min" | "30min" | "1h">
+type ChartViewTimeframe = IntradayTimeframe | Extract<ChartTimeframe, "daily" | "weekly">
 type SessionMode = "rth" | "all"
+
+function isIntradayTimeframe(tf: ChartViewTimeframe): tf is IntradayTimeframe {
+  return tf === "1min" || tf === "5min" || tf === "15min" || tf === "30min" || tf === "1h"
+}
+
+// Calendar lookback (in days) when fetching for non-intraday timeframes.
+// Picked so each timeframe shows ~60 bars of history — slightly over so
+// holidays and weekends don't shrink the view.
+const NON_INTRADAY_FETCH_DAYS: Record<"daily" | "weekly", number> = {
+  daily: 100,   // ~70 trading days, trims to last 60
+  weekly: 480,  // ~96 weeks of data, trims to last 60
+}
+const NON_INTRADAY_DISPLAY_BARS = 60
 
 type LiveStatus = "ok" | "empty-set" | "upstash-not-configured" | "unknown"
 
@@ -83,12 +97,17 @@ const AXIS = "#333333"
 const TEXT = "#9BA1A6"
 const BG = "#1A1A1A"
 
-const TIMEFRAMES: Array<{ value: IntradayTimeframe; label: string; minutes: number }> = [
+const TIMEFRAMES: Array<{ value: ChartViewTimeframe; label: string; minutes: number }> = [
   { value: "1min", label: "1m", minutes: 1 },
   { value: "5min", label: "5m", minutes: 5 },
   { value: "15min", label: "15m", minutes: 15 },
   { value: "30min", label: "30m", minutes: 30 },
   { value: "1h", label: "1H", minutes: 60 },
+  // Non-intraday timeframes — labels deliberately distinct from the
+  // bar-window selector's "1D/2D/3D" to avoid confusion. "Day" = the
+  // chart shows daily bars; the bar-window scope selector is hidden.
+  { value: "daily", label: "Day", minutes: 390 },
+  { value: "weekly", label: "Wk", minutes: 1950 },
 ]
 
 const DEFAULT_BAR_WINDOW = 1  // days
@@ -252,7 +271,7 @@ function aggregateBars(bars: Bar[], minutesPerBucket: number): Bar[] {
 // Max 1-min bars we expect to fetch for `fetchDays` of trading data
 // when querying tf=1min. Includes a buffer for extended-hours requests
 // (session=all spans 04:00-20:00 = 16h = 960m/day, vs RTH's 390m/day).
-function rawLimitFor(timeframe: IntradayTimeframe, barWindow: number, fetchDays = 1): number {
+function rawLimitFor(timeframe: ChartViewTimeframe, barWindow: number, fetchDays = 1): number {
   void timeframe
   void barWindow
   return Math.min(Math.max(960 * fetchDays, 78), 5000)
@@ -261,7 +280,7 @@ function rawLimitFor(timeframe: IntradayTimeframe, barWindow: number, fetchDays 
 // How many trading days of bars to *fetch* for a given trading-day
 // scope (barWindow). One extra day on top of the scope so the EMA has
 // a warmup period before the first visible bar.
-function fetchDaysForBarWindow(barWindow: number, timeframe: IntradayTimeframe): number {
+function fetchDaysForBarWindow(barWindow: number, timeframe: ChartViewTimeframe): number {
   void timeframe
   return Math.max(1, barWindow) + 1
 }
@@ -478,9 +497,9 @@ function storedSymbol(): string {
   return typeof value === "string" && value.trim() ? value.trim().toUpperCase() : "SPY"
 }
 
-function storedTimeframe(): IntradayTimeframe {
+function storedTimeframe(): ChartViewTimeframe {
   const value = readChartPrefs().timeframe
-  return TIMEFRAMES.some((item) => item.value === value) ? value as IntradayTimeframe : "5min"
+  return TIMEFRAMES.some((item) => item.value === value) ? (value as ChartViewTimeframe) : "5min"
 }
 
 function storedBarWindow(): number {
@@ -740,7 +759,7 @@ function ChartSurface({
   bars: Bar[]
   seedBars: Bar[]
   levels: BrooksLevel[]
-  timeframe: IntradayTimeframe
+  timeframe: ChartViewTimeframe
   barWindow: number
   sessionMode: SessionMode
   symbols: string[]
@@ -748,7 +767,7 @@ function ChartSurface({
   liveFresh: boolean
   liveStatus: LiveStatus
   onSelectSymbol: (symbol: string) => void
-  onSelectTimeframe: (timeframe: IntradayTimeframe) => void
+  onSelectTimeframe: (timeframe: ChartViewTimeframe) => void
   onSelectBarWindow: (barWindow: number) => void
   onSelectSessionMode: (mode: SessionMode) => void
   onToggleLevel: (group: LevelGroup) => void
@@ -1006,6 +1025,19 @@ function ChartSurface({
       if (currentBars.length === 0) {
         setBarNumberLabels([])
         return
+      }
+      // Brooks bar numbers are an intraday concept. On daily/weekly
+      // every bar is its own date, which would collapse the per-session
+      // counter to "1" on every bar. Detect that case and skip labels.
+      const firstDate = etDateForTimestamp(currentBars[0].t)
+      const lastDate = etDateForTimestamp(currentBars[currentBars.length - 1].t)
+      if (firstDate !== lastDate && currentBars.length >= 2) {
+        const probe = etDateForTimestamp(currentBars[1].t)
+        if (probe !== firstDate) {
+          // Adjacent bars have distinct ET dates ⇒ daily or weekly.
+          setBarNumberLabels([])
+          return
+        }
       }
       let minPrice = Infinity
       let maxPrice = -Infinity
@@ -1272,7 +1304,9 @@ function ChartSurface({
               {(metrics.change ?? 0) >= 0 ? "▲" : "▼"} {signed(metrics.change)} ({signed(metrics.changePct, "%")})
             </span>
           </div>
-          <LevelControls visibility={levelVisibility} onToggle={onToggleLevel} />
+          {isIntradayTimeframe(timeframe) ? (
+            <LevelControls visibility={levelVisibility} onToggle={onToggleLevel} />
+          ) : null}
         </div>
 
         <div className="pointer-events-none absolute right-3 top-3 z-10 hidden flex-wrap items-center justify-end gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-sub/80 lg:flex">
@@ -1330,29 +1364,37 @@ function ChartSurface({
           data-testid="chart-bottom-toolbar"
           className="absolute bottom-[calc(2.25rem+env(safe-area-inset-bottom,0px))] left-3 z-10 flex max-w-[calc(100%-7rem)] items-center overflow-x-auto scrollbar-none rounded-md border border-border/40 bg-black/65 p-0.5 sm:bottom-[calc(2.5rem+env(safe-area-inset-bottom,0px))] sm:left-4 sm:max-w-[calc(100%-8rem)]"
         >
-          <Segment
-            bare
-            value={String(barWindow)}
-            options={BAR_WINDOW_CHOICES.map(({ value, label }) => ({ value: String(value), label }))}
-            onChange={(next) => onSelectBarWindow(Number(next))}
-          />
-          <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border/40" />
+          {isIntradayTimeframe(timeframe) ? (
+            <>
+              <Segment
+                bare
+                value={String(barWindow)}
+                options={BAR_WINDOW_CHOICES.map(({ value, label }) => ({ value: String(value), label }))}
+                onChange={(next) => onSelectBarWindow(Number(next))}
+              />
+              <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border/40" />
+            </>
+          ) : null}
           <Segment
             bare
             value={timeframe}
             options={TIMEFRAMES.map(({ value, label }) => ({ value, label }))}
             onChange={onSelectTimeframe}
           />
-          <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border/40" />
-          <Segment<SessionMode>
-            bare
-            value={sessionMode}
-            options={[
-              { value: "rth", label: "RTH" },
-              { value: "all", label: "EXT" },
-            ]}
-            onChange={onSelectSessionMode}
-          />
+          {isIntradayTimeframe(timeframe) ? (
+            <>
+              <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border/40" />
+              <Segment<SessionMode>
+                bare
+                value={sessionMode}
+                options={[
+                  { value: "rth", label: "RTH" },
+                  { value: "all", label: "EXT" },
+                ]}
+                onChange={onSelectSessionMode}
+              />
+            </>
+          ) : null}
         </div>
 
         <SymbolScroller symbol={symbol} symbols={symbols} onSelect={onSelectSymbol} />
@@ -1463,7 +1505,7 @@ export function TradingViewTerminal() {
   const [schema, setSchema] = useState<string | null>(null)
   const [selectedSymbol, setSelectedSymbol] = useState(storedSymbol)
   const [symbolDraft, setSymbolDraft] = useState(storedSymbol)
-  const [timeframe, setTimeframe] = useState<IntradayTimeframe>(storedTimeframe)
+  const [timeframe, setTimeframe] = useState<ChartViewTimeframe>(storedTimeframe)
   const [barWindow, setBarWindow] = useState(storedBarWindow)
   const [sessionMode, setSessionMode] = useState<SessionMode>(storedSessionMode)
   const [refreshNonce, setRefreshNonce] = useState(0)
@@ -1547,6 +1589,41 @@ export function TradingViewTerminal() {
     async function load(silent: boolean) {
       if (!silent) setLoading(true)
       const sessionDate = todayEt()
+
+      // Daily / weekly take a totally different path: single /api/bars
+      // request over a wide calendar range, no live merge, no session
+      // filter, no Brooks levels. Polling stops — these bars only
+      // update once a day at most.
+      if (!isIntradayTimeframe(timeframe)) {
+        const lookbackDays = NON_INTRADAY_FETCH_DAYS[timeframe]
+        const fromCandidates = previousEtDates(sessionDate, lookbackDays)
+        const fromDate = fromCandidates[fromCandidates.length - 1] ?? sessionDate
+        const qs = new URLSearchParams({
+          ticker: selectedSymbol,
+          from: fromDate,
+          to: sessionDate,
+          tf: timeframe,
+          limit: "1000",
+        })
+        const url = `/api/bars?${qs}`
+        try {
+          const payload = await fetchBarsWithMemory(url, 300_000)
+          if (cancelled) return
+          setHistoryBars(payload.bars)
+          setHistoryError(null)
+        } catch (error) {
+          if (cancelled) return
+          setHistoryBars([])
+          setHistoryError(error instanceof Error ? error.message : String(error))
+        }
+        setLiveBars([])
+        setContextBars([])
+        setLiveStatus("ok")
+        setLastFetchedAt(new Date())
+        setLoading(false)
+        return
+      }
+
       const fetchDays = fetchDaysForBarWindow(barWindow, timeframe)
       const historyFrom = earliestFetchDate(sessionDate, fetchDays)
       const sessionFilter: "rth" | "all" = sessionMode === "rth" ? "rth" : "all"
@@ -1662,11 +1739,14 @@ export function TradingViewTerminal() {
     // Silent poll cadence — the live route blends closed bars with an
     // in-progress partial bar that the Fly aggregator updates every
     // ~500ms. Polling at 1s gives the chart's last candle a near-live
-    // feel without hammering Upstash.
-    const interval = window.setInterval(() => load(true), 1_000)
+    // feel without hammering Upstash. Skip the interval on daily /
+    // weekly where there is no intraday data to refresh.
+    const interval = isIntradayTimeframe(timeframe)
+      ? window.setInterval(() => load(true), 1_000)
+      : null
     return () => {
       cancelled = true
-      window.clearInterval(interval)
+      if (interval !== null) window.clearInterval(interval)
     }
   }, [barWindow, fetchBarsWithMemory, refreshNonce, selectedSymbol, sessionMode, timeframe])
 
@@ -1756,27 +1836,36 @@ export function TradingViewTerminal() {
   // the most recent `barWindow` *trading days* — e.g. barWindow=2 keeps
   // every bar whose ET date is in the last 2 unique dates present in
   // the aggregated series. Everything older becomes EMA seed.
+  // For intraday timeframes we aggregate the fetched 1m bars to the
+  // selected bucket then split into the visible window (rendered on
+  // the chart) and the seed (used to warm up the EMA). Non-intraday
+  // timeframes skip aggregation entirely — /api/bars returns bars
+  // already at the daily/weekly cadence — and just slice off the last
+  // ~60 bars with no EMA seed (the fetched range gives the indicator
+  // plenty of natural warmup).
+  const intraday = isIntradayTimeframe(timeframe)
   const aggregatedBars = useMemo(() => {
+    if (!intraday) return historyBars
     const minutes = TIMEFRAMES.find((item) => item.value === timeframe)?.minutes ?? 1
     return aggregateBars(visibleBaseBars, minutes)
-  }, [timeframe, visibleBaseBars])
+  }, [historyBars, intraday, timeframe, visibleBaseBars])
   const displayDateSet = useMemo(() => {
-    if (aggregatedBars.length === 0) return new Set<string>()
+    if (!intraday || aggregatedBars.length === 0) return new Set<string>()
     const dates = new Set<string>()
     for (let i = aggregatedBars.length - 1; i >= 0; i--) {
       dates.add(etDateForTimestamp(aggregatedBars[i].t))
       if (dates.size >= barWindow) break
     }
     return dates
-  }, [aggregatedBars, barWindow])
-  const displayBars = useMemo(
-    () => aggregatedBars.filter((bar) => displayDateSet.has(etDateForTimestamp(bar.t))),
-    [aggregatedBars, displayDateSet],
-  )
-  const seedBars = useMemo(
-    () => aggregatedBars.filter((bar) => !displayDateSet.has(etDateForTimestamp(bar.t))),
-    [aggregatedBars, displayDateSet],
-  )
+  }, [aggregatedBars, barWindow, intraday])
+  const displayBars = useMemo(() => {
+    if (!intraday) return aggregatedBars.slice(-NON_INTRADAY_DISPLAY_BARS)
+    return aggregatedBars.filter((bar) => displayDateSet.has(etDateForTimestamp(bar.t)))
+  }, [aggregatedBars, displayDateSet, intraday])
+  const seedBars = useMemo(() => {
+    if (!intraday) return [] as Bar[]
+    return aggregatedBars.filter((bar) => !displayDateSet.has(etDateForTimestamp(bar.t)))
+  }, [aggregatedBars, displayDateSet, intraday])
   const activeSessionDate = useMemo(() => {
     const latest = displayBars.at(-1) ?? combinedBars.at(-1)
     return latest ? etDateForTimestamp(latest.t) : todayEt()
@@ -1786,7 +1875,13 @@ export function TradingViewTerminal() {
     return merged.length > 0 ? merged : combinedBars.filter((bar) => etDateForTimestamp(bar.t) === activeSessionDate)
   }, [activeSessionDate, combinedBars, contextBars, liveBars])
 
-  const brooksLevels = useMemo(() => buildBrooksLevels(combinedContextBars, priorRthBars), [combinedContextBars, priorRthBars])
+  // Brooks intraday levels (HOD/LOD/HOY/LOY/etc.) don't apply on
+  // daily/weekly charts — drop the level set so the chart doesn't try
+  // to draw them across multi-month windows.
+  const brooksLevels = useMemo(
+    () => (intraday ? buildBrooksLevels(combinedContextBars, priorRthBars) : []),
+    [combinedContextBars, intraday, priorRthBars],
+  )
   const visibleBrooksLevels = useMemo(
     () => brooksLevels.filter((level) => levelVisibility[level.group]),
     [brooksLevels, levelVisibility],

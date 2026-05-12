@@ -373,7 +373,19 @@ export async function GET(request: Request) {
   // ends — mid-session, 16:00 ET (RTH) or 20:00 ET (EXT) is still in the future
   // relative to the data Databento has published. The live aggregator
   // (/api/bars/live) is responsible for the last ~30 minutes.
-  const lagCutoff = Date.now() - DATABENTO_FEED_LAG_MS
+  //
+  // Daily / weekly schemas only get a new bar at the end of each session,
+  // and Databento exposes the latest one at 00:00 UTC of the *next* day.
+  // Use today's UTC midnight as the cap so we don't ask for today's daily
+  // bar before it exists (422 data_schema_not_fully_available).
+  const lagCutoff =
+    schema === 'ohlcv-1d'
+      ? new Date(Date.UTC(
+          new Date().getUTCFullYear(),
+          new Date().getUTCMonth(),
+          new Date().getUTCDate(),
+        )).getTime() - 60_000
+      : Date.now() - DATABENTO_FEED_LAG_MS
   const paddedTo = explicitSessionWindow
     ? new Date(Math.min(explicitSessionWindow.end.getTime(), lagCutoff))
     : new Date(Math.min(toDate.getTime() + padMs, lagCutoff))
