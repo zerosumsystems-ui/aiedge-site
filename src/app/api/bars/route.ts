@@ -348,7 +348,14 @@ export async function GET(request: Request) {
   const paddedFrom = explicitSessionWindow?.start ?? new Date(fromDate.getTime() - padMs)
   // EQUS.MINI intraday publishes with a ~30 min lag; clamp past that or
   // Databento returns 422 "data_end_after_available_end" on near-realtime queries.
-  const paddedTo = explicitSessionWindow?.end ?? new Date(Math.min(toDate.getTime() + padMs, Date.now() - DATABENTO_FEED_LAG_MS))
+  // Apply the clamp to both the auto-padded path AND explicit RTH/EXT session
+  // ends — mid-session, 16:00 ET (RTH) or 20:00 ET (EXT) is still in the future
+  // relative to the data Databento has published. The live aggregator
+  // (/api/bars/live) is responsible for the last ~30 minutes.
+  const lagCutoff = Date.now() - DATABENTO_FEED_LAG_MS
+  const paddedTo = explicitSessionWindow
+    ? new Date(Math.min(explicitSessionWindow.end.getTime(), lagCutoff))
+    : new Date(Math.min(toDate.getTime() + padMs, lagCutoff))
 
   // Databento Historical API — HTTP Basic auth, key as username, empty pw.
   const url = new URL('https://hist.databento.com/v0/timeseries.get_range')
