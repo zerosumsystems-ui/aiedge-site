@@ -441,14 +441,14 @@ function Segment<T extends string>({
   onChange: (next: T) => void
 }) {
   return (
-    <div className="flex rounded border border-border bg-surface p-0.5">
+    <div className="flex shrink-0 rounded border border-border/70 bg-black/75 p-0.5">
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`min-h-7 min-w-9 rounded px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-0 ${
+          className={`min-h-7 rounded px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
             value === option.value ? "bg-teal text-bg" : "text-sub hover:text-text"
           }`}
         >
@@ -467,7 +467,7 @@ function LevelControls({
   onToggle: (group: LevelGroup) => void
 }) {
   return (
-    <div className="flex rounded border border-border bg-surface p-0.5" aria-label="Brooks level visibility" data-testid="chart-level-controls">
+    <div className="pointer-events-auto flex rounded border border-border/70 bg-black/75 p-0.5" aria-label="Brooks level visibility" data-testid="chart-level-controls">
       {LEVEL_GROUPS.map((group) => {
         const active = visibility[group.key]
         return (
@@ -477,7 +477,7 @@ function LevelControls({
             aria-label={`Toggle ${group.label} Brooks levels`}
             aria-pressed={active}
             onClick={() => onToggle(group.key)}
-            className={`min-h-7 min-w-9 rounded px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-0 ${
+            className={`min-h-7 rounded px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
               active ? "bg-surface-hover text-text" : "text-sub/45 hover:text-sub"
             }`}
           >
@@ -600,7 +600,12 @@ function ChartSurface({
   barWindow,
   sessionMode,
   symbols,
+  levelVisibility,
   onSelectSymbol,
+  onSelectTimeframe,
+  onSelectBarWindow,
+  onSelectSessionMode,
+  onToggleLevel,
   onResetBarWindow,
 }: {
   symbol: string
@@ -610,7 +615,12 @@ function ChartSurface({
   barWindow: number
   sessionMode: SessionMode
   symbols: string[]
+  levelVisibility: LevelVisibility
   onSelectSymbol: (symbol: string) => void
+  onSelectTimeframe: (timeframe: IntradayTimeframe) => void
+  onSelectBarWindow: (barWindow: number) => void
+  onSelectSessionMode: (mode: SessionMode) => void
+  onToggleLevel: (group: LevelGroup) => void
   onResetBarWindow: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -1025,10 +1035,7 @@ function ChartSurface({
               {formatPrice(latest?.c)} <span className={(metrics.change ?? 0) >= 0 ? "text-teal" : "text-red"}>{signed(metrics.change)} ({signed(metrics.changePct, "%")})</span>
             </span>
           </div>
-          <div className="flex min-h-9 w-fit items-center gap-2 rounded border border-border bg-black/75 px-3 py-1.5 font-mono text-sm text-text sm:min-h-0 sm:gap-3 sm:px-4 sm:py-2 sm:text-base">
-            <span className="text-xs leading-none sm:text-sm">v</span>
-            <span>9</span>
-          </div>
+          <LevelControls visibility={levelVisibility} onToggle={onToggleLevel} />
         </div>
 
         <div className="pointer-events-none absolute right-[132px] top-4 z-10 hidden min-w-[230px] text-right lg:block">
@@ -1093,6 +1100,30 @@ function ChartSurface({
             view {viewState.visibleBars} · reset 78
           </button>
         )}
+
+        <div
+          data-testid="chart-bottom-toolbar"
+          className="absolute bottom-[calc(0.875rem+env(safe-area-inset-bottom,0px))] left-3 z-10 flex max-w-[calc(100%-6rem)] gap-1.5 overflow-x-auto scrollbar-none sm:bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:left-4 sm:max-w-[calc(100%-7rem)] sm:gap-2"
+        >
+          <Segment
+            value={String(barWindow)}
+            options={BAR_WINDOW_CHOICES.map(({ value, label }) => ({ value: String(value), label }))}
+            onChange={(next) => onSelectBarWindow(Number(next))}
+          />
+          <Segment
+            value={timeframe}
+            options={TIMEFRAMES.map(({ value, label }) => ({ value, label }))}
+            onChange={onSelectTimeframe}
+          />
+          <Segment<SessionMode>
+            value={sessionMode}
+            options={[
+              { value: "rth", label: "RTH" },
+              { value: "all", label: "EXT" },
+            ]}
+            onChange={onSelectSessionMode}
+          />
+        </div>
 
         <SymbolScroller symbol={symbol} symbols={symbols} onSelect={onSelectSymbol} />
       </div>
@@ -1499,29 +1530,6 @@ export function TradingViewTerminal() {
               autoCorrect="off"
             />
           </form>
-
-          <Segment
-            value={timeframe}
-            options={TIMEFRAMES.map(({ value, label }) => ({ value, label }))}
-            onChange={setTimeframe}
-          />
-
-          <Segment
-            value={String(barWindow)}
-            options={BAR_WINDOW_CHOICES.map(({ value, label }) => ({ value: String(value), label }))}
-            onChange={(next) => setBarWindow(Number(next))}
-          />
-
-          <Segment<SessionMode>
-            value={sessionMode}
-            options={[
-              { value: "rth", label: "RTH" },
-              { value: "all", label: "EXT" },
-            ]}
-            onChange={setSessionMode}
-          />
-
-          <LevelControls visibility={levelVisibility} onToggle={toggleLevelGroup} />
         </div>
 
         <div className="flex items-center gap-2">
@@ -1586,7 +1594,12 @@ export function TradingViewTerminal() {
               barWindow={barWindow}
               sessionMode={sessionMode}
               symbols={symbols}
+              levelVisibility={levelVisibility}
               onSelectSymbol={selectSymbol}
+              onSelectTimeframe={setTimeframe}
+              onSelectBarWindow={setBarWindow}
+              onSelectSessionMode={setSessionMode}
+              onToggleLevel={toggleLevelGroup}
               onResetBarWindow={resetBarWindow}
             />
           )}
