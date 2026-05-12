@@ -2767,6 +2767,32 @@ export function TradingViewTerminal() {
     }
   }, [selectedSymbol])
 
+  // If the user lands on a symbol the live aggregator isn't watching,
+  // ask it to dynamically subscribe so we escape the ~35-min Databento
+  // Historical publish lag. The aggregator persists the subscription to
+  // Redis so /api/bars/live/symbols will surface it on the next poll.
+  // Best-effort: 503/error silently degrades to historical-only.
+  useEffect(() => {
+    if (!selectedSymbol) return
+    if (liveSubscribedSet.has(selectedSymbol)) return
+    let cancelled = false
+    fetch(`/api/bars/live/subscribe?ticker=${encodeURIComponent(selectedSymbol)}`, {
+      method: "POST",
+    })
+      .then((resp) => {
+        if (cancelled || !resp.ok) return
+        setLiveSubscribedSet((prev) => {
+          const next = new Set(prev)
+          next.add(selectedSymbol)
+          return next
+        })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [liveSubscribedSet, selectedSymbol])
+
   useEffect(() => {
     let cancelled = false
 

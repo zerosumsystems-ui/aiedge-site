@@ -202,6 +202,28 @@ class Upstash:
         self._post(["set", key, bar.to_json(), "EX", "120"])
 
 
+def _load_persisted_dynamic_symbols(cache: "Upstash") -> list[str]:
+    """Read the live:subscribed Redis set so dynamic symbols survive restarts.
+
+    Best-effort: any failure returns an empty list and we just start with
+    the configured static set.
+    """
+    try:
+        path = "/smembers/" + urllib.parse.quote("live:subscribed", safe="")
+        req = urllib.request.Request(
+            cache.base + path,
+            method="POST",
+            headers={"Authorization": f"Bearer {cache.token}"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            payload = json.loads(resp.read().decode())
+        members = payload.get("result") or []
+        return [str(m).upper() for m in members if m]
+    except Exception as exc:
+        log.warning("Failed to load persisted dynamic symbols: %s", exc)
+        return []
+
+
 # ---------- historical backfill ---------------------------------------------
 
 # Databento's EQUS.MINI historical feed publishes with a ~30 min lag, so
@@ -337,6 +359,94 @@ _health_state: dict[str, Any] = {
 }
 _health_lock = threading.Lock()
 
+# Shared state for the subscribe endpoint. Populated by run() before the
+# health server starts handling requests.
+_subscribe_lock = threading.Lock()
+_subscribed_symbols: set[str] = set()
+_client_ref: Any = None
+_aggs_ref: dict[str, "Aggregator"] = {}
+_cache_ref: "Upstash | None" = None
+_api_key_ref: str = ""
+_dataset_ref: str = ""
+_live_schema_ref: str = ""
+_partial_interval_ref: float = 0.5
+_on_close_ref: Callable[[str, "Bar"], None] | None = None
+_on_partial_ref: Callable[[str, "Bar"], None] | None = None
+_db_module_ref: Any = None
+# Optional shared bearer token. When set, /subscribe requires the token.
+_subscribe_token: str = ""
+
+
+def add_symbol(ticker: str) -> dict[str, Any]:
+    """Subscribe the aggregator to a new ticker mid-stream.
+
+    Idempotent — returns existing=True if the symbol was already
+    subscribed. Mutating `_aggs_ref` from another thread is safe because
+    the main loop only reads it; the dict itself doesn't get iterated.
+    """
+    clean = (ticker or "").strip().upper()
+    if not clean:
+        return {"ok": False, "error": "empty ticker"}
+    if _client_ref is None or _cache_ref is None:
+        return {"ok": False, "error": "aggregator not ready"}
+
+    with _subscribe_lock:
+        already = clean in _subscribed_symbols
+        if not already:
+            _subscribed_symbols.add(clean)
+            if _live_schema_ref == "trades" and _on_close_ref is not None:
+                _aggs_ref[clean] = Aggregator(
+                    clean,
+                    _on_close_ref,
+                    on_partial=_on_partial_ref,
+                    partial_min_interval_s=_partial_interval_ref,
+                )
+
+    if already:
+        return {"ok": True, "existing": True, "ticker": clean}
+
+    try:
+        _client_ref.subscribe(
+            dataset=_dataset_ref,
+            schema=_live_schema_ref,
+            symbols=[clean],
+            stype_in="raw_symbol",
+        )
+    except Exception as exc:
+        log.warning("Subscribe(%s) failed: %s", clean, exc)
+        with _subscribe_lock:
+            _subscribed_symbols.discard(clean)
+            _aggs_ref.pop(clean, None)
+        return {"ok": False, "error": f"subscribe failed: {exc}"}
+
+    # Persist the dynamic subscription so /api/bars/live/symbols can
+    # surface it to the chart, and so we can re-subscribe on aggregator
+    # restart without losing the user's custom symbols.
+    try:
+        _cache_ref._post(["sadd", "live:subscribed", clean])
+        _cache_ref._post(["expire", "live:subscribed", "604800"])
+    except Exception as exc:
+        log.warning("Failed to mirror subscribed symbol to Redis: %s", exc)
+
+    # Backfill in a background thread so the HTTP handler returns fast.
+    if _db_module_ref is not None:
+        threading.Thread(
+            target=backfill_recent_bars,
+            kwargs={
+                "api_key": _api_key_ref,
+                "dataset": _dataset_ref,
+                "symbols": [clean],
+                "cache": _cache_ref,
+                "hours": 2.0,
+                "db_module": _db_module_ref,
+            },
+            daemon=True,
+            name=f"backfill-{clean}",
+        ).start()
+
+    log.info("Dynamically subscribed: %s", clean)
+    return {"ok": True, "ticker": clean}
+
 
 def _health_mark(field: str, value: Any) -> None:
     with _health_lock:
@@ -383,6 +493,36 @@ class _HealthHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_POST(self) -> None:  # noqa: N802 — stdlib API
+        parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path != "/subscribe":
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        # Optional shared-secret guard — when set on Fly + Vercel both
+        # sides know the token. Open by default so a misconfigured Fly
+        # secret doesn't silently break the feature.
+        if _subscribe_token:
+            auth = self.headers.get("Authorization") or ""
+            expected = f"Bearer {_subscribe_token}"
+            if auth != expected:
+                self.send_response(401)
+                self.end_headers()
+                return
+
+        qs = urllib.parse.parse_qs(parsed.query or "")
+        ticker = (qs.get("ticker") or [""])[0]
+        result = add_symbol(ticker)
+        body = json.dumps(result).encode()
+        status = 200 if result.get("ok") else 400
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 — stdlib API
         # Suppress per-request stderr noise; we already log meaningful events.
         return
@@ -417,13 +557,6 @@ def run() -> None:
 
     log.info("Starting aggregator: dataset=%s schema=%s symbols=%s", dataset, live_schema, symbols)
 
-    health_port = int(optional_env("HEALTH_PORT", "8080"))
-    if health_port > 0:
-        try:
-            _start_health_server(health_port)
-        except Exception as exc:
-            log.warning("Failed to start health server on :%d: %s", health_port, exc)
-
     cache = Upstash(upstash_url, upstash_token)
     partial_interval_s = float(optional_env("PARTIAL_BAR_INTERVAL_S", "0.5"))
 
@@ -453,6 +586,50 @@ def run() -> None:
     OHLCVMsg = db.OHLCVMsg
     SymbolMappingMsg = db.SymbolMappingMsg
 
+    # Live client. Created up front so the /subscribe handler can see it
+    # before we start the health/subscribe HTTP server.
+    client = db.Live(key=api_key)
+
+    # Hydrate the module-level refs that add_symbol() reads. After this
+    # point the POST /subscribe handler is safe to serve. Pull any
+    # previously-subscribed dynamic symbols from Redis so a restart
+    # doesn't lose them.
+    global _client_ref, _aggs_ref, _cache_ref, _api_key_ref, _dataset_ref
+    global _live_schema_ref, _partial_interval_ref, _on_close_ref
+    global _on_partial_ref, _db_module_ref, _subscribe_token
+    _client_ref = client
+    _aggs_ref = aggs
+    _cache_ref = cache
+    _api_key_ref = api_key
+    _dataset_ref = dataset
+    _live_schema_ref = live_schema
+    _partial_interval_ref = partial_interval_s
+    _on_close_ref = on_close
+    _on_partial_ref = on_partial
+    _db_module_ref = db
+    _subscribe_token = optional_env("LIVE_SUBSCRIBE_TOKEN", "")
+    with _subscribe_lock:
+        _subscribed_symbols.update(symbols)
+
+    dynamic_symbols = _load_persisted_dynamic_symbols(cache)
+    dynamic_only = [s for s in dynamic_symbols if s not in set(symbols)]
+    if dynamic_only:
+        log.info("Re-subscribing %d persisted dynamic symbols: %s", len(dynamic_only), dynamic_only)
+        for sym in dynamic_only:
+            with _subscribe_lock:
+                _subscribed_symbols.add(sym)
+                if live_schema == "trades":
+                    aggs[sym] = Aggregator(
+                        sym, on_close, on_partial=on_partial, partial_min_interval_s=partial_interval_s,
+                    )
+
+    health_port = int(optional_env("HEALTH_PORT", "8080"))
+    if health_port > 0:
+        try:
+            _start_health_server(health_port)
+        except Exception as exc:
+            log.warning("Failed to start health server on :%d: %s", health_port, exc)
+
     # Backfill recent bars from Databento Historical before we subscribe to
     # live. Closes the visual gap the chart sees between /api/bars (which
     # stops at the ~30-min publish frontier) and the aggregator's first
@@ -463,16 +640,14 @@ def run() -> None:
         backfill_recent_bars(
             api_key=api_key,
             dataset=dataset,
-            symbols=symbols,
+            symbols=symbols + dynamic_only,
             cache=cache,
             hours=backfill_hours,
             db_module=db,
         )
 
-    # Live client. The SDK handles reconnect with replay so a brief drop
-    # doesn't gap the cache.
-    client = db.Live(key=api_key)
-    client.subscribe(dataset=dataset, schema=live_schema, symbols=symbols, stype_in="raw_symbol")
+    initial_symbols = symbols + dynamic_only
+    client.subscribe(dataset=dataset, schema=live_schema, symbols=initial_symbols, stype_in="raw_symbol")
 
     # Graceful shutdown — flush any in-progress bars on SIGINT/SIGTERM so
     # we don't lose the partial last minute.
