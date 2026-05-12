@@ -343,10 +343,10 @@ function emaLineData(bars: Bar[], period = 20, seed?: number) {
 //                  EMA20 has a real warmup period)
 //   color        — distinct hue so overlays don't blend into one another
 const HTF_SPECS = [
-  { key: "15m" as const, label: "15m EMA20", chipLabel: "15m", tf: "15min" as const, minutes: 15, lookbackDays: 5, session: "rth" as const, color: "rgba(91, 168, 230, 0.7)", lineWidth: 2 as const },
-  { key: "1h" as const, label: "1h EMA20", chipLabel: "1h", tf: "1h" as const, minutes: 60, lookbackDays: 14, session: "rth" as const, color: "rgba(255, 195, 100, 0.75)", lineWidth: 2 as const },
-  { key: "daily" as const, label: "Daily EMA20", chipLabel: "D", tf: "daily" as const, minutes: 390, lookbackDays: 100, session: null, color: "rgba(195, 130, 240, 0.8)", lineWidth: 3 as const },
-  { key: "weekly" as const, label: "Weekly EMA20", chipLabel: "W", tf: "weekly" as const, minutes: 1950, lookbackDays: 480, session: null, color: "rgba(245, 130, 175, 0.85)", lineWidth: 3 as const },
+  { key: "15m" as const, label: "15m EMA20", chipLabel: "15m", tf: "15min" as const, minutes: 15, lookbackDays: 5, session: "rth" as const, color: "rgba(245, 166, 35, 0.5)", lineWidth: 2 as const, lineStyle: LineStyle.Dotted },
+  { key: "1h" as const, label: "1h EMA20", chipLabel: "1h", tf: "1h" as const, minutes: 60, lookbackDays: 14, session: "rth" as const, color: "rgba(239, 83, 80, 0.5)", lineWidth: 2 as const, lineStyle: LineStyle.Dashed },
+  { key: "daily" as const, label: "Daily EMA20", chipLabel: "D", tf: "daily" as const, minutes: 390, lookbackDays: 100, session: null, color: "rgba(91, 168, 230, 1)", lineWidth: 2 as const, lineStyle: LineStyle.Dotted },
+  { key: "weekly" as const, label: "Weekly EMA20", chipLabel: "W", tf: "weekly" as const, minutes: 1950, lookbackDays: 480, session: null, color: "rgba(91, 168, 230, 1)", lineWidth: 2 as const, lineStyle: LineStyle.Dashed },
 ]
 
 type HtfKey = (typeof HTF_SPECS)[number]["key"]
@@ -1518,6 +1518,7 @@ function ChartSurface({
       htfSeriesRef.current[spec.key] = chart.addSeries(LineSeries, {
         color: spec.color,
         lineWidth: spec.lineWidth,
+        lineStyle: spec.lineStyle,
         priceLineVisible: false,
         lastValueVisible: false,
         crosshairMarkerVisible: false,
