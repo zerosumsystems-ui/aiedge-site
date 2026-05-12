@@ -2305,7 +2305,7 @@ function SettingsMenu({
       {open && (
         <div
           role="menu"
-          className="glass-panel absolute right-0 top-[calc(100%+6px)] z-30 w-64 rounded-md p-3 text-[12px] text-text"
+          className="glass-panel absolute left-0 top-[calc(100%+6px)] z-30 w-64 max-w-[calc(100vw-1rem)] rounded-md p-3 text-[12px] text-text sm:left-auto sm:right-0"
         >
           <div className="mb-3">
             <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
@@ -2481,7 +2481,7 @@ function IndicatorsMenu({
       {open && (
         <div
           role="menu"
-          className="glass-panel absolute right-0 top-[calc(100%+6px)] z-30 w-64 rounded-md p-3 text-[12px] text-text"
+          className="glass-panel absolute left-0 top-[calc(100%+6px)] z-30 w-64 max-w-[calc(100vw-1rem)] rounded-md p-3 text-[12px] text-text sm:left-auto sm:right-0"
         >
           <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
             Overlays
