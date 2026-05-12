@@ -453,7 +453,7 @@ function Segment<T extends string>({
           type="button"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`min-h-7 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+          className={`min-h-6 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
             value === option.value ? "bg-teal text-bg" : "text-sub hover:text-text"
           }`}
         >
@@ -589,10 +589,12 @@ function SymbolScroller({
         onTouchEnd={() => {
           touchYRef.current = null
         }}
-        className="flex min-h-11 min-w-[76px] flex-col items-center justify-center rounded-md border border-border/40 bg-black/65 px-2.5 py-1 text-center shadow-[0_8px_22px_rgba(0,0,0,0.32)] outline-none backdrop-blur-sm focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-[86px] sm:px-3"
+        className="flex min-h-9 min-w-[60px] items-center justify-center gap-1.5 rounded-md border border-border/40 bg-black/65 px-2.5 py-1 text-center shadow-[0_8px_22px_rgba(0,0,0,0.32)] outline-none backdrop-blur-sm focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-w-[68px] sm:px-3"
       >
-        <span className="text-[10px] uppercase tracking-[0.14em] text-sub sm:text-[9px] sm:tracking-[0.16em]">symbol</span>
-        <span className="text-sm font-semibold tracking-[0.1em] text-text">{symbol}</span>
+        <span className="font-mono text-[13px] font-semibold tracking-[0.06em] text-text sm:text-sm">{symbol}</span>
+        <svg aria-hidden="true" viewBox="0 0 8 6" className="h-1.5 w-2 fill-sub/70">
+          <path d="M0 1.4 1.4 0 4 2.6 6.6 0 8 1.4 4 5.4z" />
+        </svg>
       </button>
     </div>
   )
@@ -667,8 +669,8 @@ function ChartSurface({
     const currentBars = barsRef.current
     const usableWidth = Math.max(240, container.clientWidth - 58)
     const barSpacing = Math.min(14, Math.max(2.4, usableWidth / (targetWindow + 12)))
-    chart.applyOptions({ timeScale: { barSpacing, rightOffset: 2 } })
-    chart.timeScale().applyOptions({ barSpacing, rightOffset: 2 })
+    chart.applyOptions({ timeScale: { barSpacing, rightOffset: 6 } })
+    chart.timeScale().applyOptions({ barSpacing, rightOffset: 6 })
     const first = currentBars[0]
     const last = currentBars.at(-1)
     if (!first || !last) {
@@ -680,7 +682,7 @@ function ChartSurface({
       from: (first.t - stepSeconds * 3) as UTCTimestamp,
       to: (last.t + stepSeconds * 3) as UTCTimestamp,
     })
-    chart.timeScale().scrollToPosition(2, false)
+    chart.timeScale().scrollToPosition(6, false)
   }, [])
 
   const resetViewTo78 = useCallback(() => {
@@ -1071,7 +1073,7 @@ function ChartSurface({
               data-testid="bar-number-label"
               aria-hidden="true"
               className={`absolute -translate-x-1/2 font-mono font-semibold leading-none tabular-nums ${
-                label.tone === "bull" ? "text-[11px] text-[#62ad61]" : "-translate-y-full text-[10px] text-[#ff535d]"
+                label.tone === "bull" ? "text-[9px] text-[#62ad61]" : "-translate-y-full text-[8px] text-[#ff535d]"
               }`}
               style={{ left: label.x, top: label.y }}
             >
@@ -1103,7 +1105,7 @@ function ChartSurface({
 
         <div
           data-testid="chart-bottom-toolbar"
-          className="absolute bottom-[calc(2.25rem+env(safe-area-inset-bottom,0px))] left-3 z-10 flex max-w-[calc(100%-6rem)] items-center overflow-x-auto scrollbar-none rounded-md border border-border/40 bg-black/65 p-0.5 sm:bottom-[calc(2.5rem+env(safe-area-inset-bottom,0px))] sm:left-4 sm:max-w-[calc(100%-7rem)]"
+          className="absolute bottom-[calc(2.25rem+env(safe-area-inset-bottom,0px))] left-3 z-10 flex max-w-[calc(100%-7rem)] items-center overflow-x-auto scrollbar-none rounded-md border border-border/40 bg-black/65 p-0.5 sm:bottom-[calc(2.5rem+env(safe-area-inset-bottom,0px))] sm:left-4 sm:max-w-[calc(100%-8rem)]"
         >
           <Segment
             bare
