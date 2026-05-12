@@ -40,11 +40,13 @@ import logging
 import os
 import signal
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
 
@@ -322,6 +324,77 @@ def backfill_recent_bars(
     )
 
 
+# ---------- health endpoint ------------------------------------------------
+
+# Shared state for the health server. Updated from the live loop.
+_health_state: dict[str, Any] = {
+    "started_at": time.time(),
+    "last_record_at": 0.0,
+    "last_bar_at": 0.0,
+    "records_total": 0,
+    "bars_total": 0,
+    "live_connected": False,
+}
+_health_lock = threading.Lock()
+
+
+def _health_mark(field: str, value: Any) -> None:
+    with _health_lock:
+        _health_state[field] = value
+
+
+def _health_bump(field: str) -> None:
+    with _health_lock:
+        _health_state[field] = _health_state.get(field, 0) + 1
+
+
+def _health_snapshot() -> dict[str, Any]:
+    with _health_lock:
+        snap = dict(_health_state)
+    now = time.time()
+    snap["uptime_s"] = round(now - snap["started_at"], 1)
+    snap["seconds_since_last_record"] = (
+        round(now - snap["last_record_at"], 1) if snap["last_record_at"] else None
+    )
+    snap["seconds_since_last_bar"] = (
+        round(now - snap["last_bar_at"], 1) if snap["last_bar_at"] else None
+    )
+    return snap
+
+
+class _HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:  # noqa: N802 — stdlib API
+        if self.path not in ("/", "/health"):
+            self.send_response(404)
+            self.end_headers()
+            return
+        snap = _health_snapshot()
+        # Healthy = aggregator has logged a tick in the last 5 minutes
+        # OR has been running less than 60 seconds (still booting). After
+        # boot, going silent on a live RTH day is what Fly should alert on.
+        recent_record = snap["seconds_since_last_record"] is not None and snap["seconds_since_last_record"] < 300
+        booting = snap["uptime_s"] < 60
+        healthy = recent_record or booting
+        body = json.dumps({"healthy": healthy, **snap}).encode()
+        self.send_response(200 if healthy else 503)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 — stdlib API
+        # Suppress per-request stderr noise; we already log meaningful events.
+        return
+
+
+def _start_health_server(port: int) -> None:
+    server = ThreadingHTTPServer(("0.0.0.0", port), _HealthHandler)
+    thread = threading.Thread(target=server.serve_forever, name="health", daemon=True)
+    thread.start()
+    log.info("Health endpoint listening on :%d /health", port)
+
+
 # ---------- databento live wiring ------------------------------------------
 
 def run() -> None:
@@ -344,6 +417,13 @@ def run() -> None:
 
     log.info("Starting aggregator: dataset=%s schema=%s symbols=%s", dataset, live_schema, symbols)
 
+    health_port = int(optional_env("HEALTH_PORT", "8080"))
+    if health_port > 0:
+        try:
+            _start_health_server(health_port)
+        except Exception as exc:
+            log.warning("Failed to start health server on :%d: %s", health_port, exc)
+
     cache = Upstash(upstash_url, upstash_token)
     partial_interval_s = float(optional_env("PARTIAL_BAR_INTERVAL_S", "0.5"))
 
@@ -352,6 +432,8 @@ def run() -> None:
             "[%s] %d  o=%.2f h=%.2f l=%.2f c=%.2f v=%d",
             sym, bar.t, bar.o, bar.h, bar.l, bar.c, bar.v,
         )
+        _health_mark("last_bar_at", time.time())
+        _health_bump("bars_total")
         cache.write_bar(sym, bar)
 
     def on_partial(sym: str, bar: Bar) -> None:
@@ -408,6 +490,8 @@ def run() -> None:
 
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
+
+    _health_mark("live_connected", True)
 
     # The Live iterator yields records we care about:
     #   - SymbolMappingMsg: instrument_id ↔ raw_symbol mapping. These arrive
@@ -467,8 +551,12 @@ def run() -> None:
             agg.add_trade(ts_seconds=ts_ns / 1e9, price=price, size=int(size or 0))
 
         record_count += 1
+        _health_mark("last_record_at", time.time())
+        _health_bump("records_total")
         if record_count % 1000 == 0:
             log.info("Processed %d records", record_count)
+
+    _health_mark("live_connected", False)
 
 
 if __name__ == "__main__":

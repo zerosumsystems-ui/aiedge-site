@@ -5,6 +5,7 @@ import type { FormEvent, TouchEvent } from "react"
 import {
   CandlestickSeries,
   ColorType,
+  HistogramSeries,
   LineSeries,
   LineStyle,
   createChart,
@@ -93,6 +94,8 @@ const TIMEFRAMES: Array<{ value: IntradayTimeframe; label: string; minutes: numb
 const DEFAULT_BAR_WINDOW = 1  // days
 
 const CHART_PREFS_KEY = "aiedge.chart.preferences.v1"
+const PRIOR_DAYS_CACHE_KEY = "aiedge.chart.priordays.v1"
+const MAX_PRIOR_DAYS_CACHE_ENTRIES = 200
 
 const DEFAULT_LEVEL_VISIBILITY: LevelVisibility = {
   current: true,
@@ -401,6 +404,75 @@ function writeChartPrefs(preferences: Record<string, unknown>) {
   }
 }
 
+// Prior-day historical bars never change, so we keep them in
+// localStorage and only re-fetch today's session live. Eviction is
+// least-recently-used past a 200-entry cap (≈ 6 MB worst case at 30 KB
+// per entry, well inside the typical 5-10 MB origin quota).
+interface PriorDaysEntry {
+  bars: Bar[]
+  lastUsed: number
+}
+
+function readPriorDaysCache(): Record<string, PriorDaysEntry> {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(PRIOR_DAYS_CACHE_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, PriorDaysEntry>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function writePriorDaysCache(cache: Record<string, PriorDaysEntry>) {
+  if (typeof window === "undefined") return
+  let entries = Object.entries(cache)
+  if (entries.length > MAX_PRIOR_DAYS_CACHE_ENTRIES) {
+    entries = entries
+      .sort((a, b) => a[1].lastUsed - b[1].lastUsed)
+      .slice(-MAX_PRIOR_DAYS_CACHE_ENTRIES)
+  }
+  try {
+    window.localStorage.setItem(PRIOR_DAYS_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)))
+  } catch {
+    // Quota exceeded; drop silently. In-memory cache still serves this session.
+  }
+}
+
+function priorDaysCacheKey(symbol: string, from: string, to: string, tf: string, session: string): string {
+  return `${symbol}|${from}|${to}|${tf}|${session}`
+}
+
+async function fetchPriorDayBars(args: {
+  ticker: string
+  from: string
+  to: string
+  tf: "1min"
+  session: "rth" | "all"
+  limit: number
+}): Promise<Bar[]> {
+  const key = priorDaysCacheKey(args.ticker, args.from, args.to, args.tf, args.session)
+  const cache = readPriorDaysCache()
+  const hit = cache[key]
+  if (hit) {
+    hit.lastUsed = Date.now()
+    cache[key] = hit
+    writePriorDaysCache(cache)
+    return hit.bars
+  }
+  const qs = new URLSearchParams({
+    ticker: args.ticker,
+    from: args.from,
+    to: args.to,
+    tf: args.tf,
+    session: args.session,
+    limit: String(args.limit),
+  })
+  const payload = await fetchJson<BarsPayload>(`/api/bars?${qs}`)
+  cache[key] = { bars: payload.bars, lastUsed: Date.now() }
+  writePriorDaysCache(cache)
+  return payload.bars
+}
+
 function storedSymbol(): string {
   const value = readChartPrefs().symbol
   return typeof value === "string" && value.trim() ? value.trim().toUpperCase() : "SPY"
@@ -685,7 +757,13 @@ function ChartSurface({
   const chartRef = useRef<IChartApi | null>(null)
   const candlesRef = useRef<ISeriesApi<"Candlestick"> | null>(null)
   const averageRef = useRef<ISeriesApi<"Line"> | null>(null)
+  const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null)
   const priceLinesRef = useRef<IPriceLine[]>([])
+  // Per-session Brooks level segments. Each level becomes a bounded
+  // LineSeries spanning only the latest visible session, so in 2D/3D
+  // views the level lines don't bleed across prior days where those
+  // levels weren't yet defined.
+  const levelSeriesRef = useRef<ISeriesApi<"Line">[]>([])
   const scheduleLabelsRef = useRef<() => void>(() => {})
   const rangeSignatureRef = useRef("")
   const barsRef = useRef(bars)
@@ -863,7 +941,9 @@ function ChartSurface({
       rightPriceScale: {
         borderVisible: true,
         borderColor: AXIS,
-        scaleMargins: { top: 0.2, bottom: 0.2 },
+        // Bottom margin = 0.22 keeps price action above the volume
+        // histogram (which lives at top: 0.82 on its own scale).
+        scaleMargins: { top: 0.08, bottom: 0.22 },
       },
       timeScale: {
         borderVisible: true,
@@ -904,6 +984,20 @@ function ChartSurface({
       crosshairMarkerVisible: false,
     })
 
+    // Volume histogram sits on its own overlay price scale at the
+    // bottom of the chart. Bars are colored by candle direction (teal
+    // for closing up, red for down).
+    volumeRef.current = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: "volume" },
+      priceScaleId: "volume",
+      priceLineVisible: false,
+      lastValueVisible: false,
+    })
+    chart.priceScale("volume").applyOptions({
+      scaleMargins: { top: 0.82, bottom: 0 },
+      borderVisible: false,
+    })
+
     let labelFrame: number | null = null
     const updateBarNumberLabels = () => {
       const candles = candlesRef.current
@@ -926,9 +1020,10 @@ function ChartSurface({
       }
       const labelY = Number(minY) + 14
       // Brooks bar numbering resets every session — bar #1 is the first
-      // RTH bar of each day. With multi-day views the index across
-      // currentBars no longer matches the per-session count, so track
-      // the day boundary and reset.
+      // RTH bar of each day. Label step thins out as bar density grows
+      // so dense 1m × 3D charts don't get ~290 overlapping labels.
+      const totalBars = currentBars.length
+      const labelStep = totalBars > 500 ? 24 : totalBars > 250 ? 12 : totalBars > 130 ? 8 : 4
       const nextLabels: BarNumberLabel[] = []
       let prevDate: string | null = null
       let dayCount = 0
@@ -939,7 +1034,7 @@ function ChartSurface({
           dayCount = 0
         }
         dayCount += 1
-        if (dayCount !== 1 && dayCount % 4 !== 0) continue
+        if (dayCount !== 1 && dayCount % labelStep !== 0) continue
         const x = chart.timeScale().timeToCoordinate(bar.t as UTCTimestamp)
         if (x == null) continue
         nextLabels.push({
@@ -1022,7 +1117,9 @@ function ChartSurface({
       chartRef.current = null
       candlesRef.current = null
       averageRef.current = null
+      volumeRef.current = null
       priceLinesRef.current = []
+      levelSeriesRef.current = []
       scheduleLabelsRef.current = () => {}
     }
   }, [showReadoutForBar])
@@ -1031,6 +1128,7 @@ function ChartSurface({
     const chart = chartRef.current
     const candles = candlesRef.current
     const average = averageRef.current
+    const volume = volumeRef.current
     if (!chart || !candles || !average) return
 
     candles.setData(
@@ -1043,23 +1141,64 @@ function ChartSurface({
       })),
     )
     average.setData(emaLineData(bars, 20, emaSeed))
+    if (volume) {
+      volume.setData(
+        bars.map((bar) => ({
+          time: bar.t as UTCTimestamp,
+          value: bar.v ?? 0,
+          // Subtle teal/red tint — strong enough to read direction at
+          // a glance, faint enough to keep volume secondary to price.
+          color: bar.c >= bar.o ? "rgba(0, 200, 150, 0.45)" : "rgba(239, 83, 80, 0.45)",
+        })),
+      )
+    }
 
+    // Drop the previous render's level segments before drawing this
+    // render's. Brooks levels are computed for the latest session only
+    // (see buildBrooksLevels) so each line should only span that
+    // session's bar range, not the whole multi-day chart.
+    for (const series of levelSeriesRef.current) {
+      try {
+        chart.removeSeries(series)
+      } catch {
+        // Series was already removed during chart teardown.
+      }
+    }
+    levelSeriesRef.current = []
+
+    const latestBar = bars.at(-1)
+    if (latestBar && levels.length > 0) {
+      const lastDate = etDateForTimestamp(latestBar.t)
+      const sessionBars = bars.filter((b) => etDateForTimestamp(b.t) === lastDate)
+      const sessionStart = sessionBars[0]?.t
+      const sessionEnd = sessionBars.at(-1)?.t
+      if (sessionStart != null && sessionEnd != null) {
+        for (const level of levels) {
+          const series = chart.addSeries(LineSeries, {
+            color: level.color,
+            lineWidth: 1,
+            lineStyle: level.style,
+            priceLineVisible: false,
+            lastValueVisible: true,
+            crosshairMarkerVisible: false,
+            title: level.title,
+          })
+          series.setData([
+            { time: sessionStart as UTCTimestamp, value: level.price },
+            { time: sessionEnd as UTCTimestamp, value: level.price },
+          ])
+          levelSeriesRef.current.push(series)
+        }
+      }
+    }
+
+    // Gray dotted "current price" line stays as a price line attached
+    // to the candle series — it's a horizontal reference for the whole
+    // chart, not a session-bounded level.
     for (const priceLine of priceLinesRef.current) {
       candles.removePriceLine(priceLine)
     }
     const nextPriceLines: IPriceLine[] = []
-    for (const level of levels) {
-      nextPriceLines.push(candles.createPriceLine({
-        price: level.price,
-        color: level.color,
-        lineWidth: 1,
-        lineStyle: level.style,
-        axisLabelVisible: true,
-        title: level.title,
-      }))
-    }
-
-    const latestBar = bars.at(-1)
     if (latestBar) {
       nextPriceLines.push(candles.createPriceLine({
         price: latestBar.c,
@@ -1410,13 +1549,21 @@ export function TradingViewTerminal() {
       const sessionDate = todayEt()
       const fetchDays = fetchDaysForBarWindow(barWindow, timeframe)
       const historyFrom = earliestFetchDate(sessionDate, fetchDays)
-      const historyQs = new URLSearchParams({
+      const sessionFilter: "rth" | "all" = sessionMode === "rth" ? "rth" : "all"
+      const limit = rawLimitFor(timeframe, barWindow, fetchDays)
+      // Today is fetched fresh on every poll; prior days are cached
+      // forever in localStorage. Split the historical request into the
+      // two so cached prior-day bars don't refetch on symbol/scope
+      // changes.
+      const yesterdayDate = previousEtDates(sessionDate, 1)[0] ?? sessionDate
+      const hasPriorDays = historyFrom < sessionDate
+      const todayQs = new URLSearchParams({
         ticker: selectedSymbol,
-        from: historyFrom,
+        from: sessionDate,
         to: sessionDate,
         tf: "1min",
-        session: sessionMode === "rth" ? "rth" : "all",
-        limit: String(rawLimitFor(timeframe, barWindow, fetchDays)),
+        session: sessionFilter,
+        limit: String(limit),
       })
       const contextQs = new URLSearchParams({
         ticker: selectedSymbol,
@@ -1427,7 +1574,7 @@ export function TradingViewTerminal() {
         limit: "1000",
       })
       const liveQs = new URLSearchParams({ ticker: selectedSymbol, minutes: "720" })
-      const historyUrl = `/api/bars?${historyQs}`
+      const todayUrl = `/api/bars?${todayQs}`
       const contextUrl = `/api/bars?${contextQs}`
       const liveUrl = `/api/bars/live?${liveQs}`
 
@@ -1452,8 +1599,23 @@ export function TradingViewTerminal() {
         return
       }
 
-      const [historyResult, liveResult] = await Promise.allSettled([
-        fetchBarsWithMemory(historyUrl, 120_000),
+      // Prior-day fetch goes through the localStorage cache. On miss
+      // it issues a /api/bars request; on hit it's a synchronous read
+      // and returns instantly. Today's fetch always goes to the API.
+      const priorPromise: Promise<Bar[]> = hasPriorDays
+        ? fetchPriorDayBars({
+            ticker: selectedSymbol,
+            from: historyFrom,
+            to: yesterdayDate,
+            tf: "1min",
+            session: sessionFilter,
+            limit,
+          }).catch(() => [] as Bar[])
+        : Promise.resolve([] as Bar[])
+
+      const [priorResult, todayResult, liveResult] = await Promise.allSettled([
+        priorPromise,
+        fetchBarsWithMemory(todayUrl, 120_000),
         // Live fetch — bypass the in-memory cache. The endpoint stitches
         // the in-progress partial bar in on every request, so each poll
         // can see a different last-candle state.
@@ -1462,11 +1624,14 @@ export function TradingViewTerminal() {
 
       if (cancelled) return
 
-      if (historyResult.status === "fulfilled") {
-        setHistoryBars(historyResult.value.bars)
+      const priorBars = priorResult.status === "fulfilled" ? priorResult.value : []
+      if (todayResult.status === "fulfilled") {
+        setHistoryBars([...priorBars, ...todayResult.value.bars])
         setHistoryError(null)
       } else {
-        setHistoryError(historyResult.reason instanceof Error ? historyResult.reason.message : String(historyResult.reason))
+        // Today failed; still set what we have from prior days.
+        setHistoryBars(priorBars)
+        setHistoryError(todayResult.reason instanceof Error ? todayResult.reason.message : String(todayResult.reason))
       }
 
       if (liveResult.status === "fulfilled") {
@@ -1517,17 +1682,32 @@ export function TradingViewTerminal() {
       const sessionDate = todayEt()
       const fetchDays = fetchDaysForBarWindow(barWindow, timeframe)
       const historyFrom = earliestFetchDate(sessionDate, fetchDays)
+      const yesterdayDate = previousEtDates(sessionDate, 1)[0] ?? sessionDate
+      const sessionFilter: "rth" | "all" = sessionMode === "rth" ? "rth" : "all"
+      const limit = rawLimitFor(timeframe, barWindow, fetchDays)
       for (const symbol of adjacentSymbols) {
-        const historyQs = new URLSearchParams({
+        // Warm the localStorage prior-day cache + the in-memory today cache
+        // so flipping to an adjacent symbol is instant.
+        if (historyFrom < sessionDate) {
+          void fetchPriorDayBars({
+            ticker: symbol,
+            from: historyFrom,
+            to: yesterdayDate,
+            tf: "1min",
+            session: sessionFilter,
+            limit,
+          }).catch(() => undefined)
+        }
+        const todayQs = new URLSearchParams({
           ticker: symbol,
-          from: historyFrom,
+          from: sessionDate,
           to: sessionDate,
           tf: "1min",
-          session: sessionMode === "rth" ? "rth" : "all",
-          limit: String(rawLimitFor(timeframe, barWindow, fetchDays)),
+          session: sessionFilter,
+          limit: String(limit),
         })
         const liveQs = new URLSearchParams({ ticker: symbol, minutes: "720" })
-        void fetchBarsWithMemory(`/api/bars?${historyQs}`, 120_000).catch(() => undefined)
+        void fetchBarsWithMemory(`/api/bars?${todayQs}`, 120_000).catch(() => undefined)
         void fetchBarsWithMemory(`/api/bars/live?${liveQs}`, 15_000).catch(() => undefined)
       }
     }, 350)
