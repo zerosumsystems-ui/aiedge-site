@@ -856,26 +856,23 @@ function ChartSurface({
         if (bar.h > maxPrice) maxPrice = bar.h
       }
       const minY = candles.priceToCoordinate(minPrice)
-      const maxY = candles.priceToCoordinate(maxPrice)
-      if (minY == null || maxY == null) {
+      if (minY == null) {
         setBarNumberLabels([])
         return
       }
-      const bullY = Number(minY) + 14
-      const bearY = Number(maxY) - 6
+      const labelY = Number(minY) + 14
       const nextLabels = currentBars
         .map((bar, index) => {
           const count = index + 1
           if (count !== 1 && count % 4 !== 0) return null
           const x = chart.timeScale().timeToCoordinate(bar.t as UTCTimestamp)
           if (x == null) return null
-          const belowBar = bar.c >= bar.o
           return {
             id: `${bar.t}-${count}`,
             x: Number(x),
-            y: belowBar ? bullY : bearY,
+            y: labelY,
             text: String(count),
-            tone: belowBar ? "bull" : "bear",
+            tone: bar.c >= bar.o ? "bull" : "bear",
           } satisfies BarNumberLabel
         })
         .filter((label): label is BarNumberLabel => label !== null)
@@ -1082,8 +1079,8 @@ function ChartSurface({
               key={label.id}
               data-testid="bar-number-label"
               aria-hidden="true"
-              className={`absolute -translate-x-1/2 font-mono font-semibold leading-none tabular-nums ${
-                label.tone === "bull" ? "text-[9px] text-[#62ad61]" : "-translate-y-full text-[8px] text-[#ff535d]"
+              className={`absolute -translate-x-1/2 font-mono text-[9px] font-semibold leading-none tabular-nums ${
+                label.tone === "bull" ? "text-[#62ad61]" : "text-[#ff535d]"
               }`}
               style={{ left: label.x, top: label.y }}
             >
