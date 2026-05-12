@@ -2389,6 +2389,188 @@ function SettingsMenu({
   )
 }
 
+// Header-anchored indicator picker. Lists every chart overlay with a
+// switch row so the user can add/remove them in one place instead of
+// hunting the small pills on the chart canvas. The chart pills stay
+// active as quick-toggles for the indicators that are currently on.
+function IndicatorsMenu({
+  intraday,
+  htfAvailable,
+  volumeVisible,
+  emaVisible,
+  htfEmaVisible,
+  vwapVisible,
+  barNumbersVisible,
+  levelVisibility,
+  drawnLinesCount,
+  onToggleVolume,
+  onToggleEma,
+  onToggleHtfEma,
+  onToggleVwap,
+  onToggleBarNumbers,
+  onToggleLevel,
+  onClearDrawnLines,
+}: {
+  intraday: boolean
+  htfAvailable: boolean
+  volumeVisible: boolean
+  emaVisible: boolean
+  htfEmaVisible: boolean
+  vwapVisible: boolean
+  barNumbersVisible: boolean
+  levelVisibility: LevelVisibility
+  drawnLinesCount: number
+  onToggleVolume: () => void
+  onToggleEma: () => void
+  onToggleHtfEma: () => void
+  onToggleVwap: () => void
+  onToggleBarNumbers: () => void
+  onToggleLevel: (group: LevelGroup) => void
+  onClearDrawnLines: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (event: MouseEvent) => {
+      if (!containerRef.current) return
+      if (event.target instanceof Node && !containerRef.current.contains(event.target)) {
+        setOpen(false)
+      }
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("mousedown", onClick)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", onClick)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
+  const overlays: Array<{ key: string; label: string; active: boolean; swatch: string; onToggle: () => void }> = [
+    { key: "vol", label: "Volume", active: volumeVisible, swatch: "rgba(0, 200, 150, 0.7)", onToggle: onToggleVolume },
+    { key: "ema", label: "EMA 20", active: emaVisible, swatch: "rgba(91, 168, 230, 0.85)", onToggle: onToggleEma },
+    ...(htfAvailable
+      ? [{ key: "htf", label: "HTF EMA 20", active: htfEmaVisible, swatch: "rgba(91, 168, 230, 0.55)", onToggle: onToggleHtfEma }]
+      : []),
+    { key: "vwap", label: "VWAP", active: vwapVisible, swatch: "rgba(180, 130, 230, 0.85)", onToggle: onToggleVwap },
+    ...(intraday
+      ? [{ key: "bn", label: "Bar numbers", active: barNumbersVisible, swatch: "rgba(155, 161, 166, 0.85)", onToggle: onToggleBarNumbers }]
+      : []),
+  ]
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-label="Indicators"
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={() => setOpen((o) => !o)}
+        className={`min-h-7 rounded-md border px-2 py-0.5 text-[11px] font-semibold outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+          open ? "border-teal/60 bg-surface-hover text-text" : "border-border/60 bg-surface text-sub"
+        }`}
+        title="Indicators"
+      >
+        ƒx
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="glass-panel absolute right-0 top-[calc(100%+6px)] z-30 w-64 rounded-md p-3 text-[12px] text-text"
+        >
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
+            Overlays
+          </div>
+          <div className="flex flex-col gap-1">
+            {overlays.map((overlay) => (
+              <button
+                key={overlay.key}
+                type="button"
+                onClick={overlay.onToggle}
+                aria-pressed={overlay.active}
+                className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-left text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+                  overlay.active
+                    ? "border-border bg-surface text-text"
+                    : "border-border/40 bg-bg text-sub hover:border-border-hover hover:text-text"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{
+                      backgroundColor: overlay.active ? overlay.swatch : "transparent",
+                      boxShadow: overlay.active ? "none" : `inset 0 0 0 1px ${overlay.swatch}80`,
+                    }}
+                  />
+                  {overlay.label}
+                </span>
+                <span className={`text-[10px] font-semibold uppercase ${overlay.active ? "text-teal" : "text-sub"}`}>
+                  {overlay.active ? "On" : "Off"}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {intraday && (
+            <>
+              <div className="mb-1.5 mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
+                Brooks levels
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                {LEVEL_GROUPS.map((group) => {
+                  const active = levelVisibility[group.key]
+                  return (
+                    <button
+                      key={group.key}
+                      type="button"
+                      onClick={() => onToggleLevel(group.key)}
+                      aria-pressed={active}
+                      className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-left text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+                        active
+                          ? "border-border bg-surface text-text"
+                          : "border-border/40 bg-bg text-sub hover:border-border-hover hover:text-text"
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{
+                          backgroundColor: active ? group.swatch : "transparent",
+                          boxShadow: active ? "none" : `inset 0 0 0 1px ${group.swatch}99`,
+                        }}
+                      />
+                      {group.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          {drawnLinesCount > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                onClearDrawnLines()
+                setOpen(false)
+              }}
+              className="mt-3 w-full rounded-md border border-border/60 bg-surface px-2 py-1 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            >
+              Clear drawn S/R · {drawnLinesCount}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function TradingViewTerminal() {
   const [symbols, setSymbols] = useState<string[]>(() => {
     const customs = readCustomSymbols()
@@ -3193,6 +3375,24 @@ export function TradingViewTerminal() {
             <span className="sm:hidden">List</span>
             <span className="hidden sm:inline">{watchlistVisible ? "Hide list" : "Show list"}</span>
           </button>
+          <IndicatorsMenu
+            intraday={isIntradayTimeframe(timeframe)}
+            htfAvailable={htfMinutesFor(timeframe) != null}
+            volumeVisible={volumeVisible}
+            emaVisible={emaVisible}
+            htfEmaVisible={htfEmaVisible}
+            vwapVisible={vwapVisible}
+            barNumbersVisible={barNumbersVisible}
+            levelVisibility={levelVisibility}
+            drawnLinesCount={drawnLines.length}
+            onToggleVolume={toggleVolume}
+            onToggleEma={toggleEma}
+            onToggleHtfEma={toggleHtfEma}
+            onToggleVwap={toggleVwap}
+            onToggleBarNumbers={toggleBarNumbers}
+            onToggleLevel={toggleLevelGroup}
+            onClearDrawnLines={clearDrawnLines}
+          />
           <SettingsMenu
             displayTimezone={displayTimezone}
             onSelectTimezone={setDisplayTimezone}
