@@ -1,0 +1,27 @@
+# Dockerfile for the Databento live-bar aggregator.
+# Pairs with fly.live-bars.toml. The aggregator is a long-lived Python
+# process that subscribes to Databento live data, buckets trades into
+# 1-minute OHLCV bars per symbol, and writes each closed bar to Upstash
+# Redis. /api/bars/live (in this same repo) reads from the same key.
+#
+# Build context is the repo root so we can grab scripts/live_bars_aggregator.py.
+
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# Databento is the only third-party dep. Stdlib handles everything else
+# (Upstash REST via urllib, signal handling, env loading, bar bucketing).
+# Pin databento so unrelated SDK changes don't break the aggregator
+# silently — bump intentionally after testing.
+RUN pip install "databento>=0.55,<0.60"
+
+COPY scripts/live_bars_aggregator.py /app/live_bars_aggregator.py
+
+# Run unbuffered so Fly's log stream gets each line in real time.
+CMD ["python", "-u", "/app/live_bars_aggregator.py"]

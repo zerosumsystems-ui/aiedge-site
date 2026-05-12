@@ -17,6 +17,8 @@ export const dynamic = "force-dynamic"
  * can fall back gracefully to hist with the existing 60-min clamp.
  */
 
+type LiveStatus = "ok" | "empty-set" | "upstash-not-configured"
+
 interface LiveBarsResponse {
   bars: Bar[]
   timeframe: ChartTimeframe
@@ -25,6 +27,7 @@ interface LiveBarsResponse {
   from: string
   to: string
   source: "databento-live"
+  liveStatus: LiveStatus
 }
 
 function parseBar(member: string): Bar | null {
@@ -76,12 +79,13 @@ export async function GET(request: Request) {
       from: new Date(from * 1000).toISOString(),
       to: new Date(now * 1000).toISOString(),
       source: "databento-live",
+      liveStatus: "upstash-not-configured",
     }
 
     return Response.json(payload, {
       headers: {
         "Cache-Control": "no-store",
-        "X-Live-Status": "upstash-not-configured",
+        "X-Live-Status": payload.liveStatus,
       },
     })
   }
@@ -92,6 +96,7 @@ export async function GET(request: Request) {
     .filter((b): b is Bar => b !== null)
     .sort((a, b) => a.t - b.t)
 
+  const liveStatus: LiveStatus = bars.length > 0 ? "ok" : "empty-set"
   const payload: LiveBarsResponse = {
     bars,
     timeframe: "1min",
@@ -100,12 +105,13 @@ export async function GET(request: Request) {
     from: new Date(from * 1000).toISOString(),
     to: new Date(now * 1000).toISOString(),
     source: "databento-live",
+    liveStatus,
   }
 
   return Response.json(payload, {
     headers: {
       "Cache-Control": "no-store",
-      "X-Live-Status": bars.length > 0 ? "ok" : "empty-set",
+      "X-Live-Status": liveStatus,
     },
   })
 }

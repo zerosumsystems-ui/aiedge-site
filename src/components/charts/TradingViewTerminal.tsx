@@ -21,10 +21,13 @@ import type { Bar, ChartTimeframe } from "@/lib/types"
 type IntradayTimeframe = Extract<ChartTimeframe, "1min" | "5min" | "15min" | "30min" | "1h">
 type SessionMode = "rth" | "all"
 
+type LiveStatus = "ok" | "empty-set" | "upstash-not-configured" | "unknown"
+
 interface BarsPayload {
   bars: Bar[]
   ticker: string
   source: string
+  liveStatus?: LiveStatus
 }
 
 interface SymbolsPayload {
@@ -190,6 +193,20 @@ function previousEtDates(date: string, count: number): string[] {
     const next = new Date(Date.UTC(year, month - 1, day - index - 1, 12))
     return next.toISOString().slice(0, 10)
   })
+}
+
+function liveStatusColor(status: LiveStatus, liveFresh: boolean): string {
+  if (status === "upstash-not-configured") return "bg-red"
+  if (status === "empty-set") return "bg-yellow"
+  if (status === "ok") return liveFresh ? "bg-teal" : "bg-yellow"
+  return "bg-gray"
+}
+
+function liveStatusLabel(status: LiveStatus, liveFresh: boolean): string {
+  if (status === "upstash-not-configured") return "Live feed not configured (Upstash env vars missing)"
+  if (status === "empty-set") return "Live feed configured — waiting for first bar from the aggregator"
+  if (status === "ok") return liveFresh ? "Live — data flowing" : "Live — last bar is stale"
+  return "Connecting…"
 }
 
 function mergeBars(historyBars: Bar[], liveBars: Bar[]): Bar[] {
@@ -610,6 +627,7 @@ function ChartSurface({
   symbols,
   levelVisibility,
   liveFresh,
+  liveStatus,
   onSelectSymbol,
   onSelectTimeframe,
   onSelectBarWindow,
@@ -625,6 +643,7 @@ function ChartSurface({
   symbols: string[]
   levelVisibility: LevelVisibility
   liveFresh: boolean
+  liveStatus: LiveStatus
   onSelectSymbol: (symbol: string) => void
   onSelectTimeframe: (timeframe: IntradayTimeframe) => void
   onSelectBarWindow: (barWindow: number) => void
@@ -1047,8 +1066,9 @@ function ChartSurface({
           <div className="inline-flex flex-col rounded-md border border-border/40 bg-black/65 px-2 py-1 sm:px-2.5 sm:py-1.5">
             <div className="flex items-center gap-1.5">
               <span
-                aria-hidden="true"
-                className={`h-1.5 w-1.5 rounded-full ${liveFresh ? "bg-teal" : "bg-yellow"}`}
+                title={liveStatusLabel(liveStatus, liveFresh)}
+                aria-label={liveStatusLabel(liveStatus, liveFresh)}
+                className={`pointer-events-auto h-1.5 w-1.5 rounded-full ${liveStatusColor(liveStatus, liveFresh)}`}
               />
               <span className="font-mono text-base font-semibold leading-none tabular-nums text-text sm:text-lg">
                 {formatPrice(latest?.c)}
@@ -1255,6 +1275,7 @@ export function TradingViewTerminal() {
   const [refreshNonce, setRefreshNonce] = useState(0)
   const [historyBars, setHistoryBars] = useState<Bar[]>([])
   const [liveBars, setLiveBars] = useState<Bar[]>([])
+  const [liveStatus, setLiveStatus] = useState<LiveStatus>("unknown")
   const [contextBars, setContextBars] = useState<Bar[]>([])
   const [priorRthBars, setPriorRthBars] = useState<Bar[]>([])
   const [historyError, setHistoryError] = useState<string | null>(null)
@@ -1365,6 +1386,7 @@ export function TradingViewTerminal() {
         const [result] = liveResult
         if (result.status === "fulfilled") {
           setLiveBars(result.value.bars)
+          setLiveStatus(result.value.liveStatus ?? "unknown")
           setLiveError(null)
         } else {
           setLiveError(result.reason instanceof Error ? result.reason.message : String(result.reason))
@@ -1389,9 +1411,11 @@ export function TradingViewTerminal() {
 
       if (liveResult.status === "fulfilled") {
         setLiveBars(liveResult.value.bars)
+        setLiveStatus(liveResult.value.liveStatus ?? "unknown")
         setLiveError(null)
       } else {
         setLiveBars([])
+        setLiveStatus("unknown")
         setLiveError(liveResult.reason instanceof Error ? liveResult.reason.message : String(liveResult.reason))
       }
 
@@ -1598,6 +1622,7 @@ export function TradingViewTerminal() {
               symbols={symbols}
               levelVisibility={levelVisibility}
               liveFresh={liveFresh}
+              liveStatus={liveStatus}
               onSelectSymbol={selectSymbol}
               onSelectTimeframe={setTimeframe}
               onSelectBarWindow={setBarWindow}

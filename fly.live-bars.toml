@@ -1,0 +1,35 @@
+# Fly.io config for the Databento live-bar aggregator. Pairs with
+# Dockerfile.live-bars. This is a worker process — no HTTP service,
+# just a long-lived Python loop that holds a WebSocket to Databento
+# and writes 1-min bars to Upstash Redis.
+#
+# Deploy from repo root:
+#   fly launch --config fly.live-bars.toml --dockerfile Dockerfile.live-bars --no-deploy --copy-config --yes
+#   fly secrets set --config fly.live-bars.toml \
+#     DATABENTO_API_KEY=db-xxxxx \
+#     LIVE_DATASET=EQUS.MINI \
+#     LIVE_SCHEMA=trades \
+#     LIVE_SYMBOLS=SPY,QQQ,NVDA,TSLA,META,GOOGL,AAPL,MSFT,AMZN \
+#     UPSTASH_REDIS_REST_URL=https://teaching-boa-121408.upstash.io \
+#     UPSTASH_REDIS_REST_TOKEN=<rotated value>
+#   fly deploy --config fly.live-bars.toml
+#
+# Status / logs:
+#   fly status --config fly.live-bars.toml
+#   fly logs --config fly.live-bars.toml
+
+app = "aiedge-live-bars"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile.live-bars"
+
+# Single always-on worker. Fly's default behavior for non-HTTP apps is
+# to keep the machine running; no auto_stop config needed. On crash the
+# Docker CMD exits non-zero and Fly respawns it.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+[deploy]
+  strategy = "immediate"
