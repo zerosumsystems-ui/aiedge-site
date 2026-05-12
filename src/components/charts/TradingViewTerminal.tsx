@@ -101,7 +101,6 @@ const TIMEFRAMES: Array<{ value: ChartViewTimeframe; label: string; minutes: num
   { value: "1min", label: "1m", minutes: 1 },
   { value: "5min", label: "5m", minutes: 5 },
   { value: "15min", label: "15m", minutes: 15 },
-  { value: "30min", label: "30m", minutes: 30 },
   { value: "1h", label: "1H", minutes: 60 },
   // Non-intraday timeframes — labels deliberately distinct from the
   // bar-window selector's "1D/2D/3D" to avoid confusion. "Day" = the
@@ -342,7 +341,6 @@ function htfMinutesFor(timeframe: ChartViewTimeframe): number | null {
     case "1min": return 5
     case "5min": return 15
     case "15min": return 60
-    case "30min": return 60
     // 1h and non-intraday already are the "higher timeframe" — no
     // overlay makes sense without fetching daily/weekly separately.
     default: return null
@@ -1107,10 +1105,8 @@ function ChartSurface({
   replayActive,
   onExitReplay,
   displayTimezone,
-  onCycleTimezone,
   compareSymbol,
   compareBars,
-  onPromptCompare,
   onClearCompare,
   onSelectSymbol,
   onAddSymbol,
@@ -1147,10 +1143,8 @@ function ChartSurface({
   replayActive: boolean
   onExitReplay: () => void
   displayTimezone: DisplayTimezone
-  onCycleTimezone: () => void
   compareSymbol: string | null
   compareBars: Bar[]
-  onPromptCompare: () => void
   onClearCompare: () => void
   onSelectSymbol: (symbol: string) => void
   onAddSymbol: (symbol: string) => void
@@ -2014,26 +2008,7 @@ function ChartSurface({
                 <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-orange" />
                 vs {compareSymbol} <span className="text-sub/60">×</span>
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onPromptCompare}
-                aria-label="Compare with another symbol"
-                title="Compare this chart's % change against another symbol"
-                className="glass-chip pointer-events-auto inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums text-sub outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-              >
-                Cmp +
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onCycleTimezone}
-              aria-label={`Display timezone: ${displayTimezone}. Tap to cycle.`}
-              title="Cycle display timezone (ET → UTC → local)"
-              className="glass-chip pointer-events-auto inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums text-sub outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-            >
-              TZ <span className="text-text">{displayTimezone === "local" ? "LOC" : displayTimezone}</span>
-            </button>
+            ) : null}
             {replayActive ? (
               <button
                 type="button"
@@ -2256,6 +2231,164 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
+// Top-right gear menu housing common settings (display TZ, comparison
+// symbol, refresh). Anchored under its trigger button. Closes on
+// outside click and on Esc so it never traps the user.
+function SettingsMenu({
+  displayTimezone,
+  onSelectTimezone,
+  compareSymbol,
+  onSetCompare,
+  onClearCompare,
+  onRefresh,
+}: {
+  displayTimezone: DisplayTimezone
+  onSelectTimezone: (tz: DisplayTimezone) => void
+  compareSymbol: string | null
+  onSetCompare: (symbol: string) => void
+  onClearCompare: () => void
+  onRefresh: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [compareDraft, setCompareDraft] = useState(compareSymbol ?? "")
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setCompareDraft(compareSymbol ?? "")
+  }, [compareSymbol])
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (event: MouseEvent) => {
+      if (!containerRef.current) return
+      if (event.target instanceof Node && !containerRef.current.contains(event.target)) {
+        setOpen(false)
+      }
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("mousedown", onClick)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", onClick)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
+  const submitCompare = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const clean = compareDraft.trim().toUpperCase()
+    if (!clean) {
+      onClearCompare()
+      return
+    }
+    onSetCompare(clean)
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-label="Chart settings"
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={() => setOpen((o) => !o)}
+        className={`min-h-7 rounded-md border px-2 py-0.5 text-[11px] font-semibold outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+          open ? "border-teal/60 bg-surface-hover text-text" : "border-border/60 bg-surface text-sub"
+        }`}
+        title="Chart settings"
+      >
+        <span aria-hidden="true" className="inline-block leading-none">⚙</span>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="glass-panel absolute right-0 top-[calc(100%+6px)] z-30 w-64 rounded-md p-3 text-[12px] text-text"
+        >
+          <div className="mb-3">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
+              Display timezone
+            </div>
+            <div className="flex gap-1">
+              {(["ET", "UTC", "local"] as const).map((tz) => (
+                <button
+                  key={tz}
+                  type="button"
+                  onClick={() => onSelectTimezone(tz)}
+                  aria-pressed={displayTimezone === tz}
+                  className={`flex-1 rounded-md border px-2 py-1 text-[11px] font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+                    displayTimezone === tz
+                      ? "border-teal/60 bg-teal/15 text-teal"
+                      : "border-border/60 bg-surface text-sub hover:text-text"
+                  }`}
+                >
+                  {tz === "local" ? "Local" : tz}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-3">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
+                Compare with
+              </span>
+              {compareSymbol && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearCompare()
+                    setCompareDraft("")
+                  }}
+                  className="text-[10px] font-semibold text-sub hover:text-text"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <form onSubmit={submitCompare} className="flex gap-1">
+              <input
+                type="text"
+                value={compareDraft}
+                onChange={(event) => setCompareDraft(event.target.value.toUpperCase())}
+                placeholder="e.g. QQQ"
+                spellCheck={false}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                className="min-w-0 flex-1 rounded-md border border-border/60 bg-surface px-2 py-1 font-mono text-[12px] uppercase text-text outline-none focus-visible:ring-2 focus-visible:ring-teal/70"
+              />
+              <button
+                type="submit"
+                className="rounded-md border border-border/60 bg-surface px-2 py-1 text-[11px] font-semibold text-text outline-none hover:border-border-hover focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+              >
+                Set
+              </button>
+            </form>
+            {compareSymbol && (
+              <div className="mt-1 font-mono text-[10px] tabular-nums text-orange/90">
+                Active: vs {compareSymbol}
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              onRefresh()
+              setOpen(false)
+            }}
+            className="w-full rounded-md border border-border/60 bg-surface px-2 py-1 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+          >
+            Refresh data
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function TradingViewTerminal() {
   const [symbols, setSymbols] = useState<string[]>(() => {
     const customs = readCustomSymbols()
@@ -2398,9 +2531,6 @@ export function TradingViewTerminal() {
   const toggleBarNumbers = useCallback(() => {
     setBarNumbersVisible((v) => !v)
   }, [])
-  const cycleTimezone = useCallback(() => {
-    setDisplayTimezone((tz) => (tz === "ET" ? "UTC" : tz === "UTC" ? "local" : "ET"))
-  }, [])
   const setCompareSymbolSafely = useCallback((value: string | null) => {
     if (value == null) {
       setCompareSymbol(null)
@@ -2412,12 +2542,6 @@ export function TradingViewTerminal() {
     setCompareSymbol(clean)
     setCompareBars([])
   }, [])
-  const promptCompareSymbol = useCallback(() => {
-    if (typeof window === "undefined") return
-    const input = window.prompt("Compare with symbol (blank to clear):", compareSymbol ?? "")
-    if (input == null) return
-    setCompareSymbolSafely(input.trim() ? input : null)
-  }, [compareSymbol, setCompareSymbolSafely])
   const clearCompareSymbol = useCallback(() => {
     setCompareSymbolSafely(null)
   }, [setCompareSymbolSafely])
@@ -2973,10 +3097,9 @@ export function TradingViewTerminal() {
         "1": "1min",
         "2": "5min",
         "3": "15min",
-        "4": "30min",
-        "5": "1h",
-        "6": "daily",
-        "7": "weekly",
+        "4": "1h",
+        "5": "daily",
+        "6": "weekly",
       }
       if (event.key in tfKeys) {
         setTimeframe(tfKeys[event.key])
@@ -3070,13 +3193,14 @@ export function TradingViewTerminal() {
             <span className="sm:hidden">List</span>
             <span className="hidden sm:inline">{watchlistVisible ? "Hide list" : "Show list"}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setRefreshNonce((value) => value + 1)}
-            className="hidden min-h-7 rounded-md border border-border/60 bg-surface px-2 py-0.5 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:inline-flex"
-          >
-            Refresh
-          </button>
+          <SettingsMenu
+            displayTimezone={displayTimezone}
+            onSelectTimezone={setDisplayTimezone}
+            compareSymbol={compareSymbol}
+            onSetCompare={setCompareSymbolSafely}
+            onClearCompare={clearCompareSymbol}
+            onRefresh={() => setRefreshNonce((value) => value + 1)}
+          />
         </div>
       </header>
 
@@ -3128,10 +3252,8 @@ export function TradingViewTerminal() {
               replayActive={replayIndex != null}
               onExitReplay={() => setReplayIndex(null)}
               displayTimezone={displayTimezone}
-              onCycleTimezone={cycleTimezone}
               compareSymbol={compareSymbol}
               compareBars={displayCompareBars}
-              onPromptCompare={promptCompareSymbol}
               onClearCompare={clearCompareSymbol}
               onSelectSymbol={selectSymbol}
               onAddSymbol={addSymbol}
