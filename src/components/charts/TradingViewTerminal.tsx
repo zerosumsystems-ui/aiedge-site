@@ -844,19 +844,36 @@ function ChartSurface({
     const updateBarNumberLabels = () => {
       const candles = candlesRef.current
       if (!candles) return
-      const nextLabels = barsRef.current
+      const currentBars = barsRef.current
+      if (currentBars.length === 0) {
+        setBarNumberLabels([])
+        return
+      }
+      let minPrice = Infinity
+      let maxPrice = -Infinity
+      for (const bar of currentBars) {
+        if (bar.l < minPrice) minPrice = bar.l
+        if (bar.h > maxPrice) maxPrice = bar.h
+      }
+      const minY = candles.priceToCoordinate(minPrice)
+      const maxY = candles.priceToCoordinate(maxPrice)
+      if (minY == null || maxY == null) {
+        setBarNumberLabels([])
+        return
+      }
+      const bullY = Number(minY) + 14
+      const bearY = Number(maxY) - 6
+      const nextLabels = currentBars
         .map((bar, index) => {
           const count = index + 1
           if (count !== 1 && count % 4 !== 0) return null
           const x = chart.timeScale().timeToCoordinate(bar.t as UTCTimestamp)
-          const anchorPrice = bar.c >= bar.o ? bar.l : bar.h
-          const y = candles.priceToCoordinate(anchorPrice)
-          if (x == null || y == null) return null
+          if (x == null) return null
           const belowBar = bar.c >= bar.o
           return {
             id: `${bar.t}-${count}`,
             x: Number(x),
-            y: belowBar ? y + 16 : y - 14,
+            y: belowBar ? bullY : bearY,
             text: String(count),
             tone: belowBar ? "bull" : "bear",
           } satisfies BarNumberLabel
