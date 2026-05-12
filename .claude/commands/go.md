@@ -25,7 +25,11 @@ Run checks that match the change. For normal app code in this Next.js repo, use:
 - `npm run lint`
 - `npm run build`
 
-When a local dev server is already running, also verify the affected route with `curl -I`, for example:
+For chart work, also run the browser smoke test against a running local server:
+
+- `npm run test:chart`
+
+When a local dev server is already running, verify the affected route with `curl -I`, for example:
 
 - `curl -I --max-time 10 http://127.0.0.1:3000/chart`
 
@@ -37,7 +41,7 @@ Before pushing, send a concise proof block:
 
 - Files changed
 - Checks run and passed
-- Local route or other runtime verification, when applicable
+- Local route, browser smoke-test result, or other runtime verification, when applicable
 - Any checks intentionally skipped and why
 
 Do not end the turn after this proof. Continue directly to publishing.

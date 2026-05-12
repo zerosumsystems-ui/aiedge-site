@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:chart": "playwright test tests/chart-smoke.spec.ts --project=chromium"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
@@ -22,6 +23,7 @@
     "snaptrade-typescript-sdk": "^9.0.164"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
