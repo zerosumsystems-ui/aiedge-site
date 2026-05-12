@@ -916,21 +916,31 @@ function ChartSurface({
         return
       }
       const labelY = Number(minY) + 14
-      const nextLabels = currentBars
-        .map((bar, index) => {
-          const count = index + 1
-          if (count !== 1 && count % 4 !== 0) return null
-          const x = chart.timeScale().timeToCoordinate(bar.t as UTCTimestamp)
-          if (x == null) return null
-          return {
-            id: `${bar.t}-${count}`,
-            x: Number(x),
-            y: labelY,
-            text: String(count),
-            tone: bar.c >= bar.o ? "bull" : "bear",
-          } satisfies BarNumberLabel
+      // Brooks bar numbering resets every session — bar #1 is the first
+      // RTH bar of each day. With multi-day views the index across
+      // currentBars no longer matches the per-session count, so track
+      // the day boundary and reset.
+      const nextLabels: BarNumberLabel[] = []
+      let prevDate: string | null = null
+      let dayCount = 0
+      for (const bar of currentBars) {
+        const date = etDateForTimestamp(bar.t)
+        if (date !== prevDate) {
+          prevDate = date
+          dayCount = 0
+        }
+        dayCount += 1
+        if (dayCount !== 1 && dayCount % 4 !== 0) continue
+        const x = chart.timeScale().timeToCoordinate(bar.t as UTCTimestamp)
+        if (x == null) continue
+        nextLabels.push({
+          id: `${bar.t}-${dayCount}`,
+          x: Number(x),
+          y: labelY,
+          text: String(dayCount),
+          tone: bar.c >= bar.o ? "bull" : "bear",
         })
-        .filter((label): label is BarNumberLabel => label !== null)
+      }
       setBarNumberLabels(nextLabels)
     }
     const scheduleLabels = () => {
