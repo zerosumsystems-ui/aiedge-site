@@ -172,6 +172,27 @@ function etDateForTimestamp(timestamp: number): string {
   return ET_DATE_FORMATTER.format(new Date(timestamp * 1000))
 }
 
+type DisplayTimezone = "ET" | "UTC" | "local"
+
+const UTC_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "UTC",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+})
+
+const LOCAL_FORMATTER = new Intl.DateTimeFormat([], {
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+})
+
+function formatBarTime(timestamp: number, tz: DisplayTimezone): string {
+  if (tz === "UTC") return UTC_FORMATTER.format(new Date(timestamp * 1000))
+  if (tz === "local") return LOCAL_FORMATTER.format(new Date(timestamp * 1000))
+  return formatEt(timestamp)
+}
+
 function formatEt(timestamp: number): string {
   return ET_CLOCK_FORMATTER.format(new Date(timestamp * 1000))
 }
@@ -608,6 +629,11 @@ function storedWatchlistVisible(): boolean {
 function storedVolumeVisible(): boolean {
   const value = readChartPrefs().volumeVisible
   return typeof value === "boolean" ? value : true
+}
+
+function storedDisplayTimezone(): DisplayTimezone {
+  const value = readChartPrefs().displayTimezone
+  return value === "UTC" || value === "local" ? value : "ET"
 }
 
 // Per-symbol overrides for timeframe / scope / toggles, layered on top
@@ -1063,6 +1089,10 @@ function ChartSurface({
   vwapVisible,
   htfEmaVisible,
   drawnLines,
+  replayActive,
+  onExitReplay,
+  displayTimezone,
+  onCycleTimezone,
   onSelectSymbol,
   onAddSymbol,
   onSelectTimeframe,
@@ -1093,6 +1123,10 @@ function ChartSurface({
   vwapVisible: boolean
   htfEmaVisible: boolean
   drawnLines: number[]
+  replayActive: boolean
+  onExitReplay: () => void
+  displayTimezone: DisplayTimezone
+  onCycleTimezone: () => void
   onSelectSymbol: (symbol: string) => void
   onAddSymbol: (symbol: string) => void
   onSelectTimeframe: (timeframe: ChartViewTimeframe) => void
@@ -1132,6 +1166,14 @@ function ChartSurface({
   const emaByTimeRef = useRef<Map<number, number>>(new Map())
   const tapStartRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   const priceScaleDragRef = useRef<{ startY: number; from: number; to: number } | null>(null)
+  // Tracks the currently selected display timezone for axis / readout
+  // formatting. lightweight-charts' formatter callbacks are captured
+  // once at chart creation, so we read from the ref instead of from
+  // props to avoid rebuilding the chart on every TZ toggle.
+  const displayTimezoneRef = useRef(displayTimezone)
+  useEffect(() => {
+    displayTimezoneRef.current = displayTimezone
+  }, [displayTimezone])
   const [barNumberLabels, setBarNumberLabels] = useState<BarNumberLabel[]>([])
   // Each entry = the x-coordinate of a session-open bar. Rendered as a
   // thin vertical line that visually separates ET trading days in 2D /
@@ -1165,6 +1207,25 @@ function ChartSurface({
   useEffect(() => {
     visibleBarCountRef.current = bars.length
   }, [bars.length])
+
+  // Re-apply the chart's tick / crosshair time formatters whenever the
+  // display timezone changes. The formatters themselves read from
+  // displayTimezoneRef, but lightweight-charts caches the rendered tick
+  // labels, so we have to call applyOptions to force a redraw.
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart) return
+    chart.applyOptions({
+      timeScale: {
+        tickMarkFormatter: (time: Time) =>
+          typeof time === "number" ? formatBarTime(time, displayTimezoneRef.current) : String(time),
+      },
+      localization: {
+        timeFormatter: (time: Time) =>
+          typeof time === "number" ? formatBarTime(time, displayTimezoneRef.current) : String(time),
+      },
+    })
+  }, [displayTimezone])
 
   const fitChartToBarWindow = useCallback((targetWindow: number) => {
     const chart = chartRef.current
@@ -1200,7 +1261,7 @@ function ChartSurface({
     const containerWidth = container.clientWidth || 360
     const containerHeight = container.clientHeight || 560
     const lines = [
-      `#${index + 1}  ${formatEt(bar.t)}`,
+      `#${index + 1}  ${formatBarTime(bar.t, displayTimezoneRef.current)}`,
       `O ${formatPrice(bar.o)}  H ${formatPrice(bar.h)}`,
       `L ${formatPrice(bar.l)}  C ${formatPrice(bar.c)}`,
       `EMA20 ${formatPrice(ema)}`,
@@ -1342,10 +1403,12 @@ function ChartSurface({
         borderColor: AXIS,
         timeVisible: true,
         secondsVisible: false,
-        tickMarkFormatter: (time: Time) => (typeof time === "number" ? formatEt(time) : String(time)),
+        tickMarkFormatter: (time: Time) =>
+          typeof time === "number" ? formatBarTime(time, displayTimezoneRef.current) : String(time),
       },
       localization: {
-        timeFormatter: (time: Time) => (typeof time === "number" ? formatEt(time) : String(time)),
+        timeFormatter: (time: Time) =>
+          typeof time === "number" ? formatBarTime(time, displayTimezoneRef.current) : String(time),
       },
       crosshair: {
         mode: 1,
@@ -1848,6 +1911,28 @@ function ChartSurface({
                 S/R · {drawnLines.length} <span className="text-sub/60">×</span>
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={onCycleTimezone}
+              aria-label={`Display timezone: ${displayTimezone}. Tap to cycle.`}
+              title="Cycle display timezone (ET → UTC → local)"
+              className="glass-chip pointer-events-auto inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums text-sub outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            >
+              TZ <span className="text-text">{displayTimezone === "local" ? "LOC" : displayTimezone}</span>
+            </button>
+            {replayActive ? (
+              <button
+                type="button"
+                onClick={onExitReplay}
+                aria-label="Exit replay mode"
+                title="Replay mode active — tap to exit, ← / → to step"
+                className="glass-chip pointer-events-auto inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums text-yellow outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+              >
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-yellow" />
+                REPLAY {bars.at(-1) ? formatBarTime(bars[bars.length - 1].t, displayTimezone) : ""}{" "}
+                <span className="text-sub/60">×</span>
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -2096,6 +2181,10 @@ export function TradingViewTerminal() {
   const [vwapVisible, setVwapVisible] = useState(() => symbolVwapVisible(initialSymbol))
   const [htfEmaVisible, setHtfEmaVisible] = useState(() => symbolHtfEmaVisible(initialSymbol))
   const [drawnLines, setDrawnLines] = useState<number[]>(() => readDrawnLines(initialSymbol))
+  // Replay mode. null = normal (live tail). A number freezes the chart
+  // to that bar index in displayBars; [/] keys step forward/back.
+  const [replayIndex, setReplayIndex] = useState<number | null>(null)
+  const [displayTimezone, setDisplayTimezone] = useState<DisplayTimezone>(storedDisplayTimezone)
   const barsCacheRef = useRef<Map<string, { payload: BarsPayload; fetchedAt: number }>>(new Map())
 
   useEffect(() => {
@@ -2110,8 +2199,9 @@ export function TradingViewTerminal() {
       watchlistVisible,
       levelVisibility,
       volumeVisible,
+      displayTimezone,
     })
-  }, [barWindow, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, watchlistVisible])
+  }, [barWindow, displayTimezone, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, watchlistVisible])
 
   useEffect(() => {
     // Per-symbol overrides — written on every state change so the
@@ -2182,6 +2272,9 @@ export function TradingViewTerminal() {
   }, [])
   const toggleHtfEma = useCallback(() => {
     setHtfEmaVisible((v) => !v)
+  }, [])
+  const cycleTimezone = useCallback(() => {
+    setDisplayTimezone((tz) => (tz === "ET" ? "UTC" : tz === "UTC" ? "local" : "ET"))
   }, [])
 
   const fetchBarsWithMemory = useCallback(async (url: string, maxAgeMs: number): Promise<BarsPayload> => {
@@ -2570,6 +2663,24 @@ export function TradingViewTerminal() {
     if (!intraday) return [] as Bar[]
     return aggregatedBars.filter((bar) => !displayDateSet.has(etDateForTimestamp(bar.t)))
   }, [aggregatedBars, displayDateSet, intraday])
+
+  // Replay mode slices displayBars down to the replay endpoint so the
+  // chart renders as if "live" stopped at that bar. EMA seed stays on
+  // the full seedBars so the indicator is correctly warmed up; only
+  // the visible range freezes.
+  const renderBars = useMemo(() => {
+    if (replayIndex == null) return displayBars
+    return displayBars.slice(0, Math.max(1, Math.min(displayBars.length, replayIndex + 1)))
+  }, [displayBars, replayIndex])
+
+  // Auto-clamp the replay index if the underlying bar set shrinks (e.g.
+  // after a scope reduction) — keep the slice valid.
+  useEffect(() => {
+    if (replayIndex == null) return
+    if (replayIndex >= displayBars.length) {
+      setReplayIndex(Math.max(0, displayBars.length - 1))
+    }
+  }, [displayBars.length, replayIndex])
   const activeSessionDate = useMemo(() => {
     const latest = displayBars.at(-1) ?? combinedBars.at(-1)
     return latest ? etDateForTimestamp(latest.t) : todayEt()
@@ -2623,6 +2734,7 @@ export function TradingViewTerminal() {
     setVwapVisible(symbolVwapVisible(clean))
     setHtfEmaVisible(symbolHtfEmaVisible(clean))
     setDrawnLines(readDrawnLines(clean))
+    setReplayIndex(null)
     setPriorRthBars([])
     setContextBars([])
     setSelectedSymbol(clean)
@@ -2690,6 +2802,24 @@ export function TradingViewTerminal() {
         return
       }
 
+      // Replay mode: L enters/exits; ←/→ step backward/forward when
+      // active. Step keys are no-ops outside replay mode so they don't
+      // intercept user agent shortcuts.
+      if (event.key === "l" || event.key === "L") {
+        setReplayIndex((current) => (current == null ? Math.max(0, displayBars.length - 1) : null))
+        event.preventDefault()
+        return
+      }
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        setReplayIndex((current) => {
+          if (current == null) return current
+          const direction = event.key === "ArrowRight" ? 1 : -1
+          return Math.max(0, Math.min(displayBars.length - 1, current + direction))
+        })
+        event.preventDefault()
+        return
+      }
+
       if (event.key === "v") {
         setVolumeVisible((v) => !v)
         event.preventDefault()
@@ -2703,7 +2833,7 @@ export function TradingViewTerminal() {
     }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [selectedSymbol, symbols, timeframe, barWindow, selectSymbol])
+  }, [selectedSymbol, symbols, timeframe, barWindow, selectSymbol, displayBars.length])
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-var(--nav-h))] max-w-[1600px] flex-col overflow-hidden bg-bg px-2 py-1 text-text sm:px-3 sm:py-3">
@@ -2755,7 +2885,7 @@ export function TradingViewTerminal() {
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-sub">
               <span>{dataset ?? "Databento"}</span>
               <span>{schema ?? "live"}</span>
-              {latestLive && <span>last {formatEt(latestLive.t)}</span>}
+              {latestLive && <span>last {formatBarTime(latestLive.t, displayTimezone)}</span>}
               {lastFetchedAt && <span>polled {lastFetchedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>}
             </div>
           </div>
@@ -2774,7 +2904,7 @@ export function TradingViewTerminal() {
           ) : (
             <ChartSurface
               symbol={selectedSymbol}
-              bars={displayBars}
+              bars={renderBars}
               seedBars={seedBars}
               levels={visibleBrooksLevels}
               timeframe={timeframe}
@@ -2790,6 +2920,10 @@ export function TradingViewTerminal() {
               vwapVisible={vwapVisible}
               htfEmaVisible={htfEmaVisible}
               drawnLines={drawnLines}
+              replayActive={replayIndex != null}
+              onExitReplay={() => setReplayIndex(null)}
+              displayTimezone={displayTimezone}
+              onCycleTimezone={cycleTimezone}
               onSelectSymbol={selectSymbol}
               onAddSymbol={addSymbol}
               onSelectTimeframe={setTimeframe}
