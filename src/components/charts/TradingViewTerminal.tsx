@@ -141,9 +141,6 @@ const BAR_WINDOW_CHOICES = [
   { value: 3, label: "3D" },
 ]
 
-// Approximate RTH minutes in a single US equity session (9:30-16:00 ET).
-const RTH_MINUTES_PER_DAY = 390
-
 const ET_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/New_York",
   year: "numeric",
@@ -331,9 +328,9 @@ function emaLineData(bars: Bar[], period = 20, seed?: number) {
   })
 }
 
-// Higher-timeframe EMA20 overlays. Each LTF bar inherits the most-
-// recent HTF EMA value so the line renders smoothly on the LTF chart —
-// Brooks-traditional context indicator. We expose four independent
+// Higher-timeframe EMA20 overlays. Intraday overlays interpolate between
+// HTF EMA points so they read as smooth guides on the LTF chart; daily
+// and weekly remain stepped context references. We expose four independent
 // HTFs (15m, 1h, daily, weekly) so traders can stack as many higher-
 // timeframe references as they want over the LTF candles.
 //
@@ -343,13 +340,14 @@ function emaLineData(bars: Bar[], period = 20, seed?: number) {
 //                  EMA20 has a real warmup period)
 //   color        — distinct hue so overlays don't blend into one another
 const HTF_SPECS = [
-  { key: "15m" as const, label: "15m EMA20", chipLabel: "15m", tf: "15min" as const, minutes: 15, lookbackDays: 5, session: "rth" as const, color: "rgba(245, 166, 35, 0.5)", lineWidth: 2 as const, lineStyle: LineStyle.Dotted },
-  { key: "1h" as const, label: "1h EMA20", chipLabel: "1h", tf: "1h" as const, minutes: 60, lookbackDays: 14, session: "rth" as const, color: "rgba(239, 83, 80, 0.5)", lineWidth: 2 as const, lineStyle: LineStyle.Dashed },
-  { key: "daily" as const, label: "Daily EMA20", chipLabel: "D", tf: "daily" as const, minutes: 390, lookbackDays: 100, session: null, color: "rgba(91, 168, 230, 1)", lineWidth: 2 as const, lineStyle: LineStyle.Dotted },
-  { key: "weekly" as const, label: "Weekly EMA20", chipLabel: "W", tf: "weekly" as const, minutes: 1950, lookbackDays: 480, session: null, color: "rgba(91, 168, 230, 1)", lineWidth: 2 as const, lineStyle: LineStyle.Dashed },
+  { key: "15m" as const, label: "15m EMA20", chipLabel: "15m", tf: "15min" as const, minutes: 15, lookbackDays: 5, session: "rth" as const, color: "rgba(245, 166, 35, 0.5)", lineWidth: 2 as const, lineStyle: LineStyle.Dotted, projection: "smooth" as const },
+  { key: "1h" as const, label: "1h EMA20", chipLabel: "1h", tf: "1h" as const, minutes: 60, lookbackDays: 14, session: "rth" as const, color: "rgba(239, 83, 80, 0.5)", lineWidth: 2 as const, lineStyle: LineStyle.Dashed, projection: "smooth" as const },
+  { key: "daily" as const, label: "Daily EMA20", chipLabel: "D", tf: "daily" as const, minutes: 390, lookbackDays: 100, session: null, color: "rgba(91, 168, 230, 1)", lineWidth: 2 as const, lineStyle: LineStyle.Dotted, projection: "step" as const },
+  { key: "weekly" as const, label: "Weekly EMA20", chipLabel: "W", tf: "weekly" as const, minutes: 1950, lookbackDays: 480, session: null, color: "rgba(91, 168, 230, 1)", lineWidth: 2 as const, lineStyle: LineStyle.Dashed, projection: "step" as const },
 ]
 
 type HtfKey = (typeof HTF_SPECS)[number]["key"]
+type HtfProjection = (typeof HTF_SPECS)[number]["projection"]
 type HtfVisibility = Record<HtfKey, boolean>
 
 const TF_MINUTES: Record<ChartViewTimeframe, number> = {
@@ -383,12 +381,13 @@ function emptyHtfBars(): Record<HtfKey, Bar[]> {
   }, {} as Record<HtfKey, Bar[]>)
 }
 
-// Project a pre-computed HTF EMA series onto the LTF bar grid. Each
-// LTF bar takes the most-recent HTF EMA value, so the overlay reads as
-// a flat segment that steps up/down whenever a new HTF bar closes.
+// Project a pre-computed HTF EMA series onto the LTF bar grid. Step mode
+// holds the latest HTF EMA until a new point appears; smooth mode linearly
+// interpolates between neighboring HTF EMA points for intraday overlays.
 function projectHtfEmaOntoLtfBars(
   htfEma: { time: number; value: number }[],
   ltfBars: Bar[],
+  projection: HtfProjection,
 ): { time: UTCTimestamp; value: number }[] {
   if (htfEma.length === 0 || ltfBars.length === 0) return []
   const result: { time: UTCTimestamp; value: number }[] = []
@@ -398,7 +397,14 @@ function projectHtfEmaOntoLtfBars(
       idx += 1
     }
     if (htfEma[idx].time <= bar.t) {
-      result.push({ time: bar.t as UTCTimestamp, value: htfEma[idx].value })
+      const current = htfEma[idx]
+      const next = htfEma[idx + 1]
+      let value = current.value
+      if (projection === "smooth" && next && next.time > current.time) {
+        const ratio = Math.max(0, Math.min(1, (bar.t - current.time) / (next.time - current.time)))
+        value = current.value + (next.value - current.value) * ratio
+      }
+      result.push({ time: bar.t as UTCTimestamp, value })
     }
   }
   return result
@@ -696,6 +702,7 @@ interface SymbolPrefs {
 }
 
 const PER_SYMBOL_PREFS_KEY = "aiedge.chart.perSymbol.v1"
+const WEEKLY_HTF_EMA_OPT_INS_KEY = "aiedge.chart.weeklyHtfEmaOptIns.v1"
 
 function readAllSymbolPrefs(): Record<string, SymbolPrefs> {
   if (typeof window === "undefined") return {}
@@ -709,6 +716,31 @@ function readAllSymbolPrefs(): Record<string, SymbolPrefs> {
 
 function readSymbolPrefs(symbol: string): SymbolPrefs {
   return readAllSymbolPrefs()[symbol] ?? {}
+}
+
+function readWeeklyHtfEmaOptIns(): Record<string, true> {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(WEEKLY_HTF_EMA_OPT_INS_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, true>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function hasWeeklyHtfEmaOptIn(symbol: string): boolean {
+  return readWeeklyHtfEmaOptIns()[symbol] === true
+}
+
+function markWeeklyHtfEmaOptIn(symbol: string): void {
+  if (typeof window === "undefined") return
+  try {
+    const optIns = readWeeklyHtfEmaOptIns()
+    optIns[symbol] = true
+    window.localStorage.setItem(WEEKLY_HTF_EMA_OPT_INS_KEY, JSON.stringify(optIns))
+  } catch {
+    // Quota / private mode — best-effort.
+  }
 }
 
 function writeSymbolPrefs(symbol: string, prefs: SymbolPrefs): void {
@@ -759,8 +791,10 @@ function symbolVwapVisible(symbol: string): boolean {
 
 function symbolHtfEmaVisibility(symbol: string): HtfVisibility {
   const stored = readSymbolPrefs(symbol).htfEmaVisibility ?? {}
+  const weeklyOptedIn = hasWeeklyHtfEmaOptIn(symbol)
   const result = emptyHtfVisibility()
   for (const spec of HTF_SPECS) {
+    if (spec.key === "weekly" && !weeklyOptedIn) continue
     const v = stored[spec.key]
     // Default off — HTF EMA overlays stack visually, so opt-in per HTF.
     if (typeof v === "boolean") result[spec.key] = v
@@ -1522,6 +1556,7 @@ function ChartSurface({
         priceLineVisible: false,
         lastValueVisible: false,
         crosshairMarkerVisible: false,
+        autoscaleInfoProvider: () => null,
         title: spec.chipLabel,
       })
     }
@@ -1777,7 +1812,7 @@ function ChartSurface({
       const sourceBars = htfBars[spec.key]
       if (active && sourceBars.length > 0 && bars.length > 0) {
         const htfEma = emaLineData(sourceBars, 20).map((p) => ({ time: Number(p.time), value: p.value }))
-        series.setData(projectHtfEmaOntoLtfBars(htfEma, bars))
+        series.setData(projectHtfEmaOntoLtfBars(htfEma, bars, spec.projection))
         series.applyOptions({ visible: true })
       } else {
         series.setData([])
@@ -1939,7 +1974,7 @@ function ChartSurface({
     return () => {
       for (const timer of settleTimers) window.clearTimeout(timer)
     }
-  }, [barWindow, bars, compareBars, compareSymbol, emaSeed, emaVisible, fitChartToBarWindow, htfBars, htfEmaVisibility, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
+  }, [barWindow, bars, compareBars, compareSymbol, drawnLines, emaSeed, emaVisible, fitChartToBarWindow, htfBars, htfEmaVisibility, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
 
   useEffect(() => {
     if (bars.length === 0) return
@@ -2326,10 +2361,6 @@ function SettingsMenu({
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setCompareDraft(compareSymbol ?? "")
-  }, [compareSymbol])
-
-  useEffect(() => {
     if (!open) return
     const onClick = (event: MouseEvent) => {
       if (!containerRef.current) return
@@ -2365,7 +2396,11 @@ function SettingsMenu({
         aria-label="Chart settings"
         aria-expanded={open}
         aria-haspopup="true"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          const nextOpen = !open
+          if (nextOpen) setCompareDraft(compareSymbol ?? "")
+          setOpen(nextOpen)
+        }}
         className={`min-h-7 rounded-md border px-2 py-0.5 text-[11px] font-semibold outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
           open ? "border-teal/60 bg-surface-hover text-text" : "border-border/60 bg-surface text-sub"
         }`}
@@ -2785,8 +2820,9 @@ export function TradingViewTerminal() {
     setVwapVisible((v) => !v)
   }, [])
   const toggleHtfEma = useCallback((key: HtfKey) => {
+    if (key === "weekly") markWeeklyHtfEmaOptIn(selectedSymbol)
     setHtfEmaVisibility((current) => ({ ...current, [key]: !current[key] }))
-  }, [])
+  }, [selectedSymbol])
   const toggleBarNumbers = useCallback(() => {
     setBarNumbersVisible((v) => !v)
   }, [])
@@ -3218,10 +3254,7 @@ export function TradingViewTerminal() {
   // the same cadence so the two lines tick together. No live merge —
   // the comparison is contextual, not the trading focus.
   useEffect(() => {
-    if (!compareSymbol) {
-      setCompareBars([])
-      return
-    }
+    if (!compareSymbol) return
     let cancelled = false
     async function load() {
       const sessionDate = todayEt()
@@ -3318,19 +3351,15 @@ export function TradingViewTerminal() {
   // chart renders as if "live" stopped at that bar. EMA seed stays on
   // the full seedBars so the indicator is correctly warmed up; only
   // the visible range freezes.
-  const renderBars = useMemo(() => {
-    if (replayIndex == null) return displayBars
-    return displayBars.slice(0, Math.max(1, Math.min(displayBars.length, replayIndex + 1)))
-  }, [displayBars, replayIndex])
-
-  // Auto-clamp the replay index if the underlying bar set shrinks (e.g.
-  // after a scope reduction) — keep the slice valid.
-  useEffect(() => {
-    if (replayIndex == null) return
-    if (replayIndex >= displayBars.length) {
-      setReplayIndex(Math.max(0, displayBars.length - 1))
-    }
+  const effectiveReplayIndex = useMemo(() => {
+    if (replayIndex == null || displayBars.length === 0) return null
+    return Math.max(0, Math.min(displayBars.length - 1, replayIndex))
   }, [displayBars.length, replayIndex])
+
+  const renderBars = useMemo(() => {
+    if (effectiveReplayIndex == null) return displayBars
+    return displayBars.slice(0, effectiveReplayIndex + 1)
+  }, [displayBars, effectiveReplayIndex])
   const activeSessionDate = useMemo(() => {
     const latest = displayBars.at(-1) ?? combinedBars.at(-1)
     return latest ? etDateForTimestamp(latest.t) : todayEt()
@@ -3458,13 +3487,14 @@ export function TradingViewTerminal() {
       // active. Step keys are no-ops outside replay mode so they don't
       // intercept user agent shortcuts.
       if (event.key === "l" || event.key === "L") {
+        if (displayBars.length === 0) return
         setReplayIndex((current) => (current == null ? Math.max(0, displayBars.length - 1) : null))
         event.preventDefault()
         return
       }
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         setReplayIndex((current) => {
-          if (current == null) return current
+          if (current == null || displayBars.length === 0) return current
           const direction = event.key === "ArrowRight" ? 1 : -1
           return Math.max(0, Math.min(displayBars.length - 1, current + direction))
         })
@@ -3593,7 +3623,7 @@ export function TradingViewTerminal() {
               htfBars={htfBars}
               barNumbersVisible={barNumbersVisible}
               drawnLines={drawnLines}
-              replayActive={replayIndex != null}
+              replayActive={effectiveReplayIndex != null}
               onExitReplay={() => setReplayIndex(null)}
               displayTimezone={displayTimezone}
               compareSymbol={compareSymbol}
