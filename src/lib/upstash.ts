@@ -52,3 +52,11 @@ export async function zrangebyscore(key: string, min: number, max: number): Prom
   const result = await call<string[]>("zrangebyscore", key, String(min), String(max))
   return result ?? []
 }
+
+/**
+ * GET — fetch the value for `key`, or null if it doesn't exist.
+ */
+export async function get(key: string): Promise<string | null> {
+  const result = await call<string | null>("get", key)
+  return typeof result === "string" ? result : null
+}

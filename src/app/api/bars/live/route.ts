@@ -1,5 +1,5 @@
 import type { Bar, ChartTimeframe } from "@/lib/types"
-import { isUpstashConfigured, zrangebyscore } from "@/lib/upstash"
+import { get as upstashGet, isUpstashConfigured, zrangebyscore } from "@/lib/upstash"
 
 export const dynamic = "force-dynamic"
 
@@ -90,11 +90,28 @@ export async function GET(request: Request) {
     })
   }
 
-  const members = await zrangebyscore(`bars:1m:${ticker}`, from, now)
+  const [members, partialRaw] = await Promise.all([
+    zrangebyscore(`bars:1m:${ticker}`, from, now),
+    upstashGet(`bar_latest:1m:${ticker}`),
+  ])
   const bars = members
     .map(parseBar)
     .filter((b): b is Bar => b !== null)
     .sort((a, b) => a.t - b.t)
+
+  // Stitch the in-progress (partial) bar in if it's newer than the last
+  // closed bar. The aggregator writes this on every tick (rate-limited),
+  // so the chart's latest candle grows in near-real-time instead of
+  // jumping once per minute.
+  const partial = partialRaw ? parseBar(partialRaw) : null
+  if (partial) {
+    const latestClosed = bars.length > 0 ? bars[bars.length - 1].t : -Infinity
+    if (partial.t > latestClosed) {
+      bars.push(partial)
+    } else if (partial.t === latestClosed) {
+      bars[bars.length - 1] = partial
+    }
+  }
 
   const liveStatus: LiveStatus = bars.length > 0 ? "ok" : "empty-set"
   const payload: LiveBarsResponse = {

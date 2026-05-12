@@ -1397,7 +1397,10 @@ export function TradingViewTerminal() {
 
       const [historyResult, liveResult] = await Promise.allSettled([
         fetchBarsWithMemory(historyUrl, 120_000),
-        fetchBarsWithMemory(liveUrl, 15_000),
+        // Live fetch — bypass the in-memory cache. The endpoint stitches
+        // the in-progress partial bar in on every request, so each poll
+        // can see a different last-candle state.
+        fetchBarsWithMemory(liveUrl, 0),
       ])
 
       if (cancelled) return
@@ -1434,7 +1437,11 @@ export function TradingViewTerminal() {
     }
 
     load(false)
-    const interval = window.setInterval(() => load(true), 10_000)
+    // Silent poll cadence — the live route blends closed bars with an
+    // in-progress partial bar that the Fly aggregator updates every
+    // ~500ms. Polling at 1s gives the chart's last candle a near-live
+    // feel without hammering Upstash.
+    const interval = window.setInterval(() => load(true), 1_000)
     return () => {
       cancelled = true
       window.clearInterval(interval)

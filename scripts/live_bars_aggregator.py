@@ -106,21 +106,32 @@ class Bar:
 class Aggregator:
     """One Aggregator per symbol; tracks the in-progress 1m bar."""
 
-    def __init__(self, symbol: str, on_close: Callable[[str, "Bar"], None]):
+    def __init__(
+        self,
+        symbol: str,
+        on_close: Callable[[str, "Bar"], None],
+        on_partial: Callable[[str, "Bar"], None] | None = None,
+        partial_min_interval_s: float = 0.5,
+    ):
         self.symbol = symbol
         self.on_close = on_close
+        self.on_partial = on_partial
+        self.partial_min_interval_s = partial_min_interval_s
+        self._last_partial_at = 0.0
         self.current: Bar | None = None
 
     def add_trade(self, ts_seconds: float, price: float, size: int) -> None:
         bucket = int(ts_seconds // 60) * 60
         if self.current is None:
             self.current = Bar(t=bucket, o=price, h=price, l=price, c=price, v=size)
+            self._emit_partial()
             return
         if bucket > self.current.t:
             # Bar rolled. Flush the closed one, start a fresh one.
             closed = self.current
             self.current = Bar(t=bucket, o=price, h=price, l=price, c=price, v=size)
             self.on_close(self.symbol, closed)
+            self._emit_partial()
             return
         # Same bucket — update OHLC.
         b = self.current
@@ -128,6 +139,16 @@ class Aggregator:
         b.l = min(b.l, price)
         b.c = price
         b.v += size
+        self._emit_partial()
+
+    def _emit_partial(self) -> None:
+        if self.on_partial is None or self.current is None:
+            return
+        now = time.monotonic()
+        if now - self._last_partial_at < self.partial_min_interval_s:
+            return
+        self._last_partial_at = now
+        self.on_partial(self.symbol, self.current)
 
     def force_close(self) -> None:
         if self.current is not None:
@@ -170,6 +191,14 @@ class Upstash:
         self._post(["zadd", key, str(bar.t), bar.to_json()])
         self._post(["expire", key, str(self.ttl)])
 
+    def write_partial(self, symbol: str, bar: Bar) -> None:
+        # In-progress bar — overwritten as new ticks roll in. Short TTL so
+        # stale partials disappear if the aggregator dies. /api/bars/live
+        # reads this key and appends it to the response so the chart shows
+        # the current candle growing in near-real-time.
+        key = f"bar_latest:1m:{symbol.upper()}"
+        self._post(["set", key, bar.to_json(), "EX", "120"])
+
 
 # ---------- databento live wiring ------------------------------------------
 
@@ -194,6 +223,7 @@ def run() -> None:
     log.info("Starting aggregator: dataset=%s schema=%s symbols=%s", dataset, live_schema, symbols)
 
     cache = Upstash(upstash_url, upstash_token)
+    partial_interval_s = float(optional_env("PARTIAL_BAR_INTERVAL_S", "0.5"))
 
     def on_close(sym: str, bar: Bar) -> None:
         log.info(
@@ -202,7 +232,13 @@ def run() -> None:
         )
         cache.write_bar(sym, bar)
 
-    aggs: dict[str, Aggregator] = {s: Aggregator(s, on_close) for s in symbols}
+    def on_partial(sym: str, bar: Bar) -> None:
+        cache.write_partial(sym, bar)
+
+    aggs: dict[str, Aggregator] = {
+        s: Aggregator(s, on_close, on_partial=on_partial, partial_min_interval_s=partial_interval_s)
+        for s in symbols
+    }
 
     try:
         import databento as db  # type: ignore[import-not-found]
