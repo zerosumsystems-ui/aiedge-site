@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { BguPayload, BguTrade } from '@/lib/buyable-gap-up'
 import { BguProcessFlow } from './BguProcessFlow'
 import { BguTradeChart } from './BguTradeChart'
@@ -89,6 +90,43 @@ function FilterBadge({ label }: { label: string }) {
   )
 }
 
+function ColHeader({
+  column,
+  activeSortKey,
+  sortDir,
+  align = 'left',
+  onSort,
+  children,
+}: {
+  column: SortKey
+  activeSortKey: SortKey
+  sortDir: SortDir
+  align?: 'left' | 'right'
+  onSort: (key: SortKey) => void
+  children: ReactNode
+}) {
+  const active = activeSortKey === column
+  return (
+    <th
+      scope="col"
+      className={`select-none px-2 py-2 text-[11px] font-medium uppercase tracking-wider ${
+        active ? 'text-teal' : 'text-sub hover:text-text'
+      } ${align === 'right' ? 'text-right' : 'text-left'}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={`inline-flex items-center gap-0.5 outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+          align === 'right' ? 'justify-end' : 'justify-start'
+        }`}
+      >
+        {children}
+        {active && <span className="text-[9px]">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+      </button>
+    </th>
+  )
+}
+
 interface Props {
   payload: BguPayload
 }
@@ -124,24 +162,6 @@ export function BuyableGapUpStudy({ payload }: Props) {
       setSortKey(k)
       setSortDir('desc')
     }
-  }
-
-  function ColHeader({ k, children, align = 'left' }: { k: SortKey; children: React.ReactNode; align?: 'left' | 'right' }) {
-    const active = sortKey === k
-    return (
-      <th
-        scope="col"
-        className={`select-none cursor-pointer px-2 py-2 text-[11px] font-medium uppercase tracking-wider ${
-          active ? 'text-teal' : 'text-sub hover:text-text'
-        } text-${align}`}
-        onClick={() => toggleSort(k)}
-      >
-        <span className="inline-flex items-center gap-0.5">
-          {children}
-          {active && <span className="text-[9px]">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-        </span>
-      </th>
-    )
   }
 
   return (
@@ -230,16 +250,16 @@ export function BuyableGapUpStudy({ payload }: Props) {
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-bg/50">
             <tr>
-              <ColHeader k="date">Signal Date</ColHeader>
-              <ColHeader k="ticker">Ticker</ColHeader>
-              <ColHeader k="intraday" align="right">Intraday</ColHeader>
-              <ColHeader k="gap" align="right">Gap</ColHeader>
-              <ColHeader k="rvol" align="right">RVOL</ColHeader>
-              <ColHeader k="entry" align="right">Entry</ColHeader>
-              <ColHeader k="stop" align="right">Stop</ColHeader>
-              <ColHeader k="days" align="right">Days</ColHeader>
-              <ColHeader k="return" align="right">Return</ColHeader>
-              <ColHeader k="r" align="right">R</ColHeader>
+              <ColHeader column="date" activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort}>Signal Date</ColHeader>
+              <ColHeader column="ticker" activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort}>Ticker</ColHeader>
+              <ColHeader column="intraday" activeSortKey={sortKey} sortDir={sortDir} align="right" onSort={toggleSort}>Intraday</ColHeader>
+              <ColHeader column="gap" activeSortKey={sortKey} sortDir={sortDir} align="right" onSort={toggleSort}>Gap</ColHeader>
+              <ColHeader column="rvol" activeSortKey={sortKey} sortDir={sortDir} align="right" onSort={toggleSort}>RVOL</ColHeader>
+              <ColHeader column="entry" activeSortKey={sortKey} sortDir={sortDir} align="right" onSort={toggleSort}>Entry</ColHeader>
+              <ColHeader column="stop" activeSortKey={sortKey} sortDir={sortDir} align="right" onSort={toggleSort}>Stop</ColHeader>
+              <ColHeader column="days" activeSortKey={sortKey} sortDir={sortDir} align="right" onSort={toggleSort}>Days</ColHeader>
+              <ColHeader column="return" activeSortKey={sortKey} sortDir={sortDir} align="right" onSort={toggleSort}>Return</ColHeader>
+              <ColHeader column="r" activeSortKey={sortKey} sortDir={sortDir} align="right" onSort={toggleSort}>R</ColHeader>
             </tr>
           </thead>
           <tbody>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 
 type ManifestMatch = {
   slug: string
@@ -186,9 +187,11 @@ export default function BrooksPage() {
             </p>
           </header>
 
-          <img
+          <Image
             src={`/brooks-tour/${selectedSlug}/${matchData.trade_chart}`}
             alt="trade chart"
+            width={1600}
+            height={900}
             className="w-full h-auto rounded border border-border"
           />
 
@@ -211,9 +214,11 @@ export default function BrooksPage() {
                       )}
                     </p>
                   </header>
-                  <img
+                  <Image
                     src={`/brooks-tour/${selectedSlug}/${p.image_filename}`}
                     alt={`Brooks figure ${p.figure_number}`}
+                    width={1600}
+                    height={900}
                     className="w-full h-auto rounded border border-border"
                   />
                   {p.passages.length > 0 ? (

@@ -15,6 +15,8 @@ export const dynamic = 'force-dynamic'
  *   tf=1min|5min|15min|30min|1h|4h|daily → explicit override
  *   session=open    → same-day RTH opening slice from 09:30 ET; use minutes=5..120
  *   session=rth     → same-day regular session only (09:30-16:00 ET)
+ *   session=all     → same-day extended session window (04:00-20:00 ET)
+ *   limit=390       → optional output cap override for full-screen chart tools
  *
  * Databento is our canonical market-data provider (see feedback_databento_only
  * in user memory). Uses the Historical REST API directly — no SDK, since the
@@ -138,6 +140,12 @@ function filterSessionBars(bars: Bar[], date: string, session: string | null, op
   if (session === 'rth') {
     return filterRegularSessionBars(sameDayBars)
   }
+  if (session === 'all' || session === 'ext') {
+    return sameDayBars.filter((bar) => {
+      const minutes = etMinutes(bar.t)
+      return minutes >= 4 * 60 && minutes < 20 * 60
+    })
+  }
   return bars
 }
 
@@ -152,6 +160,12 @@ function sessionFetchWindow(date: string, session: string | null, openingMinutes
     return {
       start: etDateTimeToUtc(date, 9, 30),
       end: etDateTimeToUtc(date, 16, 0),
+    }
+  }
+  if (session === 'all' || session === 'ext') {
+    return {
+      start: etDateTimeToUtc(date, 4, 0),
+      end: etDateTimeToUtc(date, 20, 0),
     }
   }
   return null
@@ -274,6 +288,7 @@ export async function GET(request: Request) {
   const tfParam = (searchParams.get('tf') ?? 'auto') as ChartTimeframe | 'auto'
   const session = searchParams.get('session')
   const openingMinutes = Math.min(Math.max(Number(searchParams.get('minutes') ?? 20) || 20, 5), 120)
+  const requestedLimit = Number(searchParams.get('limit') ?? NaN)
 
   if (!ticker || !from || !to) {
     return Response.json(
@@ -379,9 +394,12 @@ export async function GET(request: Request) {
     // user memory: feedback_chart_candle_cap. Tail keeps the most recent
     // bars so the trade-exit context is preserved in round-trip charts. Opening
     // 1-minute views can be longer so bar 18 has the full matching 90 minutes.
-    const MAX_BARS = session === 'open' ? openingMinutes : 78
-    if (bars.length > MAX_BARS) {
-      bars = bars.slice(-MAX_BARS)
+    const defaultMaxBars = session === 'open' ? openingMinutes : 78
+    const maxBars = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(Math.floor(requestedLimit), 1), 1000)
+      : defaultMaxBars
+    if (bars.length > maxBars) {
+      bars = bars.slice(-maxBars)
     }
 
     const payload: BarsResponse = {

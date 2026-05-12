@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import {
   createChart,
@@ -394,16 +394,16 @@ export function HeroSetupTape() {
     return () => mql.removeEventListener?.("change", handler)
   }, [])
 
-  function clearAllTimers() {
+  const clearAllTimers = useCallback(() => {
     for (const t of chainTimersRef.current) window.clearTimeout(t)
     chainTimersRef.current = []
     if (cycleTimerRef.current !== null) {
       window.clearTimeout(cycleTimerRef.current)
       cycleTimerRef.current = null
     }
-  }
+  }, [])
 
-  function placeStopAndTargetLines() {
+  const placeStopAndTargetLines = useCallback(() => {
     const candle = candleRef.current
     if (!candle || levelsPlacedRef.current) return
     stopLineRef.current = candle.createPriceLine({
@@ -423,7 +423,7 @@ export function HeroSetupTape() {
       title: "TGT",
     })
     levelsPlacedRef.current = true
-  }
+  }, [setup.stopPrice, setup.targetPrice])
 
   /* Build the chart for the current setup. */
   useEffect(() => {
@@ -542,7 +542,7 @@ export function HeroSetupTape() {
       stopLineRef.current = null
       targetLineRef.current = null
     }
-  }, [chartBars, emaSeriesData, reducedMotion, setup])
+  }, [chartBars, clearAllTimers, emaSeriesData, placeStopAndTargetLines, reducedMotion, setup])
 
   /* Bar-by-bar reveal — setTimeout chain with deceleration. */
   useEffect(() => {
@@ -598,7 +598,7 @@ export function HeroSetupTape() {
       for (const t of chainTimersRef.current) window.clearTimeout(t)
       chainTimersRef.current = []
     }
-  }, [phase, chartBars, emaSeriesData, setup, reducedMotion])
+  }, [phase, chartBars, emaSeriesData, placeStopAndTargetLines, setup, reducedMotion])
 
   /* Cycle to next setup after the dwell window. */
   useEffect(() => {

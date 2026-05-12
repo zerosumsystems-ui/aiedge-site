@@ -10,6 +10,7 @@
  *  SpatialOverlay component renders the per-match query-vs-match overlay. */
 
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import { SpatialOverlay } from '@/components/charts/SpatialOverlay'
 import { PostAnchorEvolution } from '@/components/charts/PostAnchorEvolution'
 import { BrooksBarStrip } from '@/components/charts/BrooksBarStrip'
@@ -274,7 +275,10 @@ export function HistoryAnalogs() {
   }, [corpus])
 
   const selected = selectedSlug ? entryBySlug.get(selectedSlug) ?? null : null
-  const allSelectedMatches: Match[] = selectedSlug && matches ? matches.matches[selectedSlug] ?? [] : []
+  const allSelectedMatches: Match[] = useMemo(
+    () => (selectedSlug && matches ? matches.matches[selectedSlug] ?? [] : []),
+    [matches, selectedSlug],
+  )
   const flippedCount = allSelectedMatches.filter((m) => m.flipped).length
   const sameCount    = allSelectedMatches.filter((m) => !m.flipped).length
 
@@ -448,9 +452,11 @@ export function HistoryAnalogs() {
               Full RTH session — first {corpus?.n_open_bars} bars (the open) shaded
             </p>
             {selected.full_session_chart ? (
-              <img
+              <Image
                 src={`/analogs/${selected.slug}/${selected.full_session_chart}`}
                 alt={`${selected.ticker} ${selected.date} full session`}
+                width={1600}
+                height={900}
                 className="w-full h-auto rounded border border-border"
               />
             ) : (() => {
@@ -570,9 +576,11 @@ export function HistoryAnalogs() {
                       full session — first {corpus?.n_open_bars} bars (the open) shaded
                     </p>
                     {e.full_session_chart ? (
-                      <img
+                      <Image
                         src={`/analogs/${m.slug}/${e.full_session_chart}`}
                         alt={`${e.ticker} ${e.date} full session`}
+                        width={1600}
+                        height={900}
                         className="w-full h-auto rounded border border-border"
                       />
                     ) : (() => {

@@ -37,6 +37,12 @@ interface Props {
   trade: BguTrade
 }
 
+interface TradeChartState {
+  url: string
+  data: TradeChartFile | null
+  error: string | null
+}
+
 const TEAL = '#26C6DA'
 const RED = '#EF5350'
 const YELLOW = '#FFD600'
@@ -54,8 +60,7 @@ function dateToTime(dateStr: string): Time {
 export function BguTradeChart({ trade }: Props) {
   const chartRef = useRef<HTMLDivElement>(null)
   const volRef = useRef<HTMLDivElement>(null)
-  const [data, setData] = useState<TradeChartFile | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [chartState, setChartState] = useState<TradeChartState>({ url: '', data: null, error: null })
 
   const url = useMemo(
     () => `/data/buyable-gap-up/trades/${trade.ticker}_${trade.signalDate}.json`,
@@ -64,23 +69,24 @@ export function BguTradeChart({ trade }: Props) {
 
   useEffect(() => {
     let cancelled = false
-    setData(null)
-    setError(null)
     fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`fetch failed: ${r.status}`)
         return r.json()
       })
       .then((j: TradeChartFile) => {
-        if (!cancelled) setData(j)
+        if (!cancelled) setChartState({ url, data: j, error: null })
       })
       .catch((e: Error) => {
-        if (!cancelled) setError(e.message)
+        if (!cancelled) setChartState({ url, data: null, error: e.message })
       })
     return () => {
       cancelled = true
     }
   }, [url])
+
+  const data = chartState.url === url ? chartState.data : null
+  const error = chartState.url === url ? chartState.error : null
 
   useEffect(() => {
     if (!data || !chartRef.current || !volRef.current) return

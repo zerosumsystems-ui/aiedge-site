@@ -7,6 +7,7 @@ import { MobileNavDrawer } from './MobileNavDrawer'
 
 const NAV_ITEMS = [
   { href: '/', label: '5 min TFO' },
+  { href: '/chart', label: 'Chart' },
   { href: '/setups', label: 'Setups' },
   { href: '/cc', label: 'gap up + ft setups' },
   { href: '/bgu', label: 'BGU study' },
