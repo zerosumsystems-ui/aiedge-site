@@ -615,7 +615,6 @@ function ChartSurface({
   onSelectBarWindow,
   onSelectSessionMode,
   onToggleLevel,
-  onResetBarWindow,
 }: {
   symbol: string
   bars: Bar[]
@@ -631,7 +630,6 @@ function ChartSurface({
   onSelectBarWindow: (barWindow: number) => void
   onSelectSessionMode: (mode: SessionMode) => void
   onToggleLevel: (group: LevelGroup) => void
-  onResetBarWindow: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -685,12 +683,11 @@ function ChartSurface({
     chart.timeScale().scrollToPosition(6, false)
   }, [])
 
-  const resetViewTo78 = useCallback(() => {
-    onResetBarWindow()
-    fitChartToBarWindow(DEFAULT_BAR_WINDOW)
+  const resetView = useCallback(() => {
+    fitChartToBarWindow(barWindow)
     scheduleLabelsRef.current()
-    setViewState({ visibleBars: DEFAULT_BAR_WINDOW, offDefault: false })
-  }, [fitChartToBarWindow, onResetBarWindow])
+    setViewState({ visibleBars: barWindow, offDefault: false })
+  }, [barWindow, fitChartToBarWindow])
 
   const showReadoutForBar = useCallback((bar: Bar, index: number, x: number, y: number, mode: "follow" | "corner" = "follow") => {
     const container = containerRef.current
@@ -892,7 +889,7 @@ function ChartSurface({
       const targetVisibleBarsWithPadding = targetVisibleBars + 12
       const zoomedAwayFromWindow = Math.abs(visibleBars - targetVisibleBarsWithPadding) > 8
       const shiftedAwayFromWindow = range.from > 4 || range.to < targetVisibleBars - 4
-      const offDefault = zoomedAwayFromWindow || shiftedAwayFromWindow || barWindowRef.current !== DEFAULT_BAR_WINDOW
+      const offDefault = zoomedAwayFromWindow || shiftedAwayFromWindow
       setViewState({ visibleBars, offDefault })
     }
     chart.timeScale().subscribeVisibleLogicalRangeChange(rangeChangeHandler)
@@ -1030,7 +1027,7 @@ function ChartSurface({
         onDoubleClick={(event) => {
           const target = event.target
           if (target instanceof Element && target.closest("button")) return
-          resetViewTo78()
+          resetView()
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -1096,10 +1093,12 @@ function ChartSurface({
         {viewState.offDefault && (
           <button
             type="button"
-            onClick={resetViewTo78}
-            className="absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-3 z-20 min-h-9 rounded-md border border-border/40 bg-black/65 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-sub shadow-[0_8px_22px_rgba(0,0,0,0.28)] outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:min-h-0 sm:right-4 sm:text-[10px]"
+            aria-label="Reset chart view"
+            onClick={resetView}
+            className="absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-3 z-20 flex min-h-7 items-center gap-1 rounded-md border border-border/40 bg-black/65 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-sub shadow-[0_8px_22px_rgba(0,0,0,0.28)] outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-4"
           >
-            view {viewState.visibleBars} · reset 78
+            <span aria-hidden="true" className="text-[12px] leading-none">⟲</span>
+            Reset
           </button>
         )}
 
@@ -1507,10 +1506,6 @@ export function TradingViewTerminal() {
     setLevelVisibility((current) => ({ ...current, [group]: !current[group] }))
   }, [])
 
-  const resetBarWindow = useCallback(() => {
-    setBarWindow(DEFAULT_BAR_WINDOW)
-  }, [])
-
   const submitSymbol = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     selectSymbol(symbolDraft)
@@ -1598,7 +1593,6 @@ export function TradingViewTerminal() {
               onSelectBarWindow={setBarWindow}
               onSelectSessionMode={setSessionMode}
               onToggleLevel={toggleLevelGroup}
-              onResetBarWindow={resetBarWindow}
             />
           )}
         </main>
