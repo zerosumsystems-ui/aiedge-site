@@ -636,6 +636,13 @@ function storedDisplayTimezone(): DisplayTimezone {
   return value === "UTC" || value === "local" ? value : "ET"
 }
 
+function storedCompareSymbol(): string | null {
+  const value = readChartPrefs().compareSymbol
+  if (typeof value !== "string") return null
+  const clean = value.trim().toUpperCase()
+  return clean && /^[A-Z][A-Z0-9.\-]{0,9}$/.test(clean) ? clean : null
+}
+
 // Per-symbol overrides for timeframe / scope / toggles, layered on top
 // of the global defaults above. Stored separately so a missing entry
 // just falls back to global. Keyed by symbol.
@@ -648,6 +655,7 @@ interface SymbolPrefs {
   emaVisible?: boolean
   vwapVisible?: boolean
   htfEmaVisible?: boolean
+  barNumbersVisible?: boolean
 }
 
 const PER_SYMBOL_PREFS_KEY = "aiedge.chart.perSymbol.v1"
@@ -716,6 +724,12 @@ function symbolHtfEmaVisible(symbol: string): boolean {
   const stored = readSymbolPrefs(symbol).htfEmaVisible
   // Default off — HTF EMA overlay is busy on the chart, opt-in.
   return typeof stored === "boolean" ? stored : false
+}
+
+function symbolBarNumbersVisible(symbol: string): boolean {
+  const stored = readSymbolPrefs(symbol).barNumbersVisible
+  // Default on — Brooks bar numbers are core to the methodology.
+  return typeof stored === "boolean" ? stored : true
 }
 
 // User-added symbols that aren't in the live aggregator's default list.
@@ -1088,11 +1102,16 @@ function ChartSurface({
   emaVisible,
   vwapVisible,
   htfEmaVisible,
+  barNumbersVisible,
   drawnLines,
   replayActive,
   onExitReplay,
   displayTimezone,
   onCycleTimezone,
+  compareSymbol,
+  compareBars,
+  onPromptCompare,
+  onClearCompare,
   onSelectSymbol,
   onAddSymbol,
   onSelectTimeframe,
@@ -1103,6 +1122,7 @@ function ChartSurface({
   onToggleEma,
   onToggleVwap,
   onToggleHtfEma,
+  onToggleBarNumbers,
   onAddDrawnLine,
   onClearDrawnLines,
 }: {
@@ -1122,11 +1142,16 @@ function ChartSurface({
   emaVisible: boolean
   vwapVisible: boolean
   htfEmaVisible: boolean
+  barNumbersVisible: boolean
   drawnLines: number[]
   replayActive: boolean
   onExitReplay: () => void
   displayTimezone: DisplayTimezone
   onCycleTimezone: () => void
+  compareSymbol: string | null
+  compareBars: Bar[]
+  onPromptCompare: () => void
+  onClearCompare: () => void
   onSelectSymbol: (symbol: string) => void
   onAddSymbol: (symbol: string) => void
   onSelectTimeframe: (timeframe: ChartViewTimeframe) => void
@@ -1137,6 +1162,7 @@ function ChartSurface({
   onToggleEma: () => void
   onToggleVwap: () => void
   onToggleHtfEma: () => void
+  onToggleBarNumbers: () => void
   onAddDrawnLine: (price: number) => void
   onClearDrawnLines: () => void
 }) {
@@ -1147,6 +1173,10 @@ function ChartSurface({
   const htfEmaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const vwapRef = useRef<ISeriesApi<"Line"> | null>(null)
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null)
+  // Optional comparison ticker as a normalized %-change line on a
+  // dedicated left price scale. Created lazily on first paint and
+  // re-used across symbol/timeframe changes.
+  const compareSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const priceLinesRef = useRef<IPriceLine[]>([])
   // Per-session Brooks level segments. Each level becomes a bounded
   // LineSeries spanning only the latest visible session, so in 2D/3D
@@ -1475,6 +1505,24 @@ function ChartSurface({
       borderVisible: false,
     })
 
+    // Comparison overlay lives on its own price scale so its %-change
+    // units never warp the primary candles. Created up front and just
+    // toggled visible / fed data by the comparison effect below.
+    compareSeriesRef.current = chart.addSeries(LineSeries, {
+      priceScaleId: "compare",
+      color: "rgba(245, 166, 35, 0.9)",
+      lineWidth: 2,
+      lastValueVisible: false,
+      priceLineVisible: false,
+      crosshairMarkerVisible: false,
+      visible: false,
+    })
+    chart.priceScale("compare").applyOptions({
+      visible: false,
+      scaleMargins: { top: 0.08, bottom: 0.22 },
+      borderVisible: false,
+    })
+
     let labelFrame: number | null = null
     const updateBarNumberLabels = () => {
       const candles = candlesRef.current
@@ -1627,6 +1675,7 @@ function ChartSurface({
       htfEmaSeriesRef.current = null
       vwapRef.current = null
       volumeRef.current = null
+      compareSeriesRef.current = null
       priceLinesRef.current = []
       levelSeriesRef.current = []
       drawnLineHandlesRef.current = []
@@ -1703,6 +1752,40 @@ function ChartSurface({
       chart.priceScale("right").applyOptions({
         scaleMargins: { top: 0.08, bottom: volumeVisible ? 0.22 : 0.08 },
       })
+    }
+
+    const compareSeries = compareSeriesRef.current
+    if (compareSeries) {
+      const show = !!compareSymbol && compareBars.length > 1 && bars.length > 0
+      if (show) {
+        // Align comparison bars to the primary chart's visible time
+        // window so the two lines move in lockstep. We baseline both
+        // series at their first overlapping bar (% change since that
+        // bar) so the y-axis tells a "who's leading?" story rather than
+        // dollar prices.
+        const primaryStart = bars[0].t
+        const primaryEnd = bars[bars.length - 1].t
+        const inRange = compareBars.filter((bar) => bar.t >= primaryStart && bar.t <= primaryEnd)
+        const baseline = inRange[0]?.c
+        if (baseline && baseline > 0) {
+          compareSeries.setData(
+            inRange.map((bar) => ({
+              time: bar.t as UTCTimestamp,
+              value: ((bar.c - baseline) / baseline) * 100,
+            })),
+          )
+          compareSeries.applyOptions({ visible: true })
+          chart.priceScale("compare").applyOptions({ visible: true })
+        } else {
+          compareSeries.setData([])
+          compareSeries.applyOptions({ visible: false })
+          chart.priceScale("compare").applyOptions({ visible: false })
+        }
+      } else {
+        compareSeries.setData([])
+        compareSeries.applyOptions({ visible: false })
+        chart.priceScale("compare").applyOptions({ visible: false })
+      }
     }
 
     // Drop the previous render's level segments before drawing this
@@ -1801,7 +1884,7 @@ function ChartSurface({
     return () => {
       for (const timer of settleTimers) window.clearTimeout(timer)
     }
-  }, [barWindow, bars, emaSeed, emaVisible, fitChartToBarWindow, htfEmaVisible, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
+  }, [barWindow, bars, compareBars, compareSymbol, emaSeed, emaVisible, fitChartToBarWindow, htfEmaVisible, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
 
   useEffect(() => {
     if (bars.length === 0) return
@@ -1899,6 +1982,15 @@ function ChartSurface({
               onClick={onToggleVwap}
               ariaLabel={vwapVisible ? "Hide VWAP" : "Show VWAP"}
             />
+            {isIntradayTimeframe(timeframe) ? (
+              <IndicatorPill
+                label="Bar#"
+                active={barNumbersVisible}
+                swatchColor="rgba(155, 161, 166, 0.85)"
+                onClick={onToggleBarNumbers}
+                ariaLabel={barNumbersVisible ? "Hide bar numbers" : "Show bar numbers"}
+              />
+            ) : null}
             {drawnLines.length > 0 ? (
               <button
                 type="button"
@@ -1911,6 +2003,28 @@ function ChartSurface({
                 S/R · {drawnLines.length} <span className="text-sub/60">×</span>
               </button>
             ) : null}
+            {compareSymbol ? (
+              <button
+                type="button"
+                onClick={onClearCompare}
+                aria-label={`Comparison symbol: ${compareSymbol}. Tap to clear.`}
+                title={`Comparing vs ${compareSymbol} (% change). Tap to clear.`}
+                className="glass-chip pointer-events-auto inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums text-orange outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+              >
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-orange" />
+                vs {compareSymbol} <span className="text-sub/60">×</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onPromptCompare}
+                aria-label="Compare with another symbol"
+                title="Compare this chart's % change against another symbol"
+                className="glass-chip pointer-events-auto inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums text-sub outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+              >
+                Cmp +
+              </button>
+            )}
             <button
               type="button"
               onClick={onCycleTimezone}
@@ -1958,7 +2072,7 @@ function ChartSurface({
               style={{ left: divider.x - 0.5 }}
             />
           ))}
-          {barNumberLabels.map((label) => (
+          {barNumbersVisible && barNumberLabels.map((label) => (
             <span
               key={label.id}
               data-testid="bar-number-label"
@@ -2180,11 +2294,17 @@ export function TradingViewTerminal() {
   const [emaVisible, setEmaVisible] = useState(() => symbolEmaVisible(initialSymbol))
   const [vwapVisible, setVwapVisible] = useState(() => symbolVwapVisible(initialSymbol))
   const [htfEmaVisible, setHtfEmaVisible] = useState(() => symbolHtfEmaVisible(initialSymbol))
+  const [barNumbersVisible, setBarNumbersVisible] = useState(() => symbolBarNumbersVisible(initialSymbol))
   const [drawnLines, setDrawnLines] = useState<number[]>(() => readDrawnLines(initialSymbol))
   // Replay mode. null = normal (live tail). A number freezes the chart
   // to that bar index in displayBars; [/] keys step forward/back.
   const [replayIndex, setReplayIndex] = useState<number | null>(null)
   const [displayTimezone, setDisplayTimezone] = useState<DisplayTimezone>(storedDisplayTimezone)
+  // Optional comparison overlay. When set, fetches the other ticker on
+  // the same range and renders it as a normalized %-change line on a
+  // secondary left price scale.
+  const [compareSymbol, setCompareSymbol] = useState<string | null>(storedCompareSymbol)
+  const [compareBars, setCompareBars] = useState<Bar[]>([])
   const barsCacheRef = useRef<Map<string, { payload: BarsPayload; fetchedAt: number }>>(new Map())
 
   useEffect(() => {
@@ -2200,8 +2320,9 @@ export function TradingViewTerminal() {
       levelVisibility,
       volumeVisible,
       displayTimezone,
+      compareSymbol,
     })
-  }, [barWindow, displayTimezone, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, watchlistVisible])
+  }, [barWindow, compareSymbol, displayTimezone, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, watchlistVisible])
 
   useEffect(() => {
     // Per-symbol overrides — written on every state change so the
@@ -2218,8 +2339,9 @@ export function TradingViewTerminal() {
       emaVisible,
       vwapVisible,
       htfEmaVisible,
+      barNumbersVisible,
     })
-  }, [barWindow, emaVisible, htfEmaVisible, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
+  }, [barNumbersVisible, barWindow, emaVisible, htfEmaVisible, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
 
   const toggleVolume = useCallback(() => {
     setVolumeVisible((v) => !v)
@@ -2273,9 +2395,32 @@ export function TradingViewTerminal() {
   const toggleHtfEma = useCallback(() => {
     setHtfEmaVisible((v) => !v)
   }, [])
+  const toggleBarNumbers = useCallback(() => {
+    setBarNumbersVisible((v) => !v)
+  }, [])
   const cycleTimezone = useCallback(() => {
     setDisplayTimezone((tz) => (tz === "ET" ? "UTC" : tz === "UTC" ? "local" : "ET"))
   }, [])
+  const setCompareSymbolSafely = useCallback((value: string | null) => {
+    if (value == null) {
+      setCompareSymbol(null)
+      setCompareBars([])
+      return
+    }
+    const clean = value.trim().toUpperCase()
+    if (!clean || !/^[A-Z][A-Z0-9.\-]{0,9}$/.test(clean)) return
+    setCompareSymbol(clean)
+    setCompareBars([])
+  }, [])
+  const promptCompareSymbol = useCallback(() => {
+    if (typeof window === "undefined") return
+    const input = window.prompt("Compare with symbol (blank to clear):", compareSymbol ?? "")
+    if (input == null) return
+    setCompareSymbolSafely(input.trim() ? input : null)
+  }, [compareSymbol, setCompareSymbolSafely])
+  const clearCompareSymbol = useCallback(() => {
+    setCompareSymbolSafely(null)
+  }, [setCompareSymbolSafely])
 
   const fetchBarsWithMemory = useCallback(async (url: string, maxAgeMs: number): Promise<BarsPayload> => {
     const cached = barsCacheRef.current.get(url)
@@ -2620,6 +2765,49 @@ export function TradingViewTerminal() {
     }
   }, [symbols])
 
+  // Comparison overlay fetch. Pulls the same range / timeframe as the
+  // primary series but for a second ticker, and keeps it refreshing on
+  // the same cadence so the two lines tick together. No live merge —
+  // the comparison is contextual, not the trading focus.
+  useEffect(() => {
+    if (!compareSymbol) {
+      setCompareBars([])
+      return
+    }
+    let cancelled = false
+    async function load() {
+      const sessionDate = todayEt()
+      const intradayNow = isIntradayTimeframe(timeframe)
+      const fromDate = intradayNow
+        ? earliestFetchDate(sessionDate, fetchDaysForBarWindow(barWindow, timeframe))
+        : (() => {
+            const lookback = NON_INTRADAY_FETCH_DAYS[timeframe as "daily" | "weekly"]
+            const candidates = previousEtDates(sessionDate, lookback)
+            return candidates[candidates.length - 1] ?? sessionDate
+          })()
+      const qs = new URLSearchParams({
+        ticker: compareSymbol as string,
+        from: fromDate,
+        to: sessionDate,
+        tf: intradayNow ? "1min" : timeframe,
+        session: intradayNow ? (sessionMode === "rth" ? "rth" : "all") : "all",
+        limit: String(intradayNow ? rawLimitFor(timeframe, barWindow, fetchDaysForBarWindow(barWindow, timeframe)) : 1000),
+      })
+      try {
+        const payload = await fetchBarsWithMemory(`/api/bars?${qs}`, 30_000)
+        if (!cancelled) setCompareBars(payload.bars)
+      } catch {
+        if (!cancelled) setCompareBars([])
+      }
+    }
+    load()
+    const interval = window.setInterval(load, 60_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [barWindow, compareSymbol, fetchBarsWithMemory, sessionMode, timeframe])
+
   const combinedBars = useMemo(() => mergeBars(historyBars, liveBars), [historyBars, liveBars])
   const visibleBaseBars = useMemo(() => {
     const rthBars = sessionMode === "rth" ? combinedBars.filter(isRthBar) : combinedBars
@@ -2663,6 +2851,20 @@ export function TradingViewTerminal() {
     if (!intraday) return [] as Bar[]
     return aggregatedBars.filter((bar) => !displayDateSet.has(etDateForTimestamp(bar.t)))
   }, [aggregatedBars, displayDateSet, intraday])
+
+  // Match the comparison ticker's bars to the primary chart's timeframe
+  // and visible date range so the two lines move bar-for-bar. We filter
+  // by RTH / displayDateSet using the SAME set as the primary so a
+  // comparison bar that doesn't exist (holiday, after-hours gap) drops
+  // out instead of pushing the line out of sync.
+  const displayCompareBars = useMemo(() => {
+    if (!compareSymbol || compareBars.length === 0) return [] as Bar[]
+    if (!intraday) return compareBars.slice(-NON_INTRADAY_DISPLAY_BARS)
+    const rthFiltered = sessionMode === "rth" ? compareBars.filter(isRthBar) : compareBars
+    const minutes = TIMEFRAMES.find((item) => item.value === timeframe)?.minutes ?? 1
+    const aggregated = aggregateBars(rthFiltered, minutes)
+    return aggregated.filter((bar) => displayDateSet.has(etDateForTimestamp(bar.t)))
+  }, [compareBars, compareSymbol, displayDateSet, intraday, sessionMode, timeframe])
 
   // Replay mode slices displayBars down to the replay endpoint so the
   // chart renders as if "live" stopped at that bar. EMA seed stays on
@@ -2724,6 +2926,7 @@ export function TradingViewTerminal() {
       emaVisible,
       vwapVisible,
       htfEmaVisible,
+      barNumbersVisible,
     })
     setTimeframe(symbolTimeframe(clean))
     setBarWindow(symbolBarWindow(clean))
@@ -2733,13 +2936,14 @@ export function TradingViewTerminal() {
     setEmaVisible(symbolEmaVisible(clean))
     setVwapVisible(symbolVwapVisible(clean))
     setHtfEmaVisible(symbolHtfEmaVisible(clean))
+    setBarNumbersVisible(symbolBarNumbersVisible(clean))
     setDrawnLines(readDrawnLines(clean))
     setReplayIndex(null)
     setPriorRthBars([])
     setContextBars([])
     setSelectedSymbol(clean)
     setSymbolDraft(clean)
-  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisible])
+  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisible, barNumbersVisible])
 
   const toggleLevelGroup = useCallback((group: LevelGroup) => {
     setLevelVisibility((current) => ({ ...current, [group]: !current[group] }))
@@ -2919,11 +3123,16 @@ export function TradingViewTerminal() {
               emaVisible={emaVisible}
               vwapVisible={vwapVisible}
               htfEmaVisible={htfEmaVisible}
+              barNumbersVisible={barNumbersVisible}
               drawnLines={drawnLines}
               replayActive={replayIndex != null}
               onExitReplay={() => setReplayIndex(null)}
               displayTimezone={displayTimezone}
               onCycleTimezone={cycleTimezone}
+              compareSymbol={compareSymbol}
+              compareBars={displayCompareBars}
+              onPromptCompare={promptCompareSymbol}
+              onClearCompare={clearCompareSymbol}
               onSelectSymbol={selectSymbol}
               onAddSymbol={addSymbol}
               onSelectTimeframe={setTimeframe}
@@ -2934,6 +3143,7 @@ export function TradingViewTerminal() {
               onToggleEma={toggleEma}
               onToggleVwap={toggleVwap}
               onToggleHtfEma={toggleHtfEma}
+              onToggleBarNumbers={toggleBarNumbers}
               onAddDrawnLine={addDrawnLine}
               onClearDrawnLines={clearDrawnLines}
             />
