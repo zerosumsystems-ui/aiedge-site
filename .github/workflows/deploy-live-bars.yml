@@ -1,0 +1,61 @@
+name: Deploy live-bars aggregator (Fly)
+
+# Deploy the Databento live-bars aggregator to Fly when its inputs change.
+# Triggers:
+#   - push to main touching the aggregator script, its Dockerfile, its Fly
+#     config, or this workflow itself
+#   - manual run from the GitHub Actions tab (workflow_dispatch) for
+#     ad-hoc redeploys when the Fly machine is stuck but no code changed
+#
+# Required secret: FLY_API_TOKEN (a deploy-scoped Fly token; create with
+# `fly tokens create deploy -a aiedge-live-bars` and paste into GitHub
+# Settings → Secrets and variables → Actions).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile.live-bars"
+      - "fly.live-bars.toml"
+      - "scripts/live_bars_aggregator.py"
+      - ".github/workflows/deploy-live-bars.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-live-bars
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: fly deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --config fly.live-bars.toml --remote-only
+
+      - name: Verify aggregator is reachable
+        run: |
+          # Give Fly a moment to flip the proxy to the new machine.
+          sleep 20
+          for i in 1 2 3 4 5; do
+            body=$(curl -s --max-time 15 https://www.aiedge.trade/api/live-bars/diagnostics || true)
+            echo "attempt $i: $body"
+            if echo "$body" | grep -q '"ok":true'; then
+              echo "Aggregator healthy."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Aggregator did not report healthy within 70s."
+          echo "Check fly logs: fly logs -a aiedge-live-bars"
+          exit 1
