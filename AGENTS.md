@@ -69,8 +69,11 @@ Conventions:
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never import it from a `"use
   client"` module.
 - The Fly aggregator (`Dockerfile.live-bars`, `fly.live-bars.toml`) deploys
-  from the Mac mini, not from web sessions. Do not run `fly deploy` from
-  here.
+  via `.github/workflows/deploy-live-bars.yml` (on push to main when the
+  aggregator files change, or via Actions → workflow_dispatch). The Mac
+  mini path still works as a fallback. Web sessions can also run
+  `fly status` / `fly logs` / `fly deploy` directly when `FLY_API_TOKEN`
+  is set in the Claude Code Environment settings.
 
 Repo-side configuration:
 
