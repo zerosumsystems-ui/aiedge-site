@@ -3,6 +3,18 @@ import { filterRegularSessionBars } from '@/lib/opening-features'
 
 export const dynamic = 'force-dynamic'
 
+// Per-worker in-flight coalescing. When N visitors request the same slow
+// ticker / range at the same time (the AVGO case — Databento Historical
+// can take 20s+ for unsubscribed symbols), they all share one upstream
+// fetch instead of stampeding the API. Vercel's edge cache picks up the
+// completed response afterwards, so subsequent users get instant hits.
+type InflightEntry = { promise: Promise<{ status: number; body: string; cacheControl: string }>; startedAt: number }
+const inflight: Map<string, InflightEntry> = (globalThis as unknown as {
+  __barsInflight?: Map<string, InflightEntry>
+}).__barsInflight ?? new Map()
+;(globalThis as unknown as { __barsInflight?: Map<string, InflightEntry> }).__barsInflight = inflight
+const INFLIGHT_MAX_AGE_MS = 60_000
+
 /**
  * GET /api/bars?ticker=IONQ&from=2026-04-01&to=2026-04-15&tf=auto
  *
@@ -400,103 +412,140 @@ export async function GET(request: Request) {
   const auth =
     'Basic ' + Buffer.from(`${apiKey}:`, 'utf8').toString('base64')
 
-  try {
-    const resp = await fetch(url, { headers: { Authorization: auth } })
-    if (!resp.ok) {
-      const body = await resp.text()
-      console.error(`[bars] databento ${resp.status}:`, body.slice(0, 500))
-      return Response.json(
-        { error: `databento ${resp.status}: ${body.slice(0, 300)}`, ticker, from, to },
-        { status: 502, headers: { 'Cache-Control': 'no-store' } }
-      )
-    }
+  const defaultMaxBars = session === 'open' ? openingMinutes : 78
+  const maxBars = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(Math.floor(requestedLimit), 1), 1000)
+    : defaultMaxBars
 
-    // JSON lines — one record per line.
-    const text = await resp.text()
-    const rawBars: Bar[] = []
-    for (const line of text.split('\n')) {
-      const t = line.trim()
-      if (!t) continue
-      try {
-        const row = JSON.parse(t) as DatabentoOhlcv
-        const bar = parseBar(row)
-        if (bar) rawBars.push(bar)
-      } catch {
-        // Skip malformed lines
-      }
-    }
+  // In-flight coalescing key. Identical concurrent requests join the
+  // existing Promise instead of issuing a duplicate upstream fetch. The
+  // key includes everything that materially shapes the response body so
+  // we never serve one request's payload to another's parameters.
+  const inflightKey = [
+    ticker,
+    resolvedFrom,
+    resolvedTo,
+    schema,
+    timeframe,
+    session ?? '',
+    openingMinutes,
+    maxBars,
+    paddedFrom.toISOString(),
+    paddedTo.toISOString(),
+  ].join('|')
 
-    // Downsample for requested effective timeframe.
-    let bars = filterSessionBars(rawBars, resolvedFrom, resolvedTo, session, openingMinutes)
-    let effectiveTimeframe: ChartTimeframe = timeframe
-    if (schema === 'ohlcv-1m') {
-      if (timeframe === '1min') {
-        effectiveTimeframe = '1min'
-      } else if (timeframe === '15min') {
-        bars = downsample(bars, 15)
-        effectiveTimeframe = '15min'
-      } else if (timeframe === '5min') {
-        bars = downsample(bars, 5)
-        effectiveTimeframe = '5min'
-      } else {
-        effectiveTimeframe = '5min'
-        bars = downsample(bars, 5)
-      }
-    } else if (timeframe === 'weekly' && schema === 'ohlcv-1d') {
-      bars = downsampleWeekly(rawBars)
-      effectiveTimeframe = 'weekly'
-    }
-
-    // Hard cap — 78 candles max per full-session chart (one RTH session at 5-min bars).
-    // More than this causes analysis paralysis on a fast Brooks read. See
-    // user memory: feedback_chart_candle_cap. Tail keeps the most recent
-    // bars so the trade-exit context is preserved in round-trip charts. Opening
-    // 1-minute views can be longer so bar 18 has the full matching 90 minutes.
-    const defaultMaxBars = session === 'open' ? openingMinutes : 78
-    const maxBars = Number.isFinite(requestedLimit)
-      ? Math.min(Math.max(Math.floor(requestedLimit), 1), 1000)
-      : defaultMaxBars
-    if (bars.length > maxBars) {
-      bars = bars.slice(-maxBars)
-    }
-
-    const payload: BarsResponse = {
-      bars,
-      timeframe,
-      effectiveTimeframe,
-      ticker,
-      from: resolvedFrom,
-      to: resolvedTo,
-      source: 'databento',
-    }
-    // Cache aggressively when the requested range is entirely in the
-    // past — those bars never change, so Vercel's edge can absorb every
-    // repeat hit (incognito visits, new users, etc.). Today-inclusive
-    // requests still get a short edge cache because the live route
-    // (/api/bars/live) handles the trailing minutes.
-    const todayEt = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/New_York',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date())
-    const fullyPast = resolvedTo < todayEt
-    // For today-inclusive requests, keep the edge cache short so custom
-    // symbols (no live aggregator subscription) refresh promptly. The
-    // chart also caches in-memory for 30s on the silent-poll path. For
-    // prior-day-only requests, cache aggressively forever.
-    const cacheControl = fullyPast
-      ? 'public, s-maxage=86400, max-age=86400, immutable'
-      : 'public, s-maxage=30, max-age=10, stale-while-revalidate=60'
-    return Response.json(payload, {
-      headers: { 'Cache-Control': cacheControl },
-    })
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err)
-    console.error(`[bars] ${ticker} ${from}→${to} @ ${schema} failed:`, message)
-    return Response.json(
-      { error: `bars fetch failed: ${message}`, ticker, from, to, timeframe },
-      { status: 502, headers: { 'Cache-Control': 'no-store' } }
-    )
+  const now = Date.now()
+  // Drop stale entries so a one-off slow response doesn't pin memory.
+  for (const [key, entry] of inflight) {
+    if (now - entry.startedAt > INFLIGHT_MAX_AGE_MS) inflight.delete(key)
   }
+
+  const existing = inflight.get(inflightKey)
+  const work = existing?.promise ?? (async () => {
+    try {
+      const resp = await fetch(url, { headers: { Authorization: auth } })
+      if (!resp.ok) {
+        const body = await resp.text()
+        console.error(`[bars] databento ${resp.status}:`, body.slice(0, 500))
+        return {
+          status: 502,
+          body: JSON.stringify({ error: `databento ${resp.status}: ${body.slice(0, 300)}`, ticker, from, to }),
+          cacheControl: 'no-store',
+        }
+      }
+
+      const text = await resp.text()
+      const rawBars: Bar[] = []
+      for (const line of text.split('\n')) {
+        const t = line.trim()
+        if (!t) continue
+        try {
+          const row = JSON.parse(t) as DatabentoOhlcv
+          const bar = parseBar(row)
+          if (bar) rawBars.push(bar)
+        } catch {
+          // Skip malformed lines
+        }
+      }
+
+      let bars = filterSessionBars(rawBars, resolvedFrom, resolvedTo, session, openingMinutes)
+      let effectiveTimeframe: ChartTimeframe = timeframe
+      if (schema === 'ohlcv-1m') {
+        if (timeframe === '1min') {
+          effectiveTimeframe = '1min'
+        } else if (timeframe === '15min') {
+          bars = downsample(bars, 15)
+          effectiveTimeframe = '15min'
+        } else if (timeframe === '5min') {
+          bars = downsample(bars, 5)
+          effectiveTimeframe = '5min'
+        } else {
+          effectiveTimeframe = '5min'
+          bars = downsample(bars, 5)
+        }
+      } else if (timeframe === 'weekly' && schema === 'ohlcv-1d') {
+        bars = downsampleWeekly(rawBars)
+        effectiveTimeframe = 'weekly'
+      }
+
+      // Hard cap — 78 candles max per full-session chart (one RTH session at 5-min bars).
+      // More than this causes analysis paralysis on a fast Brooks read. See
+      // user memory: feedback_chart_candle_cap. Tail keeps the most recent
+      // bars so the trade-exit context is preserved in round-trip charts. Opening
+      // 1-minute views can be longer so bar 18 has the full matching 90 minutes.
+      if (bars.length > maxBars) {
+        bars = bars.slice(-maxBars)
+      }
+
+      const payload: BarsResponse = {
+        bars,
+        timeframe,
+        effectiveTimeframe,
+        ticker,
+        from: resolvedFrom,
+        to: resolvedTo,
+        source: 'databento',
+      }
+      // Cache aggressively when the requested range is entirely in the
+      // past — those bars never change, so Vercel's edge can absorb every
+      // repeat hit (incognito visits, new users, etc.). Today-inclusive
+      // requests still get a short edge cache because the live route
+      // (/api/bars/live) handles the trailing minutes.
+      const todayEt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date())
+      const fullyPast = resolvedTo < todayEt
+      const cacheControl = fullyPast
+        ? 'public, s-maxage=86400, max-age=86400, immutable'
+        : 'public, s-maxage=30, max-age=10, stale-while-revalidate=60'
+      return { status: 200, body: JSON.stringify(payload), cacheControl }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`[bars] ${ticker} ${from}→${to} @ ${schema} failed:`, message)
+      return {
+        status: 502,
+        body: JSON.stringify({ error: `bars fetch failed: ${message}`, ticker, from, to, timeframe }),
+        cacheControl: 'no-store',
+      }
+    }
+  })()
+
+  if (!existing) {
+    inflight.set(inflightKey, { promise: work, startedAt: now })
+    work.finally(() => {
+      if (inflight.get(inflightKey)?.promise === work) inflight.delete(inflightKey)
+    })
+  }
+
+  const result = await work
+  return new Response(result.body, {
+    status: result.status,
+    headers: {
+      'Cache-Control': result.cacheControl,
+      'Content-Type': 'application/json',
+    },
+  })
 }
