@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { FormEvent, TouchEvent } from "react"
+import type { FormEvent, ReactNode, TouchEvent } from "react"
 import {
   CandlestickSeries,
   ColorType,
@@ -621,14 +621,16 @@ function buildZoneOverlays(args: {
   candles: ISeriesApi<"Candlestick">
   bars: Bar[]
   microGapsVisible: boolean
+  microGapsMaxActive: number
   fvgVisible: boolean
+  fvgMaxActive: number
 }): ZoneOverlay[] {
-  const { chart, candles, bars, microGapsVisible, fvgVisible } = args
+  const { chart, candles, bars, microGapsVisible, microGapsMaxActive, fvgVisible, fvgMaxActive } = args
   if (bars.length === 0 || (!microGapsVisible && !fvgVisible)) return []
 
   const zones = [
-    ...(microGapsVisible ? computeMicroGapZones(bars) : []),
-    ...(fvgVisible ? computeFvgZones(bars) : []),
+    ...(microGapsVisible ? computeMicroGapZones(bars, microGapsMaxActive) : []),
+    ...(fvgVisible ? computeFvgZones(bars, fvgMaxActive) : []),
   ]
   const barWidth = estimateBarWidth(chart, bars)
   const overlays: ZoneOverlay[] = []
@@ -673,7 +675,10 @@ function buildHtfContextOverlays(args: {
   const bodyWidth = 10
   const spacing = 7
   const rightPad = 62
-  const visible = contextBars.slice(-3)
+  // The caller already slices the bar list to the desired count (which
+  // by default follows the bar-window selector and can be overridden in
+  // the indicator settings). Render whatever it sent.
+  const visible = contextBars
 
   return visible.flatMap((bar, index) => {
     const highY = candles.priceToCoordinate(bar.h)
@@ -954,7 +959,20 @@ interface SymbolPrefs {
   microGapsVisible?: boolean
   fvgVisible?: boolean
   htfContextVisible?: boolean
+  // Per-indicator overrides. `null` for htfContextCount means "follow
+  // the bar window" (1D→1, 2D→2, 3D→3). Missing fields fall back to
+  // the indicator's built-in default.
+  htfContextCount?: number | null
+  microGapsMaxActive?: number
+  fvgMaxActive?: number
 }
+
+const HTF_CONTEXT_COUNT_MIN = 1
+const HTF_CONTEXT_COUNT_MAX = 5
+const MICRO_GAPS_MAX_ACTIVE_DEFAULT = 80
+const FVG_MAX_ACTIVE_DEFAULT = 120
+const ZONE_MAX_ACTIVE_MIN = 0
+const ZONE_MAX_ACTIVE_MAX = 500
 
 const PER_SYMBOL_PREFS_KEY = "aiedge.chart.perSymbol.v1"
 const WEEKLY_HTF_EMA_OPT_INS_KEY = "aiedge.chart.weeklyHtfEmaOptIns.v1"
@@ -1091,6 +1109,32 @@ function storedHtfContextVisible(): boolean {
 function symbolHtfContextVisible(symbol: string): boolean {
   const stored = readSymbolPrefs(symbol).htfContextVisible
   return typeof stored === "boolean" ? stored : storedHtfContextVisible()
+}
+
+function clampInt(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min
+  return Math.max(min, Math.min(max, Math.round(value)))
+}
+
+// `null` (or undefined) means "follow the bar window" — the default.
+// A finite number is a user-set override clamped to the visual cap.
+function symbolHtfContextCount(symbol: string): number | null {
+  const stored = readSymbolPrefs(symbol).htfContextCount
+  if (stored === null) return null
+  if (typeof stored !== "number" || !Number.isFinite(stored)) return null
+  return clampInt(stored, HTF_CONTEXT_COUNT_MIN, HTF_CONTEXT_COUNT_MAX)
+}
+
+function symbolMicroGapsMaxActive(symbol: string): number {
+  const stored = readSymbolPrefs(symbol).microGapsMaxActive
+  if (typeof stored !== "number" || !Number.isFinite(stored)) return MICRO_GAPS_MAX_ACTIVE_DEFAULT
+  return clampInt(stored, ZONE_MAX_ACTIVE_MIN, ZONE_MAX_ACTIVE_MAX)
+}
+
+function symbolFvgMaxActive(symbol: string): number {
+  const stored = readSymbolPrefs(symbol).fvgMaxActive
+  if (typeof stored !== "number" || !Number.isFinite(stored)) return FVG_MAX_ACTIVE_DEFAULT
+  return clampInt(stored, ZONE_MAX_ACTIVE_MIN, ZONE_MAX_ACTIVE_MAX)
 }
 
 // User-added symbols that aren't in the live aggregator's default list.
@@ -1522,7 +1566,9 @@ function ChartSurface({
   htfBars,
   barNumbersVisible,
   microGapsVisible,
+  microGapsMaxActive,
   fvgVisible,
+  fvgMaxActive,
   htfContextVisible,
   htfContextBars,
   htfContextLabel,
@@ -1569,7 +1615,9 @@ function ChartSurface({
   htfBars: Record<HtfKey, Bar[]>
   barNumbersVisible: boolean
   microGapsVisible: boolean
+  microGapsMaxActive: number
   fvgVisible: boolean
+  fvgMaxActive: number
   htfContextVisible: boolean
   htfContextBars: Bar[]
   htfContextLabel: string
@@ -1633,7 +1681,9 @@ function ChartSurface({
   // props to avoid rebuilding the chart on every TZ toggle.
   const displayTimezoneRef = useRef(displayTimezone)
   const microGapsVisibleRef = useRef(microGapsVisible)
+  const microGapsMaxActiveRef = useRef(microGapsMaxActive)
   const fvgVisibleRef = useRef(fvgVisible)
+  const fvgMaxActiveRef = useRef(fvgMaxActive)
   const htfContextVisibleRef = useRef(htfContextVisible)
   const htfContextBarsRef = useRef(htfContextBars)
   const htfContextLabelRef = useRef(htfContextLabel)
@@ -1642,9 +1692,11 @@ function ChartSurface({
   }, [displayTimezone])
   useEffect(() => {
     microGapsVisibleRef.current = microGapsVisible
+    microGapsMaxActiveRef.current = microGapsMaxActive
     fvgVisibleRef.current = fvgVisible
+    fvgMaxActiveRef.current = fvgMaxActive
     scheduleLabelsRef.current()
-  }, [fvgVisible, microGapsVisible])
+  }, [fvgMaxActive, fvgVisible, microGapsMaxActive, microGapsVisible])
   useEffect(() => {
     htfContextVisibleRef.current = htfContextVisible
     htfContextBarsRef.current = htfContextBars
@@ -1997,7 +2049,9 @@ function ChartSurface({
         candles,
         bars: currentBars,
         microGapsVisible: microGapsVisibleRef.current,
+        microGapsMaxActive: microGapsMaxActiveRef.current,
         fvgVisible: fvgVisibleRef.current,
+        fvgMaxActive: fvgMaxActiveRef.current,
       }))
       setHtfContextOverlays(htfContextVisibleRef.current
         ? buildHtfContextOverlays({
@@ -2989,6 +3043,84 @@ function SettingsMenu({
 // switch row so the user can add/remove them in one place instead of
 // hunting the small pills on the chart canvas. The chart pills stay
 // active as quick-toggles for the indicators that are currently on.
+//
+// Each row also exposes a ⚙ that expands an inline panel for that
+// indicator's tunable parameters (count, max-active caps, etc).
+// Indicators that don't have parameters yet show a "no options"
+// placeholder so the affordance is uniform across the menu.
+type IndicatorRow = {
+  key: string
+  label: string
+  active: boolean
+  swatch: string
+  onToggle: () => void
+  settings: ReactNode | null
+}
+
+function NumberSettingRow({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  hint,
+  onChange,
+  onReset,
+  resetLabel,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step?: number
+  hint?: string
+  onChange: (next: number) => void
+  onReset?: () => void
+  resetLabel?: string
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="flex items-center justify-between gap-2">
+        <span className="text-[11px] text-sub">{label}</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          aria-label={label}
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(event) => {
+            const next = Number(event.target.value)
+            if (Number.isFinite(next)) onChange(clampInt(next, min, max))
+          }}
+          className="h-7 w-16 rounded-md border border-border/60 bg-bg px-1.5 text-right font-mono text-[12px] text-text outline-none focus-visible:ring-2 focus-visible:ring-teal/70"
+        />
+      </label>
+      {(hint || onReset) && (
+        <div className="flex items-center justify-between gap-2 text-[10px] text-sub/80">
+          <span>{hint ?? ""}</span>
+          {onReset && (
+            <button
+              type="button"
+              onClick={onReset}
+              className="rounded border border-border/40 px-1.5 py-0.5 font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70"
+            >
+              {resetLabel ?? "Reset"}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function NoOptionsRow() {
+  return (
+    <div className="text-[10px] text-sub/70">No options yet.</div>
+  )
+}
+
 function IndicatorsMenu({
   intraday,
   timeframe,
@@ -2999,9 +3131,13 @@ function IndicatorsMenu({
   vwapVisible,
   barNumbersVisible,
   microGapsVisible,
+  microGapsMaxActive,
   fvgVisible,
+  fvgMaxActive,
   htfContextVisible,
   htfContextLabel,
+  htfContextCount,
+  barWindow,
   levelVisibility,
   drawnLinesCount,
   compareSymbol,
@@ -3015,6 +3151,9 @@ function IndicatorsMenu({
   onToggleFvg,
   onToggleHtfContext,
   onToggleLevel,
+  onSetHtfContextCount,
+  onSetMicroGapsMaxActive,
+  onSetFvgMaxActive,
   onClearDrawnLines,
   onClearCompare,
   onExitReplay,
@@ -3028,9 +3167,13 @@ function IndicatorsMenu({
   vwapVisible: boolean
   barNumbersVisible: boolean
   microGapsVisible: boolean
+  microGapsMaxActive: number
   fvgVisible: boolean
+  fvgMaxActive: number
   htfContextVisible: boolean
   htfContextLabel: string
+  htfContextCount: number | null
+  barWindow: number
   levelVisibility: LevelVisibility
   drawnLinesCount: number
   compareSymbol: string | null
@@ -3044,23 +3187,32 @@ function IndicatorsMenu({
   onToggleFvg: () => void
   onToggleHtfContext: () => void
   onToggleLevel: (group: LevelGroup) => void
+  onSetHtfContextCount: (next: number | null) => void
+  onSetMicroGapsMaxActive: (next: number) => void
+  onSetFvgMaxActive: (next: number) => void
   onClearDrawnLines: () => void
   onClearCompare: () => void
   onExitReplay: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const closeMenu = useCallback(() => {
+    setOpen(false)
+    setExpandedKey(null)
+  }, [])
 
   useEffect(() => {
     if (!open) return
     const onClick = (event: MouseEvent) => {
       if (!containerRef.current) return
       if (event.target instanceof Node && !containerRef.current.contains(event.target)) {
-        setOpen(false)
+        closeMenu()
       }
     }
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false)
+      if (event.key === "Escape") closeMenu()
     }
     document.addEventListener("mousedown", onClick)
     document.addEventListener("keydown", onKey)
@@ -3068,60 +3220,151 @@ function IndicatorsMenu({
       document.removeEventListener("mousedown", onClick)
       document.removeEventListener("keydown", onKey)
     }
-  }, [open])
+  }, [open, closeMenu])
 
-  type IndicatorMenuItem = { key: string; label: string; active: boolean; swatch: string; onToggle: () => void }
   const baseEmaLabel = `${timeframeLabel(timeframe)} EMA20`
-  const emaOverlays: IndicatorMenuItem[] = [
-    { key: "ema", label: baseEmaLabel, active: emaVisible, swatch: "rgba(91, 168, 230, 0.85)", onToggle: onToggleEma },
+  const emaOverlays: IndicatorRow[] = [
+    { key: "ema", label: baseEmaLabel, active: emaVisible, swatch: "rgba(91, 168, 230, 0.85)", onToggle: onToggleEma, settings: null },
     ...availableHtfs.map((spec) => ({
       key: `htf-${spec.key}`,
       label: spec.label,
       active: htfEmaVisibility[spec.key],
       swatch: spec.color,
       onToggle: () => onToggleHtfEma(spec.key),
+      settings: null,
     })),
   ]
-  const chartOverlays: IndicatorMenuItem[] = [
-    { key: "vol", label: "Volume", active: volumeVisible, swatch: "rgba(0, 200, 150, 0.7)", onToggle: onToggleVolume },
-    { key: "vwap", label: "VWAP", active: vwapVisible, swatch: "rgba(180, 130, 230, 0.85)", onToggle: onToggleVwap },
-    { key: "micro", label: "Micro gaps", active: microGapsVisible, swatch: "rgba(180, 130, 230, 0.85)", onToggle: onToggleMicroGaps },
-    { key: "fvg", label: "Fair value gaps", active: fvgVisible, swatch: "rgba(245, 166, 35, 0.85)", onToggle: onToggleFvg },
+  const chartOverlays: IndicatorRow[] = [
+    { key: "vol", label: "Volume", active: volumeVisible, swatch: "rgba(0, 200, 150, 0.7)", onToggle: onToggleVolume, settings: null },
+    { key: "vwap", label: "VWAP", active: vwapVisible, swatch: "rgba(180, 130, 230, 0.85)", onToggle: onToggleVwap, settings: null },
+    {
+      key: "micro",
+      label: "Micro gaps",
+      active: microGapsVisible,
+      swatch: "rgba(180, 130, 230, 0.85)",
+      onToggle: onToggleMicroGaps,
+      settings: (
+        <NumberSettingRow
+          label="Max active zones"
+          value={microGapsMaxActive}
+          min={ZONE_MAX_ACTIVE_MIN}
+          max={ZONE_MAX_ACTIVE_MAX}
+          hint={`Default ${MICRO_GAPS_MAX_ACTIVE_DEFAULT}`}
+          onChange={onSetMicroGapsMaxActive}
+          onReset={
+            microGapsMaxActive === MICRO_GAPS_MAX_ACTIVE_DEFAULT
+              ? undefined
+              : () => onSetMicroGapsMaxActive(MICRO_GAPS_MAX_ACTIVE_DEFAULT)
+          }
+        />
+      ),
+    },
+    {
+      key: "fvg",
+      label: "Fair value gaps",
+      active: fvgVisible,
+      swatch: "rgba(245, 166, 35, 0.85)",
+      onToggle: onToggleFvg,
+      settings: (
+        <NumberSettingRow
+          label="Max active zones"
+          value={fvgMaxActive}
+          min={ZONE_MAX_ACTIVE_MIN}
+          max={ZONE_MAX_ACTIVE_MAX}
+          hint={`Default ${FVG_MAX_ACTIVE_DEFAULT}`}
+          onChange={onSetFvgMaxActive}
+          onReset={
+            fvgMaxActive === FVG_MAX_ACTIVE_DEFAULT
+              ? undefined
+              : () => onSetFvgMaxActive(FVG_MAX_ACTIVE_DEFAULT)
+          }
+        />
+      ),
+    },
     ...(htfContextLabel
-      ? [{ key: "htf-context", label: `${htfContextLabel} context bars`, active: htfContextVisible, swatch: "rgba(232, 232, 232, 0.85)", onToggle: onToggleHtfContext }]
+      ? [{
+          key: "htf-context",
+          label: `${htfContextLabel} context bars`,
+          active: htfContextVisible,
+          swatch: "rgba(232, 232, 232, 0.85)",
+          onToggle: onToggleHtfContext,
+          settings: (
+            <NumberSettingRow
+              label="Bar count"
+              value={htfContextCount ?? barWindow}
+              min={HTF_CONTEXT_COUNT_MIN}
+              max={HTF_CONTEXT_COUNT_MAX}
+              hint={htfContextCount == null
+                ? `Following bar window (${barWindow})`
+                : `Manual · default follows bar window (${barWindow})`}
+              onChange={(next) => onSetHtfContextCount(next)}
+              onReset={htfContextCount == null ? undefined : () => onSetHtfContextCount(null)}
+              resetLabel="Use default"
+            />
+          ),
+        } as IndicatorRow]
       : []),
     ...(intraday
-      ? [{ key: "bn", label: "Bar numbers", active: barNumbersVisible, swatch: "rgba(155, 161, 166, 0.85)", onToggle: onToggleBarNumbers }]
+      ? [{ key: "bn", label: "Bar numbers", active: barNumbersVisible, swatch: "rgba(155, 161, 166, 0.85)", onToggle: onToggleBarNumbers, settings: null } as IndicatorRow]
       : []),
   ]
-  const renderOverlayButton = (overlay: IndicatorMenuItem) => (
-    <button
-      key={overlay.key}
-      type="button"
-      onClick={overlay.onToggle}
-      aria-pressed={overlay.active}
-      className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-left text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
-        overlay.active
-          ? "border-border bg-surface text-text"
-          : "border-border/40 bg-bg text-sub hover:border-border-hover hover:text-text"
-      }`}
-    >
-      <span className="flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          className="h-1.5 w-1.5 rounded-full"
-          style={{
-            backgroundColor: overlay.active ? overlay.swatch : "transparent",
-            boxShadow: overlay.active ? "none" : `inset 0 0 0 1px ${overlay.swatch}80`,
-          }}
-        />
-        {overlay.label}
-      </span>
-      <span className={`text-[10px] font-semibold uppercase ${overlay.active ? "text-teal" : "text-sub"}`}>
-        {overlay.active ? "On" : "Off"}
-      </span>
-    </button>
-  )
+  const renderOverlayRow = (overlay: IndicatorRow) => {
+    const isExpanded = expandedKey === overlay.key
+    return (
+      <div key={overlay.key} className="flex flex-col gap-1">
+        <div
+          className={`flex items-stretch overflow-hidden rounded-md border ${
+            overlay.active
+              ? "border-border bg-surface"
+              : "border-border/40 bg-bg hover:border-border-hover"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={overlay.onToggle}
+            aria-pressed={overlay.active}
+            className={`flex flex-1 items-center justify-between gap-2 px-2 py-1.5 text-left text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-inset ${
+              overlay.active ? "text-text" : "text-sub hover:text-text"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="h-1.5 w-1.5 rounded-full"
+                style={{
+                  backgroundColor: overlay.active ? overlay.swatch : "transparent",
+                  boxShadow: overlay.active ? "none" : `inset 0 0 0 1px ${overlay.swatch}80`,
+                }}
+              />
+              {overlay.label}
+            </span>
+            <span className={`text-[10px] font-semibold uppercase ${overlay.active ? "text-teal" : "text-sub"}`}>
+              {overlay.active ? "On" : "Off"}
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-label={`${overlay.label} settings`}
+            aria-expanded={isExpanded}
+            onClick={() => setExpandedKey((current) => (current === overlay.key ? null : overlay.key))}
+            title={`${overlay.label} settings`}
+            className={`flex w-7 items-center justify-center border-l text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-inset ${
+              isExpanded
+                ? "border-border bg-surface-hover text-text"
+                : "border-border/40 text-sub hover:bg-surface-hover hover:text-text"
+            }`}
+          >
+            <span aria-hidden="true">⚙</span>
+          </button>
+        </div>
+        {isExpanded && (
+          <div className="ml-2 rounded-md border border-border/40 bg-bg/60 px-2 py-1.5">
+            {overlay.settings ?? <NoOptionsRow />}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div ref={containerRef} className="relative">
@@ -3130,7 +3373,13 @@ function IndicatorsMenu({
         aria-label="Indicators"
         aria-expanded={open}
         aria-haspopup="true"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (open) {
+            closeMenu()
+          } else {
+            setOpen(true)
+          }
+        }}
         className={`min-h-7 rounded-md border px-2 py-0.5 text-[11px] font-semibold outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
           open ? "border-teal/60 bg-surface-hover text-text" : "border-border/60 bg-surface text-sub"
         }`}
@@ -3148,14 +3397,14 @@ function IndicatorsMenu({
             EMA overlays
           </div>
           <div className="flex flex-col gap-1">
-            {emaOverlays.map(renderOverlayButton)}
+            {emaOverlays.map(renderOverlayRow)}
           </div>
 
           <div className="mb-1.5 mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-sub">
             Chart overlays
           </div>
           <div className="flex flex-col gap-1">
-            {chartOverlays.map(renderOverlayButton)}
+            {chartOverlays.map(renderOverlayRow)}
           </div>
 
           {intraday && (
@@ -3284,6 +3533,12 @@ export function TradingViewTerminal() {
   const [microGapsVisible, setMicroGapsVisible] = useState(() => symbolMicroGapsVisible(initialSymbol))
   const [fvgVisible, setFvgVisible] = useState(() => symbolFvgVisible(initialSymbol))
   const [htfContextVisible, setHtfContextVisible] = useState(() => symbolHtfContextVisible(initialSymbol))
+  // Per-indicator settings overrides. `htfContextCount === null` means
+  // "follow the bar window" (1D→1 bar, 2D→2, etc); a number is a manual
+  // override. Other settings store the raw value clamped on read.
+  const [htfContextCount, setHtfContextCount] = useState<number | null>(() => symbolHtfContextCount(initialSymbol))
+  const [microGapsMaxActive, setMicroGapsMaxActive] = useState<number>(() => symbolMicroGapsMaxActive(initialSymbol))
+  const [fvgMaxActive, setFvgMaxActive] = useState<number>(() => symbolFvgMaxActive(initialSymbol))
   const [drawnLines, setDrawnLines] = useState<number[]>(() => readDrawnLines(initialSymbol))
   // Replay mode. null = normal (live tail). A number freezes the chart
   // to that bar index in displayBars; [/] keys step forward/back.
@@ -3335,8 +3590,11 @@ export function TradingViewTerminal() {
       microGapsVisible,
       fvgVisible,
       htfContextVisible,
+      htfContextCount,
+      microGapsMaxActive,
+      fvgMaxActive,
     })
-  }, [barNumbersVisible, barWindow, emaVisible, fvgVisible, htfContextVisible, htfEmaVisibility, levelVisibility, microGapsVisible, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
+  }, [barNumbersVisible, barWindow, emaVisible, fvgMaxActive, fvgVisible, htfContextCount, htfContextVisible, htfEmaVisibility, levelVisibility, microGapsMaxActive, microGapsVisible, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
 
   const toggleVolume = useCallback(() => {
     setVolumeVisible((v) => !v)
@@ -3939,9 +4197,18 @@ export function TradingViewTerminal() {
     if (effectiveReplayIndex == null) return displayBars
     return displayBars.slice(0, effectiveReplayIndex + 1)
   }, [displayBars, effectiveReplayIndex])
+  // Default: as many HTF context candles as trading days in the bar
+  // window (1D shows 1, 2D shows 2, 3D shows 3). `htfContextCount` is a
+  // manual override from the indicator settings; null means "follow the
+  // bar window". Both paths clamp to the visual cap so the candles
+  // don't overlap the price scale.
+  const effectiveHtfContextCount = useMemo(
+    () => clampInt(htfContextCount ?? barWindow, HTF_CONTEXT_COUNT_MIN, HTF_CONTEXT_COUNT_MAX),
+    [htfContextCount, barWindow],
+  )
   const htfContextCandles = useMemo(
-    () => (htfContextSpec ? htfBars[htfContextSpec.key].slice(-3) : []),
-    [htfBars, htfContextSpec],
+    () => (htfContextSpec ? htfBars[htfContextSpec.key].slice(-effectiveHtfContextCount) : []),
+    [htfBars, htfContextSpec, effectiveHtfContextCount],
   )
   const htfContextLabel = htfContextSpec?.key === "daily"
     ? "D"
@@ -3995,6 +4262,9 @@ export function TradingViewTerminal() {
       microGapsVisible,
       fvgVisible,
       htfContextVisible,
+      htfContextCount,
+      microGapsMaxActive,
+      fvgMaxActive,
     })
     setTimeframe(symbolTimeframe(clean))
     setBarWindow(symbolBarWindow(clean))
@@ -4009,13 +4279,16 @@ export function TradingViewTerminal() {
     setMicroGapsVisible(symbolMicroGapsVisible(clean))
     setFvgVisible(symbolFvgVisible(clean))
     setHtfContextVisible(symbolHtfContextVisible(clean))
+    setHtfContextCount(symbolHtfContextCount(clean))
+    setMicroGapsMaxActive(symbolMicroGapsMaxActive(clean))
+    setFvgMaxActive(symbolFvgMaxActive(clean))
     setDrawnLines(readDrawnLines(clean))
     setReplayIndex(null)
     setPriorRthBars([])
     setContextBars([])
     setSelectedSymbol(clean)
     setSymbolDraft(clean)
-  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisibility, barNumbersVisible, microGapsVisible, fvgVisible, htfContextVisible])
+  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisibility, barNumbersVisible, microGapsVisible, fvgVisible, htfContextVisible, htfContextCount, microGapsMaxActive, fvgMaxActive])
 
   const toggleLevelGroup = useCallback((group: LevelGroup) => {
     setLevelVisibility((current) => ({ ...current, [group]: !current[group] }))
@@ -4160,9 +4433,13 @@ export function TradingViewTerminal() {
             vwapVisible={vwapVisible}
             barNumbersVisible={barNumbersVisible}
             microGapsVisible={microGapsVisible}
+            microGapsMaxActive={microGapsMaxActive}
             fvgVisible={fvgVisible}
+            fvgMaxActive={fvgMaxActive}
             htfContextVisible={htfContextVisible}
             htfContextLabel={htfContextLabel}
+            htfContextCount={htfContextCount}
+            barWindow={barWindow}
             levelVisibility={levelVisibility}
             drawnLinesCount={drawnLines.length}
             compareSymbol={compareSymbol}
@@ -4176,6 +4453,9 @@ export function TradingViewTerminal() {
             onToggleFvg={toggleFvg}
             onToggleHtfContext={toggleHtfContext}
             onToggleLevel={toggleLevelGroup}
+            onSetHtfContextCount={setHtfContextCount}
+            onSetMicroGapsMaxActive={setMicroGapsMaxActive}
+            onSetFvgMaxActive={setFvgMaxActive}
             onClearDrawnLines={clearDrawnLines}
             onClearCompare={clearCompareSymbol}
             onExitReplay={() => setReplayIndex(null)}
@@ -4237,7 +4517,9 @@ export function TradingViewTerminal() {
               htfBars={htfBars}
               barNumbersVisible={barNumbersVisible}
               microGapsVisible={microGapsVisible}
+              microGapsMaxActive={microGapsMaxActive}
               fvgVisible={fvgVisible}
+              fvgMaxActive={fvgMaxActive}
               htfContextVisible={htfContextVisible}
               htfContextBars={htfContextCandles}
               htfContextLabel={htfContextLabel}
