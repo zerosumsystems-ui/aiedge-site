@@ -2391,7 +2391,7 @@ function ChartSurface({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col items-start gap-1.5 sm:left-4 sm:gap-2">
+        <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-col items-start gap-1.5 sm:left-4 sm:top-3 sm:gap-2">
           <div className="glass-chip inline-flex flex-col rounded-md px-2 py-1 sm:px-2.5 sm:py-1.5">
             <div className="flex items-center gap-1.5">
               <span
@@ -2399,11 +2399,11 @@ function ChartSurface({
                 aria-label={liveStatusLabel(liveStatus, liveFresh, liveSubscribed)}
                 className={`pointer-events-auto h-1.5 w-1.5 rounded-full ${liveStatusColor(liveStatus, liveFresh, liveSubscribed)}`}
               />
-              <span className="font-mono text-base font-semibold leading-none tabular-nums text-text sm:text-lg">
+              <span className="font-mono text-sm font-semibold leading-none tabular-nums text-text sm:text-lg">
                 {formatPrice(latest?.c)}
               </span>
             </div>
-            <span className={`mt-1 font-mono text-[11px] leading-none tabular-nums ${(metrics.change ?? 0) >= 0 ? "text-teal" : "text-red"}`}>
+            <span className={`mt-1 font-mono text-[10px] leading-none tabular-nums sm:text-[11px] ${(metrics.change ?? 0) >= 0 ? "text-teal" : "text-red"}`}>
               {(metrics.change ?? 0) >= 0 ? "▲" : "▼"} {signed(metrics.change)} ({signed(metrics.changePct, "%")})
             </span>
           </div>
@@ -2514,7 +2514,7 @@ function ChartSurface({
           </div>
         </div>
 
-        <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col items-end gap-1.5">
+        <div className="pointer-events-none absolute right-2 top-2 z-10 flex flex-col items-end gap-1.5 sm:right-3 sm:top-3">
           {/* Always-in: Brooks long/short/mixed classification.
               Intraday only — daily/weekly bars don't carry the concept. */}
           {isIntradayTimeframe(timeframe) ? (
@@ -2545,13 +2545,14 @@ function ChartSurface({
           ) : null}
           {sessionRange > 0 ? (
             <div className="glass-chip pointer-events-auto flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 rounded-md px-2 py-1 font-mono text-[10px] tabular-nums text-sub/90 sm:text-[11px]">
-              <span><span className="text-sub/60">SR</span> {sessionRange.toFixed(2)}</span>
-              <span className="text-sub/40">·</span>
-              <span><span className="text-sub/60">scalp</span> {(sessionRange * 0.07).toFixed(2)}</span>
-              <span className="text-sub/40">·</span>
-              <span><span className="text-sub/60">swing</span> {(sessionRange * 0.55).toFixed(2)}-{(sessionRange * 0.85).toFixed(2)}</span>
-              <span className="text-sub/40">·</span>
-              <span><span className="text-sub/60">stop</span> {(sessionRange * 0.22).toFixed(2)}-{(sessionRange * 0.44).toFixed(2)}</span>
+              <span className="sm:hidden"><span className="text-sub/60">R</span> {sessionRange.toFixed(2)}</span>
+              <span className="hidden sm:inline"><span className="text-sub/60">SR</span> {sessionRange.toFixed(2)}</span>
+              <span className="hidden text-sub/40 sm:inline">·</span>
+              <span className="hidden sm:inline"><span className="text-sub/60">scalp</span> {(sessionRange * 0.07).toFixed(2)}</span>
+              <span className="hidden text-sub/40 sm:inline">·</span>
+              <span className="hidden sm:inline"><span className="text-sub/60">swing</span> {(sessionRange * 0.55).toFixed(2)}-{(sessionRange * 0.85).toFixed(2)}</span>
+              <span className="hidden text-sub/40 sm:inline">·</span>
+              <span className="hidden sm:inline"><span className="text-sub/60">stop</span> {(sessionRange * 0.22).toFixed(2)}-{(sessionRange * 0.44).toFixed(2)}</span>
             </div>
           ) : null}
         </div>
@@ -3272,6 +3273,7 @@ export function TradingViewTerminal() {
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null)
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
   const [watchlistVisible, setWatchlistVisible] = useState(storedWatchlistVisible)
+  const [mobileWatchlistOpen, setMobileWatchlistOpen] = useState(false)
   const [levelVisibility, setLevelVisibility] = useState<LevelVisibility>(() => symbolLevelVisibility(initialSymbol))
   const [volumeVisible, setVolumeVisible] = useState(() => symbolVolumeVisible(initialSymbol))
   const [emaVisible, setEmaVisible] = useState(() => symbolEmaVisible(initialSymbol))
@@ -4133,12 +4135,20 @@ export function TradingViewTerminal() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            aria-expanded={mobileWatchlistOpen}
+            aria-controls="mobile-watchlist"
+            onClick={() => setMobileWatchlistOpen(true)}
+            className="inline-flex min-h-7 items-center rounded-md border border-border/60 bg-surface px-2 py-0.5 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg xl:hidden"
+          >
+            List
+          </button>
+          <button
+            type="button"
             aria-pressed={watchlistVisible}
             onClick={() => setWatchlistVisible((visible) => !visible)}
-            className="min-h-7 rounded-md border border-border/60 bg-surface px-2 py-0.5 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            className="hidden min-h-7 items-center rounded-md border border-border/60 bg-surface px-2 py-0.5 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg xl:inline-flex"
           >
-            <span className="sm:hidden">List</span>
-            <span className="hidden sm:inline">{watchlistVisible ? "Hide list" : "Show list"}</span>
+            {watchlistVisible ? "Hide list" : "Show list"}
           </button>
           <IndicatorsMenu
             intraday={isIntradayTimeframe(timeframe)}
@@ -4272,12 +4282,12 @@ export function TradingViewTerminal() {
         )}
       </div>
 
-      {watchlistVisible && (
-        <div className="fixed inset-0 z-40 flex flex-col justify-end xl:hidden" role="dialog" aria-modal="true" aria-label="Watchlist">
+      {mobileWatchlistOpen && (
+        <div id="mobile-watchlist" className="fixed inset-0 z-40 flex flex-col justify-end xl:hidden" role="dialog" aria-modal="true" aria-label="Watchlist">
           <button
             type="button"
             aria-label="Close watchlist"
-            onClick={() => setWatchlistVisible(false)}
+            onClick={() => setMobileWatchlistOpen(false)}
             className="absolute inset-0 bg-black/55"
           />
           <div className="relative max-h-[78dvh] overflow-hidden rounded-t-2xl border-t border-border bg-bg pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-12px_36px_rgba(0,0,0,0.45)]">
@@ -4286,7 +4296,7 @@ export function TradingViewTerminal() {
               <span className="text-xs font-semibold uppercase tracking-[0.14em] text-sub">Watchlist</span>
               <button
                 type="button"
-                onClick={() => setWatchlistVisible(false)}
+                onClick={() => setMobileWatchlistOpen(false)}
                 className="-mr-2 flex h-11 min-w-11 items-center justify-center rounded-md px-3 text-sm font-semibold text-sub outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70"
               >
                 Done
@@ -4301,7 +4311,7 @@ export function TradingViewTerminal() {
                 selectedSymbol={selectedSymbol}
                 onSelectSymbol={(symbol) => {
                   selectSymbol(symbol)
-                  setWatchlistVisible(false)
+                  setMobileWatchlistOpen(false)
                 }}
               />
             </div>
