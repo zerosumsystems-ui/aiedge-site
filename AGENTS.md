@@ -51,3 +51,32 @@ After pushing, use Vercel to find the new Production deployment, poll until it i
 - `curl -I --max-time 20 https://www.aiedge.trade/chart`
 
 Only say work is live after the Production deployment is Ready and the live route responds successfully.
+
+## Cloud environment
+
+Web sessions (claude.ai/code) read environment variables from the Claude Code
+**Environment settings** UI, not from chat. Mirror the same values that live
+in Vercel Production. The full list of vars the code reads is documented in
+`.env.local.example` — that file is the single source of truth.
+
+Conventions:
+
+- Add new env vars to `.env.local.example` (with a comment explaining what
+  reads them) before referencing `process.env.X` in code. Web sessions copy
+  from that list into the cloud environment UI.
+- Vercel and GitHub are handled via MCP servers attached to the session — do
+  not store `VERCEL_TOKEN` or `GITHUB_TOKEN` in the environment.
+- `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never import it from a `"use
+  client"` module.
+- The Fly aggregator (`Dockerfile.live-bars`, `fly.live-bars.toml`) deploys
+  from the Mac mini, not from web sessions. Do not run `fly deploy` from
+  here.
+
+Repo-side configuration:
+
+- `.claude/settings.json` allowlists the safe commands needed by the Go Live
+  Workflow (`npm run lint/build/test:chart`, read-only git, `curl -I`) and
+  registers a SessionStart hook.
+- `.claude/hooks/session-start.sh` runs `npm ci` only when
+  `package-lock.json` is newer than `node_modules`, so subsequent sessions
+  start instantly.
