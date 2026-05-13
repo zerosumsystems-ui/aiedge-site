@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { TradingViewTerminal } from "@/components/charts/TradingViewTerminal"
+import { ChartClient } from "./ChartClient"
 
 export const metadata: Metadata = {
   title: "Chart | AI Edge",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function ChartPage() {
-  return <TradingViewTerminal />
+  return <ChartClient />
 }
