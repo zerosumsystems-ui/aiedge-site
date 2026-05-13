@@ -37,7 +37,20 @@
       "Bash(grep:*)",
       "Bash(rg:*)",
       "Bash(find:*)",
-      "Bash(jq:*)"
+      "Bash(jq:*)",
+      "Bash(fly status:*)",
+      "Bash(fly logs:*)",
+      "Bash(fly machine list:*)",
+      "Bash(fly machine status:*)",
+      "Bash(fly machine start:*)",
+      "Bash(fly machine restart:*)",
+      "Bash(fly apps list)",
+      "Bash(fly version)",
+      "Bash(fly auth whoami)",
+      "Bash(flyctl status:*)",
+      "Bash(flyctl logs:*)",
+      "Bash(flyctl version)",
+      "Bash(flyctl auth whoami)"
     ]
   },
   "hooks": {
