@@ -163,16 +163,9 @@
 
   <div class="hero">
     <div class="label">AGENT STATUS · LIVE</div>
-    <h1>70% — one step left</h1>
-    <div class="sub">Cloud env wired. Paste env values and I run hands-off.</div>
+    <h1>Aggregator restored</h1>
+    <div class="sub">Fly IPs allocated, DNS propagated, aggregator healthy and streaming.</div>
     <div class="progress"><div></div></div>
-  </div>
-
-  <div class="alert">
-    <div class="head">PRODUCTION ALERT · LIVE-BARS AGGREGATOR DOWN</div>
-    <div class="body">
-      The Fly aggregator at <code>aiedge-live-bars.fly.dev</code> isn't reachable — every <code>/api/bars/live</code> call will fail. The site itself is fine, Upstash is fine, but live tick data isn't flowing. Fix needs to run from the Mac mini (<code>fly deploy</code>).
-    </div>
   </div>
 
   <div class="card">
@@ -181,7 +174,6 @@
       <div class="stat">
         <div class="k">VERCEL DEPLOY</div>
         <div class="v good">READY</div>
-        <div class="k" style="margin-top:6px;">main · 2f60251</div>
       </div>
       <div class="stat">
         <div class="k">aiedge.trade /</div>
@@ -193,8 +185,8 @@
       </div>
       <div class="stat">
         <div class="k">FLY AGGREGATOR</div>
-        <div class="v bad">UNREACHABLE</div>
-        <div class="k" style="margin-top:6px;">fetch failed · last 27ms</div>
+        <div class="v good">REACHABLE</div>
+        <div class="k" style="margin-top:6px;">live_connected: true · 126ms</div>
       </div>
       <div class="stat">
         <div class="k">UPSTASH REDIS</div>
@@ -202,8 +194,8 @@
         <div class="k" style="margin-top:6px;">subscribed: AMD · 10 bar keys</div>
       </div>
       <div class="stat">
-        <div class="k">LAST DEPLOY COMMIT</div>
-        <div class="v" style="font-size:14px;">Merge claude/dash-goals…</div>
+        <div class="k">ROOT CAUSE FIXED</div>
+        <div class="v" style="font-size:14px;">No Fly IPs allocated</div>
       </div>
     </div>
   </div>
