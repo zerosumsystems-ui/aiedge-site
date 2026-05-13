@@ -3608,6 +3608,13 @@ export function TradingViewTerminal() {
   const [compareSymbol, setCompareSymbol] = useState<string | null>(storedCompareSymbol)
   const [compareBars, setCompareBars] = useState<Bar[]>([])
   const barsCacheRef = useRef<Map<string, { payload: BarsPayload; fetchedAt: number }>>(new Map())
+  // Tracks fetches that have been kicked off but not yet resolved. When a
+  // second caller asks for the same URL while the first is still in flight
+  // (e.g. a 1Hz silent-poll against a slow non-subscribed ticker), it
+  // joins the existing Promise instead of firing a duplicate request.
+  // Eliminates the thundering-herd pile-up that made AVGO feel even
+  // slower than its already-slow Databento Historical path.
+  const barsInflightRef = useRef<Map<string, Promise<BarsPayload>>>(new Map())
 
   useEffect(() => {
     // Global prefs still hold the last-used symbol + the global
@@ -3741,9 +3748,23 @@ export function TradingViewTerminal() {
     if (cached && maxAgeMs > 0 && now - cached.fetchedAt <= maxAgeMs) {
       return cached.payload
     }
-    const payload = await fetchJson<BarsPayload>(url)
-    barsCacheRef.current.set(url, { payload, fetchedAt: now })
-    return payload
+    const existing = barsInflightRef.current.get(url)
+    if (existing) return existing
+    const promise = fetchJson<BarsPayload>(url)
+      .then((payload) => {
+        barsCacheRef.current.set(url, { payload, fetchedAt: Date.now() })
+        return payload
+      })
+      .finally(() => {
+        // Only clear when this is still the in-flight entry for the URL;
+        // a later overlapping call may have replaced it (it cannot — we
+        // return the existing Promise above — but be defensive).
+        if (barsInflightRef.current.get(url) === promise) {
+          barsInflightRef.current.delete(url)
+        }
+      })
+    barsInflightRef.current.set(url, promise)
+    return promise
   }, [])
   const htfContextSpec = useMemo(() => htfContextSpecFor(timeframe), [timeframe])
 
@@ -3754,20 +3775,21 @@ export function TradingViewTerminal() {
         if (cancelled) return
         const base = payload.symbols.length > 0 ? payload.symbols : DEFAULT_SYMBOLS
         const customs = readCustomSymbols()
-        const merged = Array.from(new Set([...base, ...customs]))
+        // Keep the user's currently-selected symbol in the list even if
+        // the live aggregator isn't subscribed to it yet. /api/bars and
+        // /api/bars/live both serve any ticker, so the chart can still
+        // paint; the dynamic-subscribe effect below will ask the
+        // aggregator to pick it up in the background.
+        const merged = Array.from(new Set([...base, ...customs, selectedSymbol]))
         setSymbols(merged)
         setLiveSubscribedSet(new Set(base))
         setDataset(payload.dataset)
         setSchema(payload.schema)
-        if (!merged.includes(selectedSymbol)) {
-          setSelectedSymbol(merged[0])
-          setSymbolDraft(merged[0])
-        }
       })
       .catch(() => {
         if (cancelled) return
         const customs = readCustomSymbols()
-        setSymbols(Array.from(new Set([...DEFAULT_SYMBOLS, ...customs])))
+        setSymbols(Array.from(new Set([...DEFAULT_SYMBOLS, ...customs, selectedSymbol])))
         setLiveSubscribedSet(new Set(DEFAULT_SYMBOLS))
       })
     return () => {
