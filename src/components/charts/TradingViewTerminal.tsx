@@ -466,9 +466,9 @@ function projectHtfEmaOntoLtfBars(
 // "neutral" when the two signals disagree.
 type AlwaysIn = "long" | "short" | "neutral"
 
-function alwaysInDirection(bars: Bar[], emaSeed?: number): AlwaysIn {
+function alwaysInDirection(bars: Bar[], period: number, emaSeed?: number): AlwaysIn {
   if (bars.length < 4) return "neutral"
-  const emaSeries = emaLineData(bars, 20, emaSeed)
+  const emaSeries = emaLineData(bars, period, emaSeed)
   const last = bars[bars.length - 1]
   const lastEma = emaSeries[emaSeries.length - 1]?.value
   if (lastEma == null) return "neutral"
@@ -965,6 +965,9 @@ interface SymbolPrefs {
   htfContextCount?: number | null
   microGapsMaxActive?: number
   fvgMaxActive?: number
+  // Shared EMA period — applies to the base EMA AND every HTF EMA
+  // overlay so the user can read the same "EMA{N}" across timeframes.
+  emaPeriod?: number
 }
 
 const HTF_CONTEXT_COUNT_MIN = 1
@@ -973,6 +976,17 @@ const MICRO_GAPS_MAX_ACTIVE_DEFAULT = 80
 const FVG_MAX_ACTIVE_DEFAULT = 120
 const ZONE_MAX_ACTIVE_MIN = 0
 const ZONE_MAX_ACTIVE_MAX = 500
+const EMA_PERIOD_DEFAULT = 20
+const EMA_PERIOD_MIN = 2
+const EMA_PERIOD_MAX = 200
+
+function formatEmaLabel(period: number): string {
+  return `EMA${period}`
+}
+
+function formatHtfEmaLabel(spec: (typeof HTF_SPECS)[number], period: number): string {
+  return `${spec.chipLabel} ${formatEmaLabel(period)}`
+}
 
 const PER_SYMBOL_PREFS_KEY = "aiedge.chart.perSymbol.v1"
 const WEEKLY_HTF_EMA_OPT_INS_KEY = "aiedge.chart.weeklyHtfEmaOptIns.v1"
@@ -1135,6 +1149,12 @@ function symbolFvgMaxActive(symbol: string): number {
   const stored = readSymbolPrefs(symbol).fvgMaxActive
   if (typeof stored !== "number" || !Number.isFinite(stored)) return FVG_MAX_ACTIVE_DEFAULT
   return clampInt(stored, ZONE_MAX_ACTIVE_MIN, ZONE_MAX_ACTIVE_MAX)
+}
+
+function symbolEmaPeriod(symbol: string): number {
+  const stored = readSymbolPrefs(symbol).emaPeriod
+  if (typeof stored !== "number" || !Number.isFinite(stored)) return EMA_PERIOD_DEFAULT
+  return clampInt(stored, EMA_PERIOD_MIN, EMA_PERIOD_MAX)
 }
 
 // User-added symbols that aren't in the live aggregator's default list.
@@ -1319,6 +1339,7 @@ function EmaIndicatorControls({
   availableHtfs,
   emaVisible,
   htfEmaVisibility,
+  emaPeriod,
   onToggleEma,
   onToggleHtfEma,
 }: {
@@ -1326,11 +1347,12 @@ function EmaIndicatorControls({
   availableHtfs: typeof HTF_SPECS
   emaVisible: boolean
   htfEmaVisibility: HtfVisibility
+  emaPeriod: number
   onToggleEma: () => void
   onToggleHtfEma: (key: HtfKey) => void
 }) {
   const baseTimeframeLabel = timeframeLabel(timeframe)
-  const baseEmaLabel = `${baseTimeframeLabel} EMA20`
+  const baseEmaLabel = `${baseTimeframeLabel} ${formatEmaLabel(emaPeriod)}`
 
   return (
     <div className="glass-chip pointer-events-auto inline-flex items-center gap-0.5 rounded-md p-0.5" aria-label="EMA overlays">
@@ -1346,18 +1368,21 @@ function EmaIndicatorControls({
         ariaLabel={emaVisible ? `Hide ${baseEmaLabel}` : `Show ${baseEmaLabel}`}
         title={baseEmaLabel}
       />
-      {availableHtfs.map((spec) => (
-        <IndicatorPill
-          grouped
-          key={spec.key}
-          label={spec.chipLabel}
-          active={htfEmaVisibility[spec.key]}
-          swatchColor={spec.color}
-          onClick={() => onToggleHtfEma(spec.key)}
-          ariaLabel={htfEmaVisibility[spec.key] ? `Hide ${spec.label}` : `Show ${spec.label}`}
-          title={spec.label}
-        />
-      ))}
+      {availableHtfs.map((spec) => {
+        const htfLabel = formatHtfEmaLabel(spec, emaPeriod)
+        return (
+          <IndicatorPill
+            grouped
+            key={spec.key}
+            label={spec.chipLabel}
+            active={htfEmaVisibility[spec.key]}
+            swatchColor={spec.color}
+            onClick={() => onToggleHtfEma(spec.key)}
+            ariaLabel={htfEmaVisibility[spec.key] ? `Hide ${htfLabel}` : `Show ${htfLabel}`}
+            title={htfLabel}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -1561,6 +1586,7 @@ function ChartSurface({
   liveSubscribed,
   volumeVisible,
   emaVisible,
+  emaPeriod,
   vwapVisible,
   htfEmaVisibility,
   htfBars,
@@ -1610,6 +1636,7 @@ function ChartSurface({
   liveSubscribed: boolean
   volumeVisible: boolean
   emaVisible: boolean
+  emaPeriod: number
   vwapVisible: boolean
   htfEmaVisibility: HtfVisibility
   htfBars: Record<HtfKey, Bar[]>
@@ -1715,26 +1742,27 @@ function ChartSurface({
   const metrics = useMemo(() => metricsFor(bars), [bars])
   const latest = metrics.latest
   const sessionRange = metrics.high != null && metrics.low != null ? metrics.high - metrics.low : 0
-  const chartEmaLabel = `${timeframeLabel(timeframe)} EMA20`
+  const chartEmaLabel = `${timeframeLabel(timeframe)} ${formatEmaLabel(emaPeriod)}`
+  const emaLabelShort = formatEmaLabel(emaPeriod)
 
   // Final EMA value over the prior aggregated bars, used to seed the EMA
   // line so it picks up where yesterday left off instead of resetting to
   // close at bar #1 of the visible window.
   const emaSeed = useMemo<number | undefined>(() => {
     if (seedBars.length === 0) return undefined
-    return emaLineData(seedBars, 20).at(-1)?.value
-  }, [seedBars])
+    return emaLineData(seedBars, emaPeriod).at(-1)?.value
+  }, [seedBars, emaPeriod])
 
   // Brooks-style always-in classification. Refreshes whenever the bar
   // series or seed shifts (so it auto-updates as live bars stream in).
-  const alwaysIn = useMemo(() => alwaysInDirection(bars, emaSeed), [bars, emaSeed])
+  const alwaysIn = useMemo(() => alwaysInDirection(bars, emaPeriod, emaSeed), [bars, emaPeriod, emaSeed])
 
   useEffect(() => {
     barsRef.current = bars
     emaByTimeRef.current = new Map(
-      emaLineData(bars, 20, emaSeed).map((point) => [Number(point.time), point.value]),
+      emaLineData(bars, emaPeriod, emaSeed).map((point) => [Number(point.time), point.value]),
     )
-  }, [bars, emaSeed])
+  }, [bars, emaPeriod, emaSeed])
 
   useEffect(() => {
     visibleBarCountRef.current = bars.length
@@ -2249,7 +2277,7 @@ function ChartSurface({
         return base
       }),
     )
-    average.setData(emaLineData(bars, 20, emaSeed))
+    average.setData(emaLineData(bars, emaPeriod, emaSeed))
     average.applyOptions({ visible: emaVisible })
     const availableHtfKeys = new Set(availableHtfsFor(timeframe).map((spec) => spec.key))
     for (const spec of HTF_SPECS) {
@@ -2258,7 +2286,7 @@ function ChartSurface({
       const active = htfEmaVisibility[spec.key] && availableHtfKeys.has(spec.key)
       const sourceBars = htfBars[spec.key]
       if (active && sourceBars.length > 0 && bars.length > 0) {
-        const htfEma = emaLineData(sourceBars, 20).map((p) => ({ time: Number(p.time), value: p.value }))
+        const htfEma = emaLineData(sourceBars, emaPeriod).map((p) => ({ time: Number(p.time), value: p.value }))
         series.setData(projectHtfEmaOntoLtfBars(htfEma, bars, spec.projection))
         series.applyOptions({ visible: true })
       } else {
@@ -2421,7 +2449,7 @@ function ChartSurface({
     return () => {
       for (const timer of settleTimers) window.clearTimeout(timer)
     }
-  }, [barWindow, bars, compareBars, compareSymbol, drawnLines, emaSeed, emaVisible, fitChartToBarWindow, htfBars, htfEmaVisibility, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
+  }, [barWindow, bars, compareBars, compareSymbol, drawnLines, emaPeriod, emaSeed, emaVisible, fitChartToBarWindow, htfBars, htfEmaVisibility, levels, sessionMode, symbol, timeframe, volumeVisible, vwapVisible])
 
   useEffect(() => {
     if (bars.length === 0) return
@@ -2482,6 +2510,7 @@ function ChartSurface({
                 availableHtfs={availableHtfsFor(timeframe)}
                 emaVisible={emaVisible}
                 htfEmaVisibility={htfEmaVisibility}
+                emaPeriod={emaPeriod}
                 onToggleEma={onToggleEma}
                 onToggleHtfEma={onToggleHtfEma}
               />
@@ -2582,10 +2611,10 @@ function ChartSurface({
               }`}
               title={
                 alwaysIn === "long"
-                  ? "Always-in: Long (close above EMA20 and EMA20 rising)"
+                  ? `Always-in: Long (close above ${emaLabelShort} and ${emaLabelShort} rising)`
                   : alwaysIn === "short"
-                    ? "Always-in: Short (close below EMA20 and EMA20 falling)"
-                    : "Always-in: Mixed signal (close and EMA20 slope disagree)"
+                    ? `Always-in: Short (close below ${emaLabelShort} and ${emaLabelShort} falling)`
+                    : `Always-in: Mixed signal (close and ${emaLabelShort} slope disagree)`
               }
             >
               <span
@@ -3127,6 +3156,7 @@ function IndicatorsMenu({
   availableHtfs,
   volumeVisible,
   emaVisible,
+  emaPeriod,
   htfEmaVisibility,
   vwapVisible,
   barNumbersVisible,
@@ -3151,6 +3181,7 @@ function IndicatorsMenu({
   onToggleFvg,
   onToggleHtfContext,
   onToggleLevel,
+  onSetEmaPeriod,
   onSetHtfContextCount,
   onSetMicroGapsMaxActive,
   onSetFvgMaxActive,
@@ -3163,6 +3194,7 @@ function IndicatorsMenu({
   availableHtfs: typeof HTF_SPECS
   volumeVisible: boolean
   emaVisible: boolean
+  emaPeriod: number
   htfEmaVisibility: HtfVisibility
   vwapVisible: boolean
   barNumbersVisible: boolean
@@ -3187,6 +3219,7 @@ function IndicatorsMenu({
   onToggleFvg: () => void
   onToggleHtfContext: () => void
   onToggleLevel: (group: LevelGroup) => void
+  onSetEmaPeriod: (next: number) => void
   onSetHtfContextCount: (next: number | null) => void
   onSetMicroGapsMaxActive: (next: number) => void
   onSetFvgMaxActive: (next: number) => void
@@ -3222,16 +3255,40 @@ function IndicatorsMenu({
     }
   }, [open, closeMenu])
 
-  const baseEmaLabel = `${timeframeLabel(timeframe)} EMA20`
+  const baseEmaLabel = `${timeframeLabel(timeframe)} ${formatEmaLabel(emaPeriod)}`
+  // All EMA series share one period. Surface the setting on the base
+  // EMA row (rather than duplicating on every HTF row) so users only
+  // change it in one place; the HTF rows show the resolved label and a
+  // hint that the period is shared.
+  const emaPeriodSetting = (
+    <NumberSettingRow
+      label="Period"
+      value={emaPeriod}
+      min={EMA_PERIOD_MIN}
+      max={EMA_PERIOD_MAX}
+      hint={emaPeriod === EMA_PERIOD_DEFAULT
+        ? "Default 20 · shared with HTF EMAs"
+        : `Shared with HTF EMAs · default ${EMA_PERIOD_DEFAULT}`}
+      onChange={onSetEmaPeriod}
+      onReset={emaPeriod === EMA_PERIOD_DEFAULT ? undefined : () => onSetEmaPeriod(EMA_PERIOD_DEFAULT)}
+    />
+  )
   const emaOverlays: IndicatorRow[] = [
-    { key: "ema", label: baseEmaLabel, active: emaVisible, swatch: "rgba(91, 168, 230, 0.85)", onToggle: onToggleEma, settings: null },
+    {
+      key: "ema",
+      label: baseEmaLabel,
+      active: emaVisible,
+      swatch: "rgba(91, 168, 230, 0.85)",
+      onToggle: onToggleEma,
+      settings: emaPeriodSetting,
+    },
     ...availableHtfs.map((spec) => ({
       key: `htf-${spec.key}`,
-      label: spec.label,
+      label: formatHtfEmaLabel(spec, emaPeriod),
       active: htfEmaVisibility[spec.key],
       swatch: spec.color,
       onToggle: () => onToggleHtfEma(spec.key),
-      settings: null,
+      settings: emaPeriodSetting,
     })),
   ]
   const chartOverlays: IndicatorRow[] = [
@@ -3539,6 +3596,7 @@ export function TradingViewTerminal() {
   const [htfContextCount, setHtfContextCount] = useState<number | null>(() => symbolHtfContextCount(initialSymbol))
   const [microGapsMaxActive, setMicroGapsMaxActive] = useState<number>(() => symbolMicroGapsMaxActive(initialSymbol))
   const [fvgMaxActive, setFvgMaxActive] = useState<number>(() => symbolFvgMaxActive(initialSymbol))
+  const [emaPeriod, setEmaPeriod] = useState<number>(() => symbolEmaPeriod(initialSymbol))
   const [drawnLines, setDrawnLines] = useState<number[]>(() => readDrawnLines(initialSymbol))
   // Replay mode. null = normal (live tail). A number freezes the chart
   // to that bar index in displayBars; [/] keys step forward/back.
@@ -3593,8 +3651,9 @@ export function TradingViewTerminal() {
       htfContextCount,
       microGapsMaxActive,
       fvgMaxActive,
+      emaPeriod,
     })
-  }, [barNumbersVisible, barWindow, emaVisible, fvgMaxActive, fvgVisible, htfContextCount, htfContextVisible, htfEmaVisibility, levelVisibility, microGapsMaxActive, microGapsVisible, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
+  }, [barNumbersVisible, barWindow, emaPeriod, emaVisible, fvgMaxActive, fvgVisible, htfContextCount, htfContextVisible, htfEmaVisibility, levelVisibility, microGapsMaxActive, microGapsVisible, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
 
   const toggleVolume = useCallback(() => {
     setVolumeVisible((v) => !v)
@@ -3869,10 +3928,53 @@ export function TradingViewTerminal() {
         return
       }
 
-      // Prior-day fetch goes through the localStorage cache. On miss
-      // it issues a /api/bars request; on hit it's a synchronous read
-      // and returns instantly. Today's fetch always goes to the API.
-      const priorPromise: Promise<Bar[]> = hasPriorDays
+      // Stream each fetch into state independently so the skeleton
+      // disappears as soon as ANY useful bars arrive — instead of
+      // blocking on the slowest of the three. Today and live both
+      // reveal price action; the prior-day cache fetch is only needed
+      // for EMA warmup and 2D/3D scope and can fold in later.
+      const yesterdayCutoff = previousEtDates(sessionDate, 1)[0] ?? sessionDate
+      const revealChart = () => {
+        if (cancelled) return
+        setLoading(false)
+        setLastFetchedAt(new Date())
+      }
+
+      const todayFetch = fetchBarsWithMemory(todayUrl, 30_000)
+        .then((payload) => {
+          if (cancelled) return
+          // Replace just today's slice of historyBars; keep whatever
+          // prior days have already streamed in (if any).
+          setHistoryBars((prev) => {
+            const prior = prev.filter((bar) => etDateForTimestamp(bar.t) <= yesterdayCutoff)
+            return [...prior, ...payload.bars]
+          })
+          setHistoryError(null)
+          revealChart()
+        })
+        .catch((reason) => {
+          if (cancelled) return
+          setHistoryError(reason instanceof Error ? reason.message : String(reason))
+          // Live may still be useful on its own — surface the chart.
+          revealChart()
+        })
+
+      const liveFetch = fetchBarsWithMemory(liveUrl, 0)
+        .then((payload) => {
+          if (cancelled) return
+          setLiveBars(payload.bars)
+          setLiveStatus(payload.liveStatus ?? "unknown")
+          setLiveError(null)
+          revealChart()
+        })
+        .catch((reason) => {
+          if (cancelled) return
+          setLiveBars([])
+          setLiveStatus("unknown")
+          setLiveError(reason instanceof Error ? reason.message : String(reason))
+        })
+
+      const priorFetch: Promise<unknown> = hasPriorDays
         ? fetchPriorDayBars({
             ticker: selectedSymbol,
             from: historyFrom,
@@ -3880,44 +3982,25 @@ export function TradingViewTerminal() {
             tf: "1min",
             session: sessionFilter,
             limit,
-          }).catch(() => [] as Bar[])
-        : Promise.resolve([] as Bar[])
+          })
+            .then((priorBars) => {
+              if (cancelled) return
+              setHistoryBars((prev) => {
+                // Splice the prior days in front of whatever today
+                // section has already landed.
+                const today = prev.filter((bar) => etDateForTimestamp(bar.t) > yesterdayCutoff)
+                return [...priorBars, ...today]
+              })
+            })
+            .catch(() => {
+              // Best-effort — chart can still render with today only.
+            })
+        : Promise.resolve()
 
-      const [priorResult, todayResult, liveResult] = await Promise.allSettled([
-        priorPromise,
-        // 30s in-memory cache for today's historical — short enough
-        // that custom symbols (no live subscription) stay near-live,
-        // and the chart's silent poll keeps it refreshed afterward.
-        fetchBarsWithMemory(todayUrl, 30_000),
-        // Live fetch — bypass the in-memory cache. The endpoint stitches
-        // the in-progress partial bar in on every request, so each poll
-        // can see a different last-candle state.
-        fetchBarsWithMemory(liveUrl, 0),
-      ])
-
+      await Promise.allSettled([todayFetch, liveFetch, priorFetch])
       if (cancelled) return
-
-      const priorBars = priorResult.status === "fulfilled" ? priorResult.value : []
-      if (todayResult.status === "fulfilled") {
-        setHistoryBars([...priorBars, ...todayResult.value.bars])
-        setHistoryError(null)
-      } else {
-        // Today failed; still set what we have from prior days.
-        setHistoryBars(priorBars)
-        setHistoryError(todayResult.reason instanceof Error ? todayResult.reason.message : String(todayResult.reason))
-      }
-
-      if (liveResult.status === "fulfilled") {
-        setLiveBars(liveResult.value.bars)
-        setLiveStatus(liveResult.value.liveStatus ?? "unknown")
-        setLiveError(null)
-      } else {
-        setLiveBars([])
-        setLiveStatus("unknown")
-        setLiveError(liveResult.reason instanceof Error ? liveResult.reason.message : String(liveResult.reason))
-      }
-
-      setLastFetchedAt(new Date())
+      // Safety net: if every fetch failed and revealChart was never
+      // called, drop the skeleton anyway so the error state can show.
       setLoading(false)
 
       if (contextPromise) {
@@ -4265,6 +4348,7 @@ export function TradingViewTerminal() {
       htfContextCount,
       microGapsMaxActive,
       fvgMaxActive,
+      emaPeriod,
     })
     setTimeframe(symbolTimeframe(clean))
     setBarWindow(symbolBarWindow(clean))
@@ -4282,13 +4366,14 @@ export function TradingViewTerminal() {
     setHtfContextCount(symbolHtfContextCount(clean))
     setMicroGapsMaxActive(symbolMicroGapsMaxActive(clean))
     setFvgMaxActive(symbolFvgMaxActive(clean))
+    setEmaPeriod(symbolEmaPeriod(clean))
     setDrawnLines(readDrawnLines(clean))
     setReplayIndex(null)
     setPriorRthBars([])
     setContextBars([])
     setSelectedSymbol(clean)
     setSymbolDraft(clean)
-  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisibility, barNumbersVisible, microGapsVisible, fvgVisible, htfContextVisible, htfContextCount, microGapsMaxActive, fvgMaxActive])
+  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisibility, barNumbersVisible, microGapsVisible, fvgVisible, htfContextVisible, htfContextCount, microGapsMaxActive, fvgMaxActive, emaPeriod])
 
   const toggleLevelGroup = useCallback((group: LevelGroup) => {
     setLevelVisibility((current) => ({ ...current, [group]: !current[group] }))
@@ -4429,6 +4514,7 @@ export function TradingViewTerminal() {
             availableHtfs={availableHtfsFor(timeframe)}
             volumeVisible={volumeVisible}
             emaVisible={emaVisible}
+            emaPeriod={emaPeriod}
             htfEmaVisibility={htfEmaVisibility}
             vwapVisible={vwapVisible}
             barNumbersVisible={barNumbersVisible}
@@ -4453,6 +4539,7 @@ export function TradingViewTerminal() {
             onToggleFvg={toggleFvg}
             onToggleHtfContext={toggleHtfContext}
             onToggleLevel={toggleLevelGroup}
+            onSetEmaPeriod={setEmaPeriod}
             onSetHtfContextCount={setHtfContextCount}
             onSetMicroGapsMaxActive={setMicroGapsMaxActive}
             onSetFvgMaxActive={setFvgMaxActive}
@@ -4512,6 +4599,7 @@ export function TradingViewTerminal() {
               liveSubscribed={liveSubscribedSet.has(selectedSymbol)}
               volumeVisible={volumeVisible}
               emaVisible={emaVisible}
+              emaPeriod={emaPeriod}
               vwapVisible={vwapVisible}
               htfEmaVisibility={htfEmaVisibility}
               htfBars={htfBars}
