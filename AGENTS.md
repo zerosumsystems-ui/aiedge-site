@@ -15,6 +15,12 @@ When Will says `go`, `/go`, `go live`, or asks to ship current work, use this co
 
 Do not publish unverified work. Stop immediately on any failed check and show the failing command plus the relevant error.
 
+## Product Boundary
+
+AIedge is for the public trading site and chart/research workflows only. Prop-firm portfolio content, funded-account strategy, firm rotation panels, payout/eval economics, or account-management tooling must never be added to this app or deployed to `aiedge.trade`.
+
+If a branch, diff, generated page, API route, or deployment candidate contains prop-firm/account-rotation material, stop before publishing and report that it belongs outside AIedge.
+
 For normal app code, run:
 
 - `git diff --check`
