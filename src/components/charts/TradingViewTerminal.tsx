@@ -2407,69 +2407,73 @@ function ChartSurface({
               {(metrics.change ?? 0) >= 0 ? "▲" : "▼"} {signed(metrics.change)} ({signed(metrics.changePct, "%")})
             </span>
           </div>
-          {/* Unified indicator strip — Brooks levels (intraday only)
-              flow into grouped EMA overlays and the remaining toggles. */}
+          {/* Indicator strip. Toggle pills are tucked behind sm: so mobile
+              users manage every overlay from the ƒx menu instead of fighting
+              the canvas; active-mode chips below stay since they're already
+              conditional and double as one-tap clears. */}
           <div className="pointer-events-auto flex flex-wrap items-center gap-1">
-            {isIntradayTimeframe(timeframe) ? (
-              <LevelControls visibility={levelVisibility} onToggle={onToggleLevel} />
-            ) : null}
-            <IndicatorPill
-              label="Vol"
-              active={volumeVisible}
-              swatchColor="rgba(0, 200, 150, 0.7)"
-              onClick={onToggleVolume}
-              ariaLabel={volumeVisible ? "Hide volume" : "Show volume"}
-            />
-            <EmaIndicatorControls
-              timeframe={timeframe}
-              availableHtfs={availableHtfsFor(timeframe)}
-              emaVisible={emaVisible}
-              htfEmaVisibility={htfEmaVisibility}
-              onToggleEma={onToggleEma}
-              onToggleHtfEma={onToggleHtfEma}
-            />
-            <IndicatorPill
-              label="VWAP"
-              active={vwapVisible}
-              swatchColor="rgba(180, 130, 230, 0.85)"
-              onClick={onToggleVwap}
-              ariaLabel={vwapVisible ? "Hide VWAP" : "Show VWAP"}
-            />
-            <IndicatorPill
-              label="MG"
-              active={microGapsVisible}
-              swatchColor="rgba(180, 130, 230, 0.85)"
-              onClick={onToggleMicroGaps}
-              ariaLabel={microGapsVisible ? "Hide micro gaps" : "Show micro gaps"}
-              title="Python micro gaps"
-            />
-            <IndicatorPill
-              label="FVG"
-              active={fvgVisible}
-              swatchColor="rgba(245, 166, 35, 0.85)"
-              onClick={onToggleFvg}
-              ariaLabel={fvgVisible ? "Hide fair value gaps" : "Show fair value gaps"}
-              title="Python fair value gaps"
-            />
-            {htfContextLabel ? (
+            <div className="hidden flex-wrap items-center gap-1 sm:flex">
+              {isIntradayTimeframe(timeframe) ? (
+                <LevelControls visibility={levelVisibility} onToggle={onToggleLevel} />
+              ) : null}
               <IndicatorPill
-                label={htfContextLabel}
-                active={htfContextVisible}
-                swatchColor="rgba(232, 232, 232, 0.85)"
-                onClick={onToggleHtfContext}
-                ariaLabel={htfContextVisible ? "Hide HTF context bars" : "Show HTF context bars"}
-                title="Python HTF context bars"
+                label="Vol"
+                active={volumeVisible}
+                swatchColor="rgba(0, 200, 150, 0.7)"
+                onClick={onToggleVolume}
+                ariaLabel={volumeVisible ? "Hide volume" : "Show volume"}
               />
-            ) : null}
-            {isIntradayTimeframe(timeframe) ? (
+              <EmaIndicatorControls
+                timeframe={timeframe}
+                availableHtfs={availableHtfsFor(timeframe)}
+                emaVisible={emaVisible}
+                htfEmaVisibility={htfEmaVisibility}
+                onToggleEma={onToggleEma}
+                onToggleHtfEma={onToggleHtfEma}
+              />
               <IndicatorPill
-                label="Bar#"
-                active={barNumbersVisible}
-                swatchColor="rgba(155, 161, 166, 0.85)"
-                onClick={onToggleBarNumbers}
-                ariaLabel={barNumbersVisible ? "Hide bar numbers" : "Show bar numbers"}
+                label="VWAP"
+                active={vwapVisible}
+                swatchColor="rgba(180, 130, 230, 0.85)"
+                onClick={onToggleVwap}
+                ariaLabel={vwapVisible ? "Hide VWAP" : "Show VWAP"}
               />
-            ) : null}
+              <IndicatorPill
+                label="MG"
+                active={microGapsVisible}
+                swatchColor="rgba(180, 130, 230, 0.85)"
+                onClick={onToggleMicroGaps}
+                ariaLabel={microGapsVisible ? "Hide micro gaps" : "Show micro gaps"}
+                title="Python micro gaps"
+              />
+              <IndicatorPill
+                label="FVG"
+                active={fvgVisible}
+                swatchColor="rgba(245, 166, 35, 0.85)"
+                onClick={onToggleFvg}
+                ariaLabel={fvgVisible ? "Hide fair value gaps" : "Show fair value gaps"}
+                title="Python fair value gaps"
+              />
+              {htfContextLabel ? (
+                <IndicatorPill
+                  label={htfContextLabel}
+                  active={htfContextVisible}
+                  swatchColor="rgba(232, 232, 232, 0.85)"
+                  onClick={onToggleHtfContext}
+                  ariaLabel={htfContextVisible ? "Hide HTF context bars" : "Show HTF context bars"}
+                  title="Python HTF context bars"
+                />
+              ) : null}
+              {isIntradayTimeframe(timeframe) ? (
+                <IndicatorPill
+                  label="Bar#"
+                  active={barNumbersVisible}
+                  swatchColor="rgba(155, 161, 166, 0.85)"
+                  onClick={onToggleBarNumbers}
+                  ariaLabel={barNumbersVisible ? "Hide bar numbers" : "Show bar numbers"}
+                />
+              ) : null}
+            </div>
             {drawnLines.length > 0 ? (
               <button
                 type="button"
@@ -2999,6 +3003,8 @@ function IndicatorsMenu({
   htfContextLabel,
   levelVisibility,
   drawnLinesCount,
+  compareSymbol,
+  replayActive,
   onToggleVolume,
   onToggleEma,
   onToggleHtfEma,
@@ -3009,6 +3015,8 @@ function IndicatorsMenu({
   onToggleHtfContext,
   onToggleLevel,
   onClearDrawnLines,
+  onClearCompare,
+  onExitReplay,
 }: {
   intraday: boolean
   timeframe: ChartViewTimeframe
@@ -3024,6 +3032,8 @@ function IndicatorsMenu({
   htfContextLabel: string
   levelVisibility: LevelVisibility
   drawnLinesCount: number
+  compareSymbol: string | null
+  replayActive: boolean
   onToggleVolume: () => void
   onToggleEma: () => void
   onToggleHtfEma: (key: HtfKey) => void
@@ -3034,6 +3044,8 @@ function IndicatorsMenu({
   onToggleHtfContext: () => void
   onToggleLevel: (group: LevelGroup) => void
   onClearDrawnLines: () => void
+  onClearCompare: () => void
+  onExitReplay: () => void
 }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -3181,17 +3193,45 @@ function IndicatorsMenu({
             </>
           )}
 
-          {drawnLinesCount > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                onClearDrawnLines()
-                setOpen(false)
-              }}
-              className="mt-3 w-full rounded-md border border-border/60 bg-surface px-2 py-1 text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-            >
-              Clear drawn S/R · {drawnLinesCount}
-            </button>
+          {(compareSymbol || replayActive || drawnLinesCount > 0) && (
+            <div className="mt-3 flex flex-col gap-1">
+              {compareSymbol && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearCompare()
+                    setOpen(false)
+                  }}
+                  className="w-full rounded-md border border-border/60 bg-surface px-2 py-1 text-left text-[11px] font-semibold text-orange outline-none hover:border-border-hover focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+                >
+                  Clear comparison · vs {compareSymbol}
+                </button>
+              )}
+              {replayActive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onExitReplay()
+                    setOpen(false)
+                  }}
+                  className="w-full rounded-md border border-border/60 bg-surface px-2 py-1 text-left text-[11px] font-semibold text-yellow outline-none hover:border-border-hover focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+                >
+                  Exit replay mode
+                </button>
+              )}
+              {drawnLinesCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearDrawnLines()
+                    setOpen(false)
+                  }}
+                  className="w-full rounded-md border border-border/60 bg-surface px-2 py-1 text-left text-[11px] font-semibold text-sub outline-none hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-teal/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+                >
+                  Clear drawn S/R · {drawnLinesCount}
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -4115,6 +4155,8 @@ export function TradingViewTerminal() {
             htfContextLabel={htfContextLabel}
             levelVisibility={levelVisibility}
             drawnLinesCount={drawnLines.length}
+            compareSymbol={compareSymbol}
+            replayActive={effectiveReplayIndex != null}
             onToggleVolume={toggleVolume}
             onToggleEma={toggleEma}
             onToggleHtfEma={toggleHtfEma}
@@ -4125,6 +4167,8 @@ export function TradingViewTerminal() {
             onToggleHtfContext={toggleHtfContext}
             onToggleLevel={toggleLevelGroup}
             onClearDrawnLines={clearDrawnLines}
+            onClearCompare={clearCompareSymbol}
+            onExitReplay={() => setReplayIndex(null)}
           />
           <SettingsMenu
             displayTimezone={displayTimezone}
