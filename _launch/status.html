@@ -78,7 +78,14 @@
     letter-spacing: 2px;
     color: var(--muted);
     font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
   }
+  .card h2 .tag {
+    font-size: 10px; padding: 3px 8px; border-radius: 6px;
+    letter-spacing: 1px;
+  }
+  .tag.live { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .tag.warn { background: rgba(239,68,68,0.15); color: #f87171; }
   .action {
     background: linear-gradient(135deg, #f59e0b, #f97316);
     color: white;
@@ -95,6 +102,17 @@
     border-radius: 5px;
     font-size: 13px;
   }
+  .alert {
+    background: linear-gradient(135deg, #7f1d1d, #b91c1c);
+    color: white;
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 22px;
+    box-shadow: 0 10px 28px rgba(239,68,68,0.25);
+  }
+  .alert .head { font-size: 11px; letter-spacing: 2.5px; opacity: 0.95; font-weight: 700; }
+  .alert .body { margin-top: 6px; font-size: 15px; line-height: 1.5; }
+  .alert code { background: rgba(0,0,0,0.3); padding: 2px 7px; border-radius: 5px; font-size: 13px; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); }
   th { font-size: 11px; letter-spacing: 1.5px; color: var(--muted); font-weight: 600; }
@@ -116,6 +134,16 @@
   .pill.ok { background: rgba(34,197,94,0.15); color: #4ade80; }
   .pill.warn { background: rgba(245,158,11,0.15); color: #fbbf24; }
   .pill.err { background: rgba(239,68,68,0.15); color: #f87171; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .stat {
+    background: var(--panel-2);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat .k { font-size: 10px; letter-spacing: 2px; color: var(--muted); font-weight: 600; }
+  .stat .v { font-size: 17px; font-weight: 700; margin-top: 4px; }
+  .stat .v.good { color: #4ade80; }
+  .stat .v.bad { color: #f87171; }
   .foot {
     text-align: center;
     color: var(--muted);
@@ -123,16 +151,61 @@
     margin-top: 10px;
   }
   .foot code { background: var(--panel-2); padding: 2px 6px; border-radius: 4px; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+  .pulse::before { animation: pulse 1.4s ease-in-out infinite; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <div class="hero">
-    <div class="label">AGENT STATUS</div>
+    <div class="label">AGENT STATUS · LIVE</div>
     <h1>70% — one step left</h1>
-    <div class="sub">Cloud environment is wired. Paste env values and I run hands-off.</div>
+    <div class="sub">Cloud env wired. Paste env values and I run hands-off.</div>
     <div class="progress"><div></div></div>
+  </div>
+
+  <div class="alert">
+    <div class="head">PRODUCTION ALERT · LIVE-BARS AGGREGATOR DOWN</div>
+    <div class="body">
+      The Fly aggregator at <code>aiedge-live-bars.fly.dev</code> isn't reachable — every <code>/api/bars/live</code> call will fail. The site itself is fine, Upstash is fine, but live tick data isn't flowing. Fix needs to run from the Mac mini (<code>fly deploy</code>).
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>PRODUCTION HEALTH <span class="tag live">LIVE</span></h2>
+    <div class="grid2">
+      <div class="stat">
+        <div class="k">VERCEL DEPLOY</div>
+        <div class="v good">READY</div>
+        <div class="k" style="margin-top:6px;">main · 2f60251</div>
+      </div>
+      <div class="stat">
+        <div class="k">aiedge.trade /</div>
+        <div class="v good">HTTP 200</div>
+      </div>
+      <div class="stat">
+        <div class="k">aiedge.trade /chart</div>
+        <div class="v good">HTTP 200</div>
+      </div>
+      <div class="stat">
+        <div class="k">FLY AGGREGATOR</div>
+        <div class="v bad">UNREACHABLE</div>
+        <div class="k" style="margin-top:6px;">fetch failed · last 27ms</div>
+      </div>
+      <div class="stat">
+        <div class="k">UPSTASH REDIS</div>
+        <div class="v good">OK</div>
+        <div class="k" style="margin-top:6px;">subscribed: AMD · 10 bar keys</div>
+      </div>
+      <div class="stat">
+        <div class="k">LAST DEPLOY COMMIT</div>
+        <div class="v" style="font-size:14px;">Merge claude/dash-goals…</div>
+      </div>
+    </div>
   </div>
 
   <div class="row">
@@ -152,34 +225,10 @@
   </div>
 
   <div class="card">
-    <h2>LIVE SITE</h2>
+    <h2>CONNECTORS YOU HAVE <span class="tag live">PULLING DATA NOW</span></h2>
     <div class="health">
-      <span class="pill ok">aiedge.trade · 200</span>
-      <span class="pill ok">/chart · 200</span>
-      <span class="pill ok">Vercel · READY</span>
-      <span class="pill ok">PR #31 · merged</span>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>BEFORE → AFTER</h2>
-    <table>
-      <thead><tr><th>AREA</th><th>BEFORE</th><th>AFTER</th></tr></thead>
-      <tbody>
-        <tr><td>Secrets</td><td class="bad">pasted in chat</td><td class="good">stored once</td></tr>
-        <tr><td>Startup</td><td class="bad">slow each time</td><td class="good">cached</td></tr>
-        <tr><td>Permission asks</td><td class="bad">constant</td><td class="good">quiet</td></tr>
-        <tr><td>PR red X</td><td class="bad">every PR</td><td class="good">gone</td></tr>
-        <tr><td>Ship to prod</td><td class="bad">confused path</td><td class="good">say "go"</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <h2>CONNECTORS YOU ALREADY HAVE</h2>
-    <div class="health">
-      <span class="pill ok">Vercel</span>
-      <span class="pill ok">GitHub</span>
+      <span class="pill ok">Vercel · deploys + logs</span>
+      <span class="pill ok">GitHub · PRs + CI</span>
       <span class="pill ok">Google Drive</span>
       <span class="pill ok">Gmail</span>
       <span class="pill ok">Calendar</span>
@@ -188,7 +237,7 @@
   </div>
 
   <div class="foot">
-    Auto-refreshes every 5s · last edit by agent · <code>_launch/status.html</code>
+    Page auto-refreshes every 5s · agent updates this file as work happens · <code>_launch/status.html</code>
   </div>
 
 </div>
