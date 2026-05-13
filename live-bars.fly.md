@@ -92,6 +92,42 @@ installs databento). Subsequent deploys are faster.
    ```
    The `x-live-status` header should flip from `empty-set` to `ok`.
 
+## Operator diagnostics
+
+Without the `fly` CLI, you can still see whether the aggregator is up
+and writing bars from anywhere with curl:
+
+```
+curl -s https://www.aiedge.trade/api/live-bars/diagnostics | jq
+```
+
+The response covers both sides independently:
+
+- `aggregator.reachable` / `aggregator.status` / `aggregator.body` — was
+  the Fly `/health` endpoint reachable, and what did it say. A
+  `reachable: false` with `error: "fetch failed"` is the same DNS /
+  unreachable failure mode `/api/bars/live/subscribe` will hit; the Fly
+  machine is down or has been moved.
+- `upstash.subscribed_symbols` — the dynamic-subscribe set persisted in
+  Redis. Even if Fly is down, Upstash will still serve the most-recent
+  bars to the chart for up to ~6h (TTL on `bars:1m:*`).
+- `upstash.sample_keys` — how many distinct `bars:1m:*` keys currently
+  exist. A non-zero count means bars made it into Redis recently; zero
+  with `aggregator.reachable: true` means the aggregator is up but
+  Databento isn't producing.
+
+The route returns HTTP 502 when the aggregator side is unhealthy so it
+plugs cleanly into uptime monitors.
+
+## Reconnect behavior
+
+`main()` wraps the Databento live loop in a reconnect loop with
+exponential backoff (2s → 60s cap). If the loop crashes 30 times in
+a row, the process exits non-zero so Fly's restart policy fires —
+clean exit 0 doesn't always respawn the machine. The HTTP server is
+started once per `run()` and a second attempt on the same port is
+caught and logged so reconnects don't spam errors.
+
 ## Troubleshooting
 
 - **`fly status` shows no machine** — the deploy succeeded but the

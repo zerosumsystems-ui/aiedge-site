@@ -734,5 +734,55 @@ def run() -> None:
     _health_mark("live_connected", False)
 
 
+def main() -> None:
+    """Process entrypoint. Wraps ``run()`` in a reconnect loop so a
+    transient Databento WebSocket disconnect doesn't take the whole
+    Fly machine down with it.
+
+    Why this matters: the Live SDK's iterator ends cleanly when the
+    server hangs up (maintenance windows, network blips). Without a
+    wrapper, ``run()`` would return, ``__main__`` would fall through,
+    Python would exit 0, and Fly would consider the machine "done"
+    instead of crashed — leaving /subscribe unreachable until someone
+    redeploys. The loop keeps the HTTP server alive across reconnects
+    (it's a daemon thread) and re-initializes the Databento client on
+    each iteration so a stale handle doesn't poison the next pass.
+
+    On a fatal/unrecoverable error we sys.exit(1) so Fly's restart
+    policy actually fires (a clean exit 0 doesn't always respawn).
+    """
+    backoff_s = 2.0
+    max_backoff_s = 60.0
+    consecutive_failures = 0
+    max_consecutive_failures = 30  # ~10 min of pain before giving up
+    while True:
+        try:
+            run()
+            # run() returned normally — almost always means the live
+            # iterator ended. Treat as transient and reconnect.
+            log.warning("Live loop returned cleanly; reconnecting in %.1fs", backoff_s)
+            consecutive_failures += 1
+        except SystemExit:
+            # require_env() / config errors — propagate so the operator
+            # sees the failure clearly in Fly logs.
+            raise
+        except KeyboardInterrupt:
+            log.info("Interrupted — exiting cleanly")
+            return
+        except Exception:
+            log.exception("Live loop crashed; reconnecting in %.1fs", backoff_s)
+            consecutive_failures += 1
+
+        if consecutive_failures >= max_consecutive_failures:
+            log.error(
+                "Aggregator failed %d times in a row; exiting non-zero so Fly respawns the machine",
+                consecutive_failures,
+            )
+            sys.exit(1)
+        _health_mark("live_connected", False)
+        time.sleep(backoff_s)
+        backoff_s = min(backoff_s * 1.5, max_backoff_s)
+
+
 if __name__ == "__main__":
-    run()
+    main()
