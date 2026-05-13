@@ -38,6 +38,30 @@ jobs:
       - name: Set up flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
+      - name: Sanity-check Fly auth
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if [ -z "${FLY_API_TOKEN:-}" ]; then
+            echo "::error::FLY_API_TOKEN repository secret is not set."
+            echo "Create one with:  fly tokens create deploy -a aiedge-live-bars"
+            echo "Then add it at:   github.com/zerosumsystems-ui/aiedge-site/settings/secrets/actions/new"
+            echo "Name it exactly:  FLY_API_TOKEN"
+            exit 1
+          fi
+          if ! flyctl auth whoami >/dev/null 2>&1; then
+            echo "::error::FLY_API_TOKEN is set but Fly rejected it."
+            flyctl auth whoami || true
+            echo "Token may be expired, malformed, or scoped to a different app."
+            exit 1
+          fi
+          if ! flyctl status -a aiedge-live-bars >/dev/null 2>&1; then
+            echo "::error::Token is valid but cannot access app aiedge-live-bars."
+            flyctl status -a aiedge-live-bars || true
+            exit 1
+          fi
+          echo "Fly auth OK. App reachable."
+
       - name: Deploy to Fly
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
