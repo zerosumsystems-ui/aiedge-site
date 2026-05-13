@@ -79,6 +79,45 @@ interface BarNumberLabel {
   tone: "bull" | "bear"
 }
 
+type PythonZoneKind = "micro" | "fvg"
+type ZoneDirection = "bull" | "bear"
+
+interface PriceZone {
+  id: string
+  kind: PythonZoneKind
+  direction: ZoneDirection
+  startIndex: number
+  endIndex: number
+  low: number
+  high: number
+  filled: boolean
+  fillIndex?: number
+}
+
+interface ZoneOverlay extends PriceZone {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+interface HtfContextOverlay {
+  id: string
+  label: string
+  left: number
+  wickX: number
+  wickTop: number
+  wickHeight: number
+  bodyTop: number
+  bodyHeight: number
+  bodyWidth: number
+  color: string
+  open: number
+  high: number
+  low: number
+  close: number
+}
+
 interface CrosshairReadout {
   x: number
   y: number
@@ -371,6 +410,12 @@ function availableHtfsFor(ltf: ChartViewTimeframe) {
   return HTF_SPECS.filter((spec) => spec.minutes > ltfMin)
 }
 
+function htfContextSpecFor(timeframe: ChartViewTimeframe): typeof HTF_SPECS[number] | null {
+  if (timeframe === "weekly") return null
+  if (timeframe === "daily") return HTF_SPECS.find((spec) => spec.key === "weekly") ?? null
+  return HTF_SPECS.find((spec) => spec.key === "daily") ?? null
+}
+
 function emptyHtfVisibility(): HtfVisibility {
   return HTF_SPECS.reduce((acc, spec) => {
     acc[spec.key] = false
@@ -458,6 +503,209 @@ function vwapLineData(bars: Bar[]) {
     sumPV += tp * v
     sumV += v
     return { time: bar.t as UTCTimestamp, value: sumV > 0 ? sumPV / sumV : tp }
+  })
+}
+
+function computeMicroGapZones(bars: Bar[], maxActive = 80): PriceZone[] {
+  const zones: PriceZone[] = []
+  const active: number[] = []
+
+  for (let i = 1; i < bars.length; i += 1) {
+    const bar = bars[i]
+
+    for (const zoneIndex of [...active]) {
+      const zone = zones[zoneIndex]
+      zone.endIndex = i
+      const filled = bar.h >= zone.low && bar.l <= zone.high
+      if (filled) {
+        zone.filled = true
+        zone.fillIndex = i
+        zone.endIndex = i
+        active.splice(active.indexOf(zoneIndex), 1)
+      }
+    }
+
+    const prev = bars[i - 1]
+    const prevBodyHigh = Math.max(prev.o, prev.c)
+    const prevBodyLow = Math.min(prev.o, prev.c)
+    const bodyHigh = Math.max(bar.o, bar.c)
+    const bodyLow = Math.min(bar.o, bar.c)
+    const bull = bodyLow > prevBodyHigh
+    const bear = bodyHigh < prevBodyLow
+
+    if (bull || bear) {
+      zones.push({
+        id: `micro-${bar.t}-${bull ? "bull" : "bear"}`,
+        kind: "micro",
+        direction: bull ? "bull" : "bear",
+        startIndex: i,
+        endIndex: i,
+        low: bull ? prevBodyHigh : bodyHigh,
+        high: bull ? bodyLow : prevBodyLow,
+        filled: false,
+      })
+      active.push(zones.length - 1)
+
+      while (active.length > maxActive) {
+        const oldest = active.shift()
+        if (oldest != null) zones[oldest].endIndex = i
+      }
+    }
+  }
+
+  return zones
+}
+
+function computeFvgZones(bars: Bar[], maxActive = 120): PriceZone[] {
+  const zones: PriceZone[] = []
+  const active: number[] = []
+
+  for (let i = 0; i < bars.length; i += 1) {
+    const bar = bars[i]
+
+    for (const zoneIndex of [...active]) {
+      const zone = zones[zoneIndex]
+      zone.endIndex = i
+      const filled = zone.direction === "bull"
+        ? bar.l <= zone.low
+        : bar.h >= zone.high
+      if (filled) {
+        zone.filled = true
+        zone.fillIndex = i
+        zone.endIndex = i
+        active.splice(active.indexOf(zoneIndex), 1)
+      }
+    }
+
+    if (i < 2) continue
+    const anchor = bars[i - 2]
+    const bull = bar.l > anchor.h
+    const bear = bar.h < anchor.l
+
+    if (bull || bear) {
+      zones.push({
+        id: `fvg-${bar.t}-${bull ? "bull" : "bear"}`,
+        kind: "fvg",
+        direction: bull ? "bull" : "bear",
+        startIndex: i,
+        endIndex: i,
+        low: bull ? anchor.h : bar.h,
+        high: bull ? bar.l : anchor.l,
+        filled: false,
+      })
+      active.push(zones.length - 1)
+
+      while (active.length > maxActive) {
+        const oldest = active.shift()
+        if (oldest != null) zones[oldest].endIndex = i
+      }
+    }
+  }
+
+  return zones
+}
+
+function estimateBarWidth(chart: IChartApi, bars: Bar[]): number {
+  for (let i = 1; i < bars.length; i += 1) {
+    const prev = chart.timeScale().timeToCoordinate(bars[i - 1].t as UTCTimestamp)
+    const next = chart.timeScale().timeToCoordinate(bars[i].t as UTCTimestamp)
+    if (prev != null && next != null && Math.abs(Number(next) - Number(prev)) > 0) {
+      return Math.max(3, Math.min(24, Math.abs(Number(next) - Number(prev))))
+    }
+  }
+  return 8
+}
+
+function buildZoneOverlays(args: {
+  chart: IChartApi
+  candles: ISeriesApi<"Candlestick">
+  bars: Bar[]
+  microGapsVisible: boolean
+  fvgVisible: boolean
+}): ZoneOverlay[] {
+  const { chart, candles, bars, microGapsVisible, fvgVisible } = args
+  if (bars.length === 0 || (!microGapsVisible && !fvgVisible)) return []
+
+  const zones = [
+    ...(microGapsVisible ? computeMicroGapZones(bars) : []),
+    ...(fvgVisible ? computeFvgZones(bars) : []),
+  ]
+  const barWidth = estimateBarWidth(chart, bars)
+  const overlays: ZoneOverlay[] = []
+
+  for (const zone of zones) {
+    const startBar = bars[Math.max(0, Math.min(zone.startIndex, bars.length - 1))]
+    const endBar = bars[Math.max(0, Math.min(zone.endIndex, bars.length - 1))]
+    if (!startBar || !endBar || zone.high <= zone.low) continue
+
+    const x1 = chart.timeScale().timeToCoordinate(startBar.t as UTCTimestamp)
+    const x2 = chart.timeScale().timeToCoordinate(endBar.t as UTCTimestamp)
+    const yTop = candles.priceToCoordinate(zone.high)
+    const yBottom = candles.priceToCoordinate(zone.low)
+    if (x1 == null || x2 == null || yTop == null || yBottom == null) continue
+
+    const left = Math.min(Number(x1), Number(x2)) - barWidth * 0.45
+    const right = Math.max(Number(x1), Number(x2)) + barWidth * 0.45
+    const top = Math.min(Number(yTop), Number(yBottom))
+    const bottom = Math.max(Number(yTop), Number(yBottom))
+
+    overlays.push({
+      ...zone,
+      left,
+      top,
+      width: Math.max(3, right - left),
+      height: Math.max(2, bottom - top),
+    })
+  }
+
+  return overlays
+}
+
+function buildHtfContextOverlays(args: {
+  candles: ISeriesApi<"Candlestick">
+  containerWidth: number
+  contextBars: Bar[]
+  label: string
+}): HtfContextOverlay[] {
+  const { candles, containerWidth, contextBars, label } = args
+  if (containerWidth <= 0 || contextBars.length === 0) return []
+
+  const bodyWidth = 10
+  const spacing = 7
+  const rightPad = 62
+  const visible = contextBars.slice(-3)
+
+  return visible.flatMap((bar, index) => {
+    const highY = candles.priceToCoordinate(bar.h)
+    const lowY = candles.priceToCoordinate(bar.l)
+    const openY = candles.priceToCoordinate(bar.o)
+    const closeY = candles.priceToCoordinate(bar.c)
+    if (highY == null || lowY == null || openY == null || closeY == null) return []
+
+    const rightIndex = visible.length - 1 - index
+    const left = Math.max(8, containerWidth - rightPad - bodyWidth - rightIndex * (bodyWidth + spacing))
+    const bodyTop = Math.min(Number(openY), Number(closeY))
+    const bodyBottom = Math.max(Number(openY), Number(closeY))
+    const wickTop = Math.min(Number(highY), Number(lowY))
+    const wickBottom = Math.max(Number(highY), Number(lowY))
+    const color = bar.c >= bar.o ? "rgba(0, 200, 150, 0.78)" : "rgba(239, 83, 80, 0.78)"
+
+    return [{
+      id: `htf-${label}-${bar.t}`,
+      label: index === visible.length - 1 ? label : "",
+      left,
+      wickX: left + bodyWidth / 2,
+      wickTop,
+      wickHeight: Math.max(1, wickBottom - wickTop),
+      bodyTop,
+      bodyHeight: Math.max(3, bodyBottom - bodyTop),
+      bodyWidth,
+      color,
+      open: bar.o,
+      high: bar.h,
+      low: bar.l,
+      close: bar.c,
+    }]
   })
 }
 
@@ -703,6 +951,9 @@ interface SymbolPrefs {
   vwapVisible?: boolean
   htfEmaVisibility?: Partial<HtfVisibility>
   barNumbersVisible?: boolean
+  microGapsVisible?: boolean
+  fvgVisible?: boolean
+  htfContextVisible?: boolean
 }
 
 const PER_SYMBOL_PREFS_KEY = "aiedge.chart.perSymbol.v1"
@@ -810,6 +1061,36 @@ function symbolBarNumbersVisible(symbol: string): boolean {
   const stored = readSymbolPrefs(symbol).barNumbersVisible
   // Default on — Brooks bar numbers are core to the methodology.
   return typeof stored === "boolean" ? stored : true
+}
+
+function storedMicroGapsVisible(): boolean {
+  const value = readChartPrefs().microGapsVisible
+  return typeof value === "boolean" ? value : true
+}
+
+function storedFvgVisible(): boolean {
+  const value = readChartPrefs().fvgVisible
+  return typeof value === "boolean" ? value : true
+}
+
+function symbolMicroGapsVisible(symbol: string): boolean {
+  const stored = readSymbolPrefs(symbol).microGapsVisible
+  return typeof stored === "boolean" ? stored : storedMicroGapsVisible()
+}
+
+function symbolFvgVisible(symbol: string): boolean {
+  const stored = readSymbolPrefs(symbol).fvgVisible
+  return typeof stored === "boolean" ? stored : storedFvgVisible()
+}
+
+function storedHtfContextVisible(): boolean {
+  const value = readChartPrefs().htfContextVisible
+  return typeof value === "boolean" ? value : true
+}
+
+function symbolHtfContextVisible(symbol: string): boolean {
+  const stored = readSymbolPrefs(symbol).htfContextVisible
+  return typeof stored === "boolean" ? stored : storedHtfContextVisible()
 }
 
 // User-added symbols that aren't in the live aggregator's default list.
@@ -1240,6 +1521,11 @@ function ChartSurface({
   htfEmaVisibility,
   htfBars,
   barNumbersVisible,
+  microGapsVisible,
+  fvgVisible,
+  htfContextVisible,
+  htfContextBars,
+  htfContextLabel,
   drawnLines,
   replayActive,
   onExitReplay,
@@ -1258,6 +1544,9 @@ function ChartSurface({
   onToggleVwap,
   onToggleHtfEma,
   onToggleBarNumbers,
+  onToggleMicroGaps,
+  onToggleFvg,
+  onToggleHtfContext,
   onAddDrawnLine,
   onClearDrawnLines,
 }: {
@@ -1279,6 +1568,11 @@ function ChartSurface({
   htfEmaVisibility: HtfVisibility
   htfBars: Record<HtfKey, Bar[]>
   barNumbersVisible: boolean
+  microGapsVisible: boolean
+  fvgVisible: boolean
+  htfContextVisible: boolean
+  htfContextBars: Bar[]
+  htfContextLabel: string
   drawnLines: number[]
   replayActive: boolean
   onExitReplay: () => void
@@ -1297,6 +1591,9 @@ function ChartSurface({
   onToggleVwap: () => void
   onToggleHtfEma: (key: HtfKey) => void
   onToggleBarNumbers: () => void
+  onToggleMicroGaps: () => void
+  onToggleFvg: () => void
+  onToggleHtfContext: () => void
   onAddDrawnLine: (price: number) => void
   onClearDrawnLines: () => void
 }) {
@@ -1335,14 +1632,32 @@ function ChartSurface({
   // once at chart creation, so we read from the ref instead of from
   // props to avoid rebuilding the chart on every TZ toggle.
   const displayTimezoneRef = useRef(displayTimezone)
+  const microGapsVisibleRef = useRef(microGapsVisible)
+  const fvgVisibleRef = useRef(fvgVisible)
+  const htfContextVisibleRef = useRef(htfContextVisible)
+  const htfContextBarsRef = useRef(htfContextBars)
+  const htfContextLabelRef = useRef(htfContextLabel)
   useEffect(() => {
     displayTimezoneRef.current = displayTimezone
   }, [displayTimezone])
+  useEffect(() => {
+    microGapsVisibleRef.current = microGapsVisible
+    fvgVisibleRef.current = fvgVisible
+    scheduleLabelsRef.current()
+  }, [fvgVisible, microGapsVisible])
+  useEffect(() => {
+    htfContextVisibleRef.current = htfContextVisible
+    htfContextBarsRef.current = htfContextBars
+    htfContextLabelRef.current = htfContextLabel
+    scheduleLabelsRef.current()
+  }, [htfContextBars, htfContextLabel, htfContextVisible])
   const [barNumberLabels, setBarNumberLabels] = useState<BarNumberLabel[]>([])
   // Each entry = the x-coordinate of a session-open bar. Rendered as a
   // thin vertical line that visually separates ET trading days in 2D /
   // 3D views. Re-computed alongside the bar number labels.
   const [sessionDividers, setSessionDividers] = useState<{ id: string; x: number }[]>([])
+  const [zoneOverlays, setZoneOverlays] = useState<ZoneOverlay[]>([])
+  const [htfContextOverlays, setHtfContextOverlays] = useState<HtfContextOverlay[]>([])
   const [crosshairReadout, setCrosshairReadout] = useState<CrosshairReadout | null>(null)
   const [viewState, setViewState] = useState({ visibleBars: bars.length, offDefault: false })
   const metrics = useMemo(() => metricsFor(bars), [bars])
@@ -1673,8 +1988,25 @@ function ChartSurface({
       if (currentBars.length === 0) {
         setBarNumberLabels([])
         setSessionDividers([])
+        setZoneOverlays([])
+        setHtfContextOverlays([])
         return
       }
+      setZoneOverlays(buildZoneOverlays({
+        chart,
+        candles,
+        bars: currentBars,
+        microGapsVisible: microGapsVisibleRef.current,
+        fvgVisible: fvgVisibleRef.current,
+      }))
+      setHtfContextOverlays(htfContextVisibleRef.current
+        ? buildHtfContextOverlays({
+          candles,
+          containerWidth: container.clientWidth,
+          contextBars: htfContextBarsRef.current,
+          label: htfContextLabelRef.current,
+        })
+        : [])
       // Brooks bar numbers are an intraday concept. On daily/weekly
       // every bar is its own date, which would collapse the per-session
       // counter to "1" on every bar. Detect that case and skip labels.
@@ -2103,6 +2435,32 @@ function ChartSurface({
               onClick={onToggleVwap}
               ariaLabel={vwapVisible ? "Hide VWAP" : "Show VWAP"}
             />
+            <IndicatorPill
+              label="MG"
+              active={microGapsVisible}
+              swatchColor="rgba(180, 130, 230, 0.85)"
+              onClick={onToggleMicroGaps}
+              ariaLabel={microGapsVisible ? "Hide micro gaps" : "Show micro gaps"}
+              title="Python micro gaps"
+            />
+            <IndicatorPill
+              label="FVG"
+              active={fvgVisible}
+              swatchColor="rgba(245, 166, 35, 0.85)"
+              onClick={onToggleFvg}
+              ariaLabel={fvgVisible ? "Hide fair value gaps" : "Show fair value gaps"}
+              title="Python fair value gaps"
+            />
+            {htfContextLabel ? (
+              <IndicatorPill
+                label={htfContextLabel}
+                active={htfContextVisible}
+                swatchColor="rgba(232, 232, 232, 0.85)"
+                onClick={onToggleHtfContext}
+                ariaLabel={htfContextVisible ? "Hide HTF context bars" : "Show HTF context bars"}
+                title="Python HTF context bars"
+              />
+            ) : null}
             {isIntradayTimeframe(timeframe) ? (
               <IndicatorPill
                 label="Bar#"
@@ -2197,6 +2555,80 @@ function ChartSurface({
         <div ref={containerRef} className="h-full w-full" />
 
         <div className="pointer-events-none absolute inset-0 z-[5]">
+          {zoneOverlays.map((zone) => {
+            const isMicro = zone.kind === "micro"
+            const isBull = zone.direction === "bull"
+            const backgroundColor = isMicro
+              ? "rgba(180, 130, 230, 0.14)"
+              : isBull
+                ? "rgba(245, 166, 35, 0.12)"
+                : "rgba(91, 168, 230, 0.12)"
+            const borderColor = isMicro
+              ? "rgba(180, 130, 230, 0.55)"
+              : isBull
+                ? "rgba(245, 166, 35, 0.55)"
+                : "rgba(91, 168, 230, 0.55)"
+            return (
+              <span
+                key={zone.id}
+                aria-hidden="true"
+                data-testid={`python-zone-${zone.kind}`}
+                className="absolute rounded-[2px] border"
+                style={{
+                  left: zone.left,
+                  top: zone.top,
+                  width: zone.width,
+                  height: zone.height,
+                  backgroundColor,
+                  borderColor,
+                  borderStyle: zone.filled ? "dashed" : "solid",
+                }}
+              />
+            )
+          })}
+          {htfContextOverlays.map((candle) => (
+            <span
+              key={candle.id}
+              aria-hidden="true"
+              data-testid="python-htf-context"
+              title={`${candle.label} O ${formatPrice(candle.open)} H ${formatPrice(candle.high)} L ${formatPrice(candle.low)} C ${formatPrice(candle.close)}`}
+              className="absolute"
+              style={{
+                left: candle.left,
+                top: candle.wickTop,
+                width: candle.bodyWidth,
+                height: candle.wickHeight,
+              }}
+            >
+              <span
+                className="absolute w-px bg-text/55"
+                style={{
+                  left: candle.bodyWidth / 2,
+                  top: 0,
+                  height: candle.wickHeight,
+                }}
+              />
+              <span
+                className="absolute rounded-[1px] border"
+                style={{
+                  left: 0,
+                  top: candle.bodyTop - candle.wickTop,
+                  width: candle.bodyWidth,
+                  height: candle.bodyHeight,
+                  backgroundColor: candle.color,
+                  borderColor: candle.color,
+                }}
+              />
+              {candle.label ? (
+                <span
+                  className="absolute left-1/2 -translate-x-1/2 font-mono text-[9px] font-semibold text-text/80"
+                  style={{ top: -14 }}
+                >
+                  {candle.label}
+                </span>
+              ) : null}
+            </span>
+          ))}
           {sessionDividers.map((divider) => (
             <span
               key={`divider-${divider.id}`}
@@ -2561,6 +2993,10 @@ function IndicatorsMenu({
   htfEmaVisibility,
   vwapVisible,
   barNumbersVisible,
+  microGapsVisible,
+  fvgVisible,
+  htfContextVisible,
+  htfContextLabel,
   levelVisibility,
   drawnLinesCount,
   onToggleVolume,
@@ -2568,6 +3004,9 @@ function IndicatorsMenu({
   onToggleHtfEma,
   onToggleVwap,
   onToggleBarNumbers,
+  onToggleMicroGaps,
+  onToggleFvg,
+  onToggleHtfContext,
   onToggleLevel,
   onClearDrawnLines,
 }: {
@@ -2579,6 +3018,10 @@ function IndicatorsMenu({
   htfEmaVisibility: HtfVisibility
   vwapVisible: boolean
   barNumbersVisible: boolean
+  microGapsVisible: boolean
+  fvgVisible: boolean
+  htfContextVisible: boolean
+  htfContextLabel: string
   levelVisibility: LevelVisibility
   drawnLinesCount: number
   onToggleVolume: () => void
@@ -2586,6 +3029,9 @@ function IndicatorsMenu({
   onToggleHtfEma: (key: HtfKey) => void
   onToggleVwap: () => void
   onToggleBarNumbers: () => void
+  onToggleMicroGaps: () => void
+  onToggleFvg: () => void
+  onToggleHtfContext: () => void
   onToggleLevel: (group: LevelGroup) => void
   onClearDrawnLines: () => void
 }) {
@@ -2626,6 +3072,11 @@ function IndicatorsMenu({
   const chartOverlays: IndicatorMenuItem[] = [
     { key: "vol", label: "Volume", active: volumeVisible, swatch: "rgba(0, 200, 150, 0.7)", onToggle: onToggleVolume },
     { key: "vwap", label: "VWAP", active: vwapVisible, swatch: "rgba(180, 130, 230, 0.85)", onToggle: onToggleVwap },
+    { key: "micro", label: "Micro gaps", active: microGapsVisible, swatch: "rgba(180, 130, 230, 0.85)", onToggle: onToggleMicroGaps },
+    { key: "fvg", label: "Fair value gaps", active: fvgVisible, swatch: "rgba(245, 166, 35, 0.85)", onToggle: onToggleFvg },
+    ...(htfContextLabel
+      ? [{ key: "htf-context", label: `${htfContextLabel} context bars`, active: htfContextVisible, swatch: "rgba(232, 232, 232, 0.85)", onToggle: onToggleHtfContext }]
+      : []),
     ...(intraday
       ? [{ key: "bn", label: "Bar numbers", active: barNumbersVisible, swatch: "rgba(155, 161, 166, 0.85)", onToggle: onToggleBarNumbers }]
       : []),
@@ -2788,6 +3239,9 @@ export function TradingViewTerminal() {
   const [htfEmaVisibility, setHtfEmaVisibility] = useState<HtfVisibility>(() => symbolHtfEmaVisibility(initialSymbol))
   const [htfBars, setHtfBars] = useState<Record<HtfKey, Bar[]>>(() => emptyHtfBars())
   const [barNumbersVisible, setBarNumbersVisible] = useState(() => symbolBarNumbersVisible(initialSymbol))
+  const [microGapsVisible, setMicroGapsVisible] = useState(() => symbolMicroGapsVisible(initialSymbol))
+  const [fvgVisible, setFvgVisible] = useState(() => symbolFvgVisible(initialSymbol))
+  const [htfContextVisible, setHtfContextVisible] = useState(() => symbolHtfContextVisible(initialSymbol))
   const [drawnLines, setDrawnLines] = useState<number[]>(() => readDrawnLines(initialSymbol))
   // Replay mode. null = normal (live tail). A number freezes the chart
   // to that bar index in displayBars; [/] keys step forward/back.
@@ -2812,10 +3266,13 @@ export function TradingViewTerminal() {
       watchlistVisible,
       levelVisibility,
       volumeVisible,
+      microGapsVisible,
+      fvgVisible,
+      htfContextVisible,
       displayTimezone,
       compareSymbol,
     })
-  }, [barWindow, compareSymbol, displayTimezone, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, watchlistVisible])
+  }, [barWindow, compareSymbol, displayTimezone, fvgVisible, htfContextVisible, levelVisibility, microGapsVisible, selectedSymbol, sessionMode, timeframe, volumeVisible, watchlistVisible])
 
   useEffect(() => {
     // Per-symbol overrides — written on every state change so the
@@ -2833,8 +3290,11 @@ export function TradingViewTerminal() {
       vwapVisible,
       htfEmaVisibility,
       barNumbersVisible,
+      microGapsVisible,
+      fvgVisible,
+      htfContextVisible,
     })
-  }, [barNumbersVisible, barWindow, emaVisible, htfEmaVisibility, levelVisibility, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
+  }, [barNumbersVisible, barWindow, emaVisible, fvgVisible, htfContextVisible, htfEmaVisibility, levelVisibility, microGapsVisible, selectedSymbol, sessionMode, timeframe, volumeVisible, vwapVisible])
 
   const toggleVolume = useCallback(() => {
     setVolumeVisible((v) => !v)
@@ -2892,6 +3352,15 @@ export function TradingViewTerminal() {
   const toggleBarNumbers = useCallback(() => {
     setBarNumbersVisible((v) => !v)
   }, [])
+  const toggleMicroGaps = useCallback(() => {
+    setMicroGapsVisible((v) => !v)
+  }, [])
+  const toggleFvg = useCallback(() => {
+    setFvgVisible((v) => !v)
+  }, [])
+  const toggleHtfContext = useCallback(() => {
+    setHtfContextVisible((v) => !v)
+  }, [])
   const setCompareSymbolSafely = useCallback((value: string | null) => {
     if (value == null) {
       setCompareSymbol(null)
@@ -2917,6 +3386,7 @@ export function TradingViewTerminal() {
     barsCacheRef.current.set(url, { payload, fetchedAt: now })
     return payload
   }, [])
+  const htfContextSpec = useMemo(() => htfContextSpecFor(timeframe), [timeframe])
 
   useEffect(() => {
     let cancelled = false
@@ -3213,7 +3683,8 @@ export function TradingViewTerminal() {
     const sessionDate = todayEt()
 
     const fetchOne = async (spec: typeof HTF_SPECS[number]) => {
-      if (!htfEmaVisibility[spec.key]) return
+      const neededForContext = htfContextVisible && htfContextSpec?.key === spec.key
+      if (!htfEmaVisibility[spec.key] && !neededForContext) return
       const fromCandidates = previousEtDates(sessionDate, spec.lookbackDays)
       const fromDate = fromCandidates[fromCandidates.length - 1] ?? sessionDate
       const qs = new URLSearchParams({
@@ -3240,7 +3711,7 @@ export function TradingViewTerminal() {
     return () => {
       cancelled = true
     }
-  }, [fetchBarsWithMemory, htfEmaVisibility, refreshNonce, selectedSymbol])
+  }, [fetchBarsWithMemory, htfContextSpec, htfContextVisible, htfEmaVisibility, refreshNonce, selectedSymbol])
 
   useEffect(() => {
     const currentIndex = symbols.indexOf(selectedSymbol)
@@ -3426,6 +3897,15 @@ export function TradingViewTerminal() {
     if (effectiveReplayIndex == null) return displayBars
     return displayBars.slice(0, effectiveReplayIndex + 1)
   }, [displayBars, effectiveReplayIndex])
+  const htfContextCandles = useMemo(
+    () => (htfContextSpec ? htfBars[htfContextSpec.key].slice(-3) : []),
+    [htfBars, htfContextSpec],
+  )
+  const htfContextLabel = htfContextSpec?.key === "daily"
+    ? "D"
+    : htfContextSpec?.key === "weekly"
+      ? "W"
+      : ""
   const activeSessionDate = useMemo(() => {
     const latest = displayBars.at(-1) ?? combinedBars.at(-1)
     return latest ? etDateForTimestamp(latest.t) : todayEt()
@@ -3470,6 +3950,9 @@ export function TradingViewTerminal() {
       vwapVisible,
       htfEmaVisibility,
       barNumbersVisible,
+      microGapsVisible,
+      fvgVisible,
+      htfContextVisible,
     })
     setTimeframe(symbolTimeframe(clean))
     setBarWindow(symbolBarWindow(clean))
@@ -3481,13 +3964,16 @@ export function TradingViewTerminal() {
     setHtfEmaVisibility(symbolHtfEmaVisibility(clean))
     setHtfBars(emptyHtfBars())
     setBarNumbersVisible(symbolBarNumbersVisible(clean))
+    setMicroGapsVisible(symbolMicroGapsVisible(clean))
+    setFvgVisible(symbolFvgVisible(clean))
+    setHtfContextVisible(symbolHtfContextVisible(clean))
     setDrawnLines(readDrawnLines(clean))
     setReplayIndex(null)
     setPriorRthBars([])
     setContextBars([])
     setSelectedSymbol(clean)
     setSymbolDraft(clean)
-  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisibility, barNumbersVisible])
+  }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisibility, barNumbersVisible, microGapsVisible, fvgVisible, htfContextVisible])
 
   const toggleLevelGroup = useCallback((group: LevelGroup) => {
     setLevelVisibility((current) => ({ ...current, [group]: !current[group] }))
@@ -3623,6 +4109,10 @@ export function TradingViewTerminal() {
             htfEmaVisibility={htfEmaVisibility}
             vwapVisible={vwapVisible}
             barNumbersVisible={barNumbersVisible}
+            microGapsVisible={microGapsVisible}
+            fvgVisible={fvgVisible}
+            htfContextVisible={htfContextVisible}
+            htfContextLabel={htfContextLabel}
             levelVisibility={levelVisibility}
             drawnLinesCount={drawnLines.length}
             onToggleVolume={toggleVolume}
@@ -3630,6 +4120,9 @@ export function TradingViewTerminal() {
             onToggleHtfEma={toggleHtfEma}
             onToggleVwap={toggleVwap}
             onToggleBarNumbers={toggleBarNumbers}
+            onToggleMicroGaps={toggleMicroGaps}
+            onToggleFvg={toggleFvg}
+            onToggleHtfContext={toggleHtfContext}
             onToggleLevel={toggleLevelGroup}
             onClearDrawnLines={clearDrawnLines}
           />
@@ -3689,6 +4182,11 @@ export function TradingViewTerminal() {
               htfEmaVisibility={htfEmaVisibility}
               htfBars={htfBars}
               barNumbersVisible={barNumbersVisible}
+              microGapsVisible={microGapsVisible}
+              fvgVisible={fvgVisible}
+              htfContextVisible={htfContextVisible}
+              htfContextBars={htfContextCandles}
+              htfContextLabel={htfContextLabel}
               drawnLines={drawnLines}
               replayActive={effectiveReplayIndex != null}
               onExitReplay={() => setReplayIndex(null)}
@@ -3707,6 +4205,9 @@ export function TradingViewTerminal() {
               onToggleVwap={toggleVwap}
               onToggleHtfEma={toggleHtfEma}
               onToggleBarNumbers={toggleBarNumbers}
+              onToggleMicroGaps={toggleMicroGaps}
+              onToggleFvg={toggleFvg}
+              onToggleHtfContext={toggleHtfContext}
               onAddDrawnLine={addDrawnLine}
               onClearDrawnLines={clearDrawnLines}
             />
