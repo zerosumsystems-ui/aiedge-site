@@ -217,12 +217,6 @@ export async function fetchLiveSetup(params: {
     date: sessionIso,
     limit: "1",
   })
-  const candRes = await fetch(`/api/scanner/candidates?${candQs}`, { cache: "no-store" })
-  if (!candRes.ok) return null
-  const candJson = (await candRes.json()) as { candidates: CandidateLike[] }
-  const candidate = candJson.candidates?.[0]
-  if (!candidate) return null
-
   const barsQs = new URLSearchParams({
     ticker: params.ticker,
     from: sessionIso,
@@ -231,11 +225,23 @@ export async function fetchLiveSetup(params: {
     session: "rth",
     limit: "200",
   })
-  const barsRes = await fetch(`/api/bars?${barsQs}`)
-  if (!barsRes.ok) return null
-  const barsJson = (await barsRes.json()) as { bars?: ApiBar[] }
+  // Fire both requests in parallel — they're independent. Sequencing
+  // them previously doubled the time-to-first-render for /setups
+  // (network RTT × 2 instead of × 1).
+  const [candRes, barsRes] = await Promise.all([
+    fetch(`/api/scanner/candidates?${candQs}`, { cache: "no-store" }),
+    fetch(`/api/bars?${barsQs}`),
+  ])
+  if (!candRes.ok || !barsRes.ok) return null
+
+  const [candJson, barsJson] = (await Promise.all([
+    candRes.json(),
+    barsRes.json(),
+  ])) as [{ candidates: CandidateLike[] }, { bars?: ApiBar[] }]
+
+  const candidate = candJson.candidates?.[0]
   const bars = barsJson.bars ?? []
-  if (!bars.length) return null
+  if (!candidate || !bars.length) return null
 
   return liveCandidateToFeatured(candidate, bars)
 }

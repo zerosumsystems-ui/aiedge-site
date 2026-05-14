@@ -369,7 +369,7 @@ const PALETTE = {
 }
 
 const BAR_SECONDS = 5 * 60
-const BASE_REVEAL_MS = 145
+const BASE_REVEAL_MS = 80
 const REVEAL_HOLD_MS = 10000
 const ENTRY_FADE_MS = 600
 
@@ -383,14 +383,18 @@ const ET_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
   hour12: false,
 })
 
+// Reveal pacing. Pre-signal lead-in is brisk (build anticipation).
+// The signal bar itself + the next few bars hold a beat so the eye
+// catches the fire and the immediate follow-through. Beyond ~5 bars
+// past the fire we fast-forward — the rest of the session is context,
+// not the focus, and on a full-RTH window (78 bars) the old 300ms
+// pacing made the animation feel slow.
 function revealDelay(barIdx: number, signalIdx: number): number {
   const since = barIdx - signalIdx - 1
-  if (since < 0) return BASE_REVEAL_MS
-  if (since === 0) return 175
-  if (since === 1) return 210
-  if (since === 2) return 250
-  if (since === 3) return 280
-  return 300
+  if (since < 0) return BASE_REVEAL_MS   // pre-signal: 80ms
+  if (since === 0) return 160            // signal bar — hold a beat
+  if (since <= 4) return 110             // immediate follow-through
+  return 35                              // post-window context — zip
 }
 
 /* ---------- Component ----------------------------------------------------- */
