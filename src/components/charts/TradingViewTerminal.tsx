@@ -3631,7 +3631,17 @@ function IndicatorsMenu({
   )
 }
 
-export function TradingViewTerminal() {
+interface TradingViewTerminalProps {
+  /**
+   * Symbol passed in by the route via `?symbol=` URL param. When provided
+   * it seeds the chart on mount, overriding the persisted default. Once
+   * the chart has booted, in-app symbol changes still write through to
+   * the persisted prefs as before — we don't re-read this on every render.
+   */
+  initialSymbolOverride?: string
+}
+
+export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTerminalProps = {}) {
   const [symbols, setSymbols] = useState<string[]>(() => {
     const customs = readCustomSymbols()
     return Array.from(new Set([...DEFAULT_SYMBOLS, ...customs]))
@@ -3646,7 +3656,7 @@ export function TradingViewTerminal() {
   // Hydrate initial symbol from global prefs, then layer the symbol-
   // specific overrides on top for the rest of the state. selectSymbol
   // is responsible for saving/loading these on subsequent switches.
-  const initialSymbol = storedSymbol()
+  const initialSymbol = initialSymbolOverride ?? storedSymbol()
   const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol)
   const [symbolDraft, setSymbolDraft] = useState(storedSymbol)
   const [timeframe, setTimeframe] = useState<ChartViewTimeframe>(() => symbolTimeframe(initialSymbol))

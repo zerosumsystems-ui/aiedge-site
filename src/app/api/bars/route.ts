@@ -52,6 +52,20 @@ interface BarsResponse {
   from: string
   to: string
   source: 'databento'
+  /**
+   * True when the response was capped by the `limit` parameter (or default cap)
+   * and earlier bars were dropped. Lets API consumers detect silent truncation
+   * without comparing counts.
+   */
+  truncated?: boolean
+  /** Bar count before truncation, when truncation occurred. */
+  untruncatedCount?: number
+  /**
+   * Set when the requested schema was unavailable from Databento and we fell
+   * back to a finer schema + aggregated. Helps callers explain unexpected
+   * latency or partial-window edges.
+   */
+  schemaFallback?: 'ohlcv-1h-to-1m'
 }
 
 type DatabentoSchema = 'ohlcv-1s' | 'ohlcv-1m' | 'ohlcv-1h' | 'ohlcv-1d'
@@ -337,6 +351,18 @@ export async function GET(request: Request) {
     )
   }
 
+  // Reject obvious garbage tickers upfront. US-listed equities are
+  // 1-5 uppercase letters with optional class suffix (BRK.B, BF-B). Anything
+  // outside this gets a clear 400 instead of going to Databento and coming
+  // back with an opaque empty result (which a quant pipeline could mistake
+  // for "no trading activity").
+  if (!/^[A-Z][A-Z0-9.\-]{0,7}$/.test(ticker)) {
+    return Response.json(
+      { error: `invalid ticker "${ticker}" — expected 1-8 uppercase letters/digits/[.\\-]` },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } }
+    )
+  }
+
   const sameDaySessionRequest = from === to && sessionFetchWindow(from, session, openingMinutes) !== null
   const resolvedFrom = sameDaySessionRequest ? resolveAvailableSessionDate(from, session, openingMinutes) : from
   const resolvedTo = sameDaySessionRequest ? resolvedFrom : to
@@ -345,6 +371,29 @@ export async function GET(request: Request) {
   const toDate = new Date(resolvedTo)
   if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
     return Response.json({ error: 'invalid from/to' }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
+  }
+
+  // Future-date short-circuit. Returning 502 from Databento for "from > today"
+  // is misleading — it's not a backend error, the data just doesn't exist yet.
+  // Match the weekend/holiday behavior (200 with bars: []).
+  const todayUtcMidnight = Date.UTC(
+    new Date().getUTCFullYear(),
+    new Date().getUTCMonth(),
+    new Date().getUTCDate(),
+  )
+  if (fromDate.getTime() > todayUtcMidnight) {
+    return Response.json(
+      {
+        bars: [],
+        timeframe: (tfParam === 'auto' ? '5min' : tfParam) as ChartTimeframe,
+        effectiveTimeframe: (tfParam === 'auto' ? '5min' : tfParam) as ChartTimeframe,
+        ticker,
+        from,
+        to,
+        source: 'databento',
+      } satisfies BarsResponse,
+      { status: 200, headers: { 'Cache-Control': 'public, s-maxage=60, max-age=60' } }
+    )
   }
 
   // Context padding — 20% on each side for intraday, 5 days for daily.
@@ -399,16 +448,8 @@ export async function GET(request: Request) {
     : new Date(Math.min(toDate.getTime() + padMs, lagCutoff))
 
   // Databento Historical API — HTTP Basic auth, key as username, empty pw.
-  const url = new URL('https://hist.databento.com/v0/timeseries.get_range')
-  url.searchParams.set('dataset', 'EQUS.MINI')
-  url.searchParams.set('symbols', ticker)
-  url.searchParams.set('schema', schema)
-  url.searchParams.set('start', paddedFrom.toISOString())
-  url.searchParams.set('end', paddedTo.toISOString())
-  url.searchParams.set('encoding', 'json')
-  url.searchParams.set('pretty_px', 'true')
-  url.searchParams.set('pretty_ts', 'true')
-
+  // URL is built inside `fetchSchema` so we can retry with a different schema
+  // when the upstream returns `data_schema_not_fully_available`.
   const auth =
     'Basic ' + Buffer.from(`${apiKey}:`, 'utf8').toString('base64')
 
@@ -442,18 +483,26 @@ export async function GET(request: Request) {
 
   const existing = inflight.get(inflightKey)
   const work = existing?.promise ?? (async () => {
-    try {
-      const resp = await fetch(url, { headers: { Authorization: auth } })
+    // Fetch + parse rows for a given schema. Returns either parsed bars or
+    // the raw response details so the caller can decide whether to fall back.
+    async function fetchSchema(targetSchema: DatabentoSchema): Promise<
+      | { ok: true; rawBars: Bar[] }
+      | { ok: false; status: number; body: string }
+    > {
+      const fetchUrl = new URL('https://hist.databento.com/v0/timeseries.get_range')
+      fetchUrl.searchParams.set('dataset', 'EQUS.MINI')
+      fetchUrl.searchParams.set('symbols', ticker)
+      fetchUrl.searchParams.set('schema', targetSchema)
+      fetchUrl.searchParams.set('start', paddedFrom.toISOString())
+      fetchUrl.searchParams.set('end', paddedTo.toISOString())
+      fetchUrl.searchParams.set('encoding', 'json')
+      fetchUrl.searchParams.set('pretty_px', 'true')
+      fetchUrl.searchParams.set('pretty_ts', 'true')
+      const resp = await fetch(fetchUrl, { headers: { Authorization: auth } })
       if (!resp.ok) {
         const body = await resp.text()
-        console.error(`[bars] databento ${resp.status}:`, body.slice(0, 500))
-        return {
-          status: 502,
-          body: JSON.stringify({ error: `databento ${resp.status}: ${body.slice(0, 300)}`, ticker, from, to }),
-          cacheControl: 'no-store',
-        }
+        return { ok: false, status: resp.status, body }
       }
-
       const text = await resp.text()
       const rawBars: Bar[] = []
       for (const line of text.split('\n')) {
@@ -467,23 +516,66 @@ export async function GET(request: Request) {
           // Skip malformed lines
         }
       }
+      return { ok: true, rawBars }
+    }
+
+    try {
+      let actualSchema: DatabentoSchema = schema
+      let schemaFallback: BarsResponse['schemaFallback']
+      let result = await fetchSchema(schema)
+
+      // ohlcv-1h has a longer publishing lag than ohlcv-1m, so recent windows
+      // can come back with `data_schema_not_fully_available`. Fall back to
+      // ohlcv-1m and aggregate up — preserves the request shape rather than
+      // failing the whole call.
+      if (!result.ok && schema === 'ohlcv-1h' && result.body.includes('data_schema_not_fully_available')) {
+        actualSchema = 'ohlcv-1m'
+        schemaFallback = 'ohlcv-1h-to-1m'
+        result = await fetchSchema('ohlcv-1m')
+      }
+
+      if (!result.ok) {
+        console.error(`[bars] databento ${result.status}:`, result.body.slice(0, 500))
+        return {
+          status: 502,
+          body: JSON.stringify({ error: `databento ${result.status}: ${result.body.slice(0, 300)}`, ticker, from, to }),
+          cacheControl: 'no-store',
+        }
+      }
+      const rawBars = result.rawBars
 
       let bars = filterSessionBars(rawBars, resolvedFrom, resolvedTo, session, openingMinutes)
       let effectiveTimeframe: ChartTimeframe = timeframe
-      if (schema === 'ohlcv-1m') {
+      if (actualSchema === 'ohlcv-1m') {
         if (timeframe === '1min') {
           effectiveTimeframe = '1min'
-        } else if (timeframe === '15min') {
-          bars = downsample(bars, 15)
-          effectiveTimeframe = '15min'
         } else if (timeframe === '5min') {
           bars = downsample(bars, 5)
           effectiveTimeframe = '5min'
+        } else if (timeframe === '15min') {
+          bars = downsample(bars, 15)
+          effectiveTimeframe = '15min'
+        } else if (timeframe === '30min') {
+          bars = downsample(bars, 30)
+          effectiveTimeframe = '30min'
+        } else if (timeframe === '1h') {
+          bars = downsample(bars, 60)
+          effectiveTimeframe = '1h'
+        } else if (timeframe === '4h') {
+          bars = downsample(bars, 240)
+          effectiveTimeframe = '4h'
         } else {
-          effectiveTimeframe = '5min'
           bars = downsample(bars, 5)
+          effectiveTimeframe = '5min'
         }
-      } else if (timeframe === 'weekly' && schema === 'ohlcv-1d') {
+      } else if (actualSchema === 'ohlcv-1h') {
+        if (timeframe === '4h') {
+          bars = downsample(bars, 240)
+          effectiveTimeframe = '4h'
+        } else {
+          effectiveTimeframe = '1h'
+        }
+      } else if (timeframe === 'weekly' && actualSchema === 'ohlcv-1d') {
         bars = downsampleWeekly(rawBars)
         effectiveTimeframe = 'weekly'
       }
@@ -493,8 +585,13 @@ export async function GET(request: Request) {
       // user memory: feedback_chart_candle_cap. Tail keeps the most recent
       // bars so the trade-exit context is preserved in round-trip charts. Opening
       // 1-minute views can be longer so bar 18 has the full matching 90 minutes.
+      // `truncated` flag lets API consumers detect the cap kicked in without
+      // re-counting against `limit`.
+      const untruncatedCount = bars.length
+      let truncated = false
       if (bars.length > maxBars) {
         bars = bars.slice(-maxBars)
+        truncated = true
       }
 
       const payload: BarsResponse = {
@@ -505,6 +602,8 @@ export async function GET(request: Request) {
         from: resolvedFrom,
         to: resolvedTo,
         source: 'databento',
+        ...(truncated ? { truncated, untruncatedCount } : {}),
+        ...(schemaFallback ? { schemaFallback } : {}),
       }
       // Cache aggressively when the requested range is entirely in the
       // past — those bars never change, so Vercel's edge can absorb every
