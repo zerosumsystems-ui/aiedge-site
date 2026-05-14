@@ -60,16 +60,19 @@ export async function GET(request: Request) {
     )
   }
 
+  // A pinned lookup (symbol + pattern + direction + exact date) is the
+  // SymbolPage feedback form's read path — it needs to reflect the user's
+  // last save instantly, so it bypasses the edge cache. The list view
+  // (no exact date) gets a short s-maxage to absorb scanner-page traffic.
+  const pinned = !!(symbol && pattern && direction && date)
+  const cacheControl = pinned
+    ? 'no-store'
+    : 'public, s-maxage=15, stale-while-revalidate=60'
   return Response.json(
-    { candidates: data ?? [], filters: { pattern, direction, symbol, since, limit } },
+    { candidates: data ?? [], filters: { pattern, direction, symbol, since, date, limit } },
     {
       status: 200,
-      headers: {
-        // Short edge cache — backfill batches change on a slow cadence,
-        // but live writes will start landing once the aggregator pipes
-        // candidates in. 15s is a fair freshness/perf tradeoff for V1.
-        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=60',
-      },
+      headers: { 'Cache-Control': cacheControl },
     },
   )
 }
