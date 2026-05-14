@@ -327,17 +327,11 @@ function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
 
   const annotations = useMemo<ChartAnnotations | undefined>(() => {
     if (!fireMarker) return undefined
-    // Gold dot on the fire bar — the bar the setup qualified on.
-    // Direction is already conveyed by belowBar (long) vs aboveBar (short)
-    // and the chart label/banner; the color just needs to flag "this is
-    // the qualifying bar." Gold reads as "highlight" across themes.
+    // Color the qualifying candle itself gold rather than overlay a
+    // marker on top — cleaner read, no overlap with neighbors. The
+    // direction is already conveyed by the setup banner above.
     return {
-      markers: [{
-        time: fireMarker.fireTs,
-        shape: 'circle',
-        position: fireMarker.direction === 'long' ? 'belowBar' : 'aboveBar',
-        color: '#fbbf24',
-      }],
+      highlightBars: [{ time: fireMarker.fireTs, color: '#fbbf24' }],
     }
   }, [fireMarker])
 

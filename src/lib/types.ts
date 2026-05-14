@@ -49,6 +49,12 @@ export interface ChartAnnotations {
   entryMarker?: { time: number; direction: SignalDirection }  // BUY at bar time
   exitMarker?: { time: number; direction: SignalDirection }   // SELL at bar time
   markers?: ChartMarkerAnnotation[]      // labeled chart markers for scanner/setup review
+  /**
+   * Per-bar candle highlight. Any bar whose `t` matches gets its body,
+   * border, and wick colored — used by the scanner deep-link to flag the
+   * fire bar in gold instead of layering a marker on top of the chart.
+   */
+  highlightBars?: { time: number; color: string }[]
   verdict?: { decision: string; probability: number; rr: number }
   agreement?: "AGREE" | "PARTIAL" | "MINOR" | "MAJOR" | "DISAGREE" | "INVERTED"
   adrMultiple?: number
