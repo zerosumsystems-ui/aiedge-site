@@ -127,7 +127,21 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
     scanner !== null || trades.length > 0 || fills.length > 0 || entries.length > 0
 
   // Sort trades desc by date
-  const sortedTrades = [...trades].sort((a, b) => b.date.localeCompare(a.date))
+  // In deep-link mode (reviewing a scanner candidate) we narrow the Brooks
+  // trade-read section to just that session date. Outside deep-link mode the
+  // section still shows every Brooks read for the ticker.
+  const sessionDateForFilter = fireMarker
+    ? new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date(fireMarker.fireTs * 1000))
+    : null
+  const tradesForView = sessionDateForFilter
+    ? trades.filter((t) => t.date === sessionDateForFilter)
+    : trades
+  const sortedTrades = [...tradesForView].sort((a, b) => b.date.localeCompare(a.date))
 
   // Group fills by date
   const fillsByDate = fills.reduce((acc, f) => {
@@ -178,6 +192,11 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
         <SymbolChart ticker={ticker} fireMarker={fireMarker} />
       </section>
 
+      {/* Trader feedback — closes the labeling loop on a candidate. */}
+      {fireMarker && (
+        <CandidateFeedback ticker={ticker} fireMarker={fireMarker} />
+      )}
+
       {/* Similar past sessions, replacing the today's-context blocks when
        *  the user is reviewing a historical setup. */}
       {fireMarker && (
@@ -212,12 +231,26 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
         </section>
       )}
 
-      {/* Trade reads (with charts) */}
+      {/* Trade reads (with charts). In deep-link mode the list is filtered
+       *  to just this candidate's session date, with an empty state when
+       *  no Brooks read exists for it yet. */}
+      {fireMarker && sortedTrades.length === 0 && (
+        <section className="mb-6">
+          <SectionHeader label="Brooks trade read" hint={sessionDateForFilter ?? undefined} />
+          <div className="rounded-md border border-border bg-surface px-3 py-6 text-center text-xs text-sub">
+            No Brooks read for this session yet.
+          </div>
+        </section>
+      )}
       {sortedTrades.length > 0 && (
         <section className="mb-6">
           <SectionHeader
-            label="Brooks trade reads"
-            hint={`${sortedTrades.length} read${sortedTrades.length === 1 ? '' : 's'}`}
+            label={fireMarker ? 'Brooks trade read' : 'Brooks trade reads'}
+            hint={
+              fireMarker
+                ? sessionDateForFilter ?? undefined
+                : `${sortedTrades.length} read${sortedTrades.length === 1 ? '' : 's'}`
+            }
           />
           <div>
             {sortedTrades.map((trade) => (
@@ -389,6 +422,7 @@ function SummaryStrip({
 }
 
 interface CandidateRow {
+  id?: number
   symbol: string
   session_date: string
   pattern: string
@@ -399,6 +433,8 @@ interface CandidateRow {
   consecutive_count: number
   strong_count: number
   score: number
+  status?: string
+  note?: string
 }
 
 const TFO_CRITERIA = [
@@ -445,7 +481,7 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
       date: sessionDateIso,
       limit: '1',
     })
-    fetch(`/api/scanner/candidates?${qs}`, { signal: ac.signal })
+    fetch(`/api/scanner/candidates?${qs}`, { signal: ac.signal, cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: { candidates: CandidateRow[] }) => {
         setCandidate(d.candidates[0] ?? null)
@@ -513,6 +549,146 @@ function Metric({ label, value }: { label: string; value: string }) {
       <div className="text-[9px] uppercase tracking-wide text-sub">{label}</div>
       <div className="font-mono tabular-nums text-text">{value}</div>
     </div>
+  )
+}
+
+type FeedbackStatus = 'new' | 'good' | 'bad' | 'traded'
+const FEEDBACK_STATUSES: { value: FeedbackStatus; label: string }[] = [
+  { value: 'new', label: 'New' },
+  { value: 'good', label: 'Good' },
+  { value: 'bad', label: 'Bad' },
+  { value: 'traded', label: 'Traded' },
+]
+
+function CandidateFeedback({ ticker, fireMarker }: { ticker: string; fireMarker: FireMarker }) {
+  const sessionDateIso = useMemo(() => {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(fireMarker.fireTs * 1000))
+  }, [fireMarker.fireTs])
+
+  const [candidate, setCandidate] = useState<CandidateRow | null>(null)
+  const [draftStatus, setDraftStatus] = useState<FeedbackStatus>('new')
+  const [draftNote, setDraftNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    const ac = new AbortController()
+    const qs = new URLSearchParams({
+      symbol: ticker,
+      pattern: fireMarker.pattern,
+      direction: fireMarker.direction,
+      date: sessionDateIso,
+      limit: '1',
+    })
+    fetch(`/api/scanner/candidates?${qs}`, { signal: ac.signal, cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: { candidates: CandidateRow[] }) => {
+        const c = d.candidates[0]
+        if (!c) {
+          setLoaded(true)
+          return
+        }
+        setCandidate(c)
+        setDraftStatus((c.status as FeedbackStatus) ?? 'new')
+        setDraftNote(c.note ?? '')
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+    return () => ac.abort()
+  }, [ticker, fireMarker.pattern, fireMarker.direction, sessionDateIso])
+
+  const dirty =
+    candidate != null &&
+    (draftStatus !== (candidate.status ?? 'new') || draftNote !== (candidate.note ?? ''))
+
+  async function save() {
+    if (!candidate?.id) return
+    setSaving(true)
+    setSaveMsg(null)
+    try {
+      const resp = await fetch(`/api/scanner/candidates/${candidate.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: draftStatus, note: draftNote }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) throw new Error(data.error ?? `HTTP ${resp.status}`)
+      setCandidate({ ...candidate, status: data.candidate.status, note: data.candidate.note })
+      setSaveMsg('Saved')
+      window.setTimeout(() => setSaveMsg(null), 2_000)
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loaded && !candidate) {
+    // No row to attach feedback to — shouldn't happen for a real /scanner
+    // deep-link but render nothing instead of crashing.
+    return null
+  }
+
+  return (
+    <section className="mb-6">
+      <SectionHeader
+        label="Your read"
+        hint={candidate?.status && candidate.status !== 'new' ? `currently: ${candidate.status}` : undefined}
+      />
+      <div className="rounded-md border border-border bg-surface px-4 py-3">
+        <div className="mb-3 flex flex-wrap gap-2">
+          {FEEDBACK_STATUSES.map((s) => {
+            const active = draftStatus === s.value
+            return (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => setDraftStatus(s.value)}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  active
+                    ? s.value === 'good'
+                      ? 'border-teal bg-teal/15 text-teal'
+                      : s.value === 'bad'
+                        ? 'border-red bg-red/15 text-red'
+                        : s.value === 'traded'
+                          ? 'border-amber-500 bg-amber-500/15 text-amber-400'
+                          : 'border-border bg-surface-hover text-text'
+                    : 'border-border bg-bg text-sub hover:bg-surface-hover hover:text-text'
+                }`}
+              >
+                {s.label}
+              </button>
+            )
+          })}
+        </div>
+        <textarea
+          value={draftNote}
+          onChange={(e) => setDraftNote(e.target.value)}
+          placeholder="Notes — what made this setup good / bad / why you skipped or took it…"
+          rows={3}
+          className="block w-full resize-y rounded-md border border-border bg-bg px-3 py-2 text-xs text-text placeholder:text-sub/60 focus:outline-none focus:ring-1 focus:ring-teal/60"
+        />
+        <div className="mt-2 flex items-center justify-end gap-3">
+          {saveMsg && (
+            <span className={`text-[11px] ${saveMsg === 'Saved' ? 'text-teal' : 'text-red'}`}>{saveMsg}</span>
+          )}
+          <button
+            type="button"
+            disabled={!dirty || saving}
+            onClick={save}
+            className="rounded-md border border-teal/60 bg-teal/10 px-3 py-1 text-xs font-semibold text-teal disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-hover disabled:text-sub"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </section>
   )
 }
 
