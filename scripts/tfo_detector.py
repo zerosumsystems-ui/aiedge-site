@@ -55,6 +55,10 @@ class TfoSignal:
     consecutive_count: int  # total run of in-direction closes after pivot
     strong_count: int       # how many of those are Brooks-strong bars
     score: float
+    # Epoch seconds of the LOD (long) / HOD (short) pivot bar. Stored
+    # alongside fire_ts so the chart can paint the pivot bar cyan
+    # without re-mapping pivot_index → bar timestamp at the client.
+    pivot_ts: int = 0
     # Epoch seconds of every Brooks-strong bar inside the confirming
     # run. Stored on the candidate row (strong_bar_ts column) so the
     # chart paints the exact same bars the detector counted — no
@@ -161,6 +165,7 @@ def detect_tfo(bars: Sequence[Bar5m]) -> list[TfoSignal]:
                 consecutive_count=consec,
                 strong_count=strong,
                 score=score,
+                pivot_ts=bars[low_idx].t,
                 strong_bar_timestamps=tuple(bars[i].t for i in strong_indices),
             ))
 
@@ -180,6 +185,7 @@ def detect_tfo(bars: Sequence[Bar5m]) -> list[TfoSignal]:
                 consecutive_count=consec,
                 strong_count=strong,
                 score=score,
+                pivot_ts=bars[high_idx].t,
                 strong_bar_timestamps=tuple(bars[i].t for i in strong_indices),
             ))
 

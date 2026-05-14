@@ -21,6 +21,7 @@ interface CandidateLike {
   pattern: string
   direction: "long" | "short"
   fire_ts: number
+  pivot_ts?: number | null
   pivot_index?: number | null
   fired_bar_index?: number | null
   consecutive_count?: number | null
@@ -144,6 +145,21 @@ export function liveCandidateToFeatured(
     }
   }
 
+  // Translate the detector's epoch timestamps into bar indices relative
+  // to our windowed `bars` array. Both fields come from the same source
+  // of truth (setup_candidates pivot_ts / strong_bar_ts written by the
+  // Python detector) — the chart re-derives nothing.
+  let pivotBarIndex: number | undefined
+  if (candidate.pivot_ts != null) {
+    const idx = bars.findIndex((b) => b.t === candidate.pivot_ts)
+    if (idx >= 0) pivotBarIndex = idx - start
+  }
+  const strongBarIndices: number[] = []
+  for (const t of candidate.strong_bar_ts ?? []) {
+    const idx = bars.findIndex((b) => b.t === t)
+    if (idx >= 0) strongBarIndices.push(idx - start)
+  }
+
   const modelScore = candidate.model_score
   return {
     symbol: candidate.symbol,
@@ -169,6 +185,8 @@ export function liveCandidateToFeatured(
     phases,
     bars: windowBars.map<RawBar>((b) => ({ o: b.o, h: b.h, l: b.l, c: b.c })),
     deepDiveHref: `/symbol/${encodeURIComponent(candidate.symbol)}?t=${candidate.fire_ts}&pattern=${candidate.pattern}&direction=${candidate.direction}`,
+    pivotBarIndex,
+    strongBarIndices,
   }
 }
 

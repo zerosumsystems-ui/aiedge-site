@@ -410,12 +410,15 @@ function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
 
   const annotations = useMemo<ChartAnnotations | undefined>(() => {
     if (!fireMarker) return undefined
-    // Brooks-strong bars purple (#a78bfa) FIRST, fire bar gold (#fbbf24)
-    // LAST so the fire bar always wins the precedence Map.set in
-    // LightweightChart — even when the fire bar is itself Brooks-strong.
-    // The strong-bar timestamps come straight from the detector via
-    // setup_candidates.strong_bar_ts; no Brooks rule lives in JS.
+    // Precedence (later wins, per LightweightChart's Map.set):
+    //   pivot bar cyan  → strong bars purple → fire bar gold
+    // All three timestamps come straight from the detector via
+    // setup_candidates.{pivot_ts, strong_bar_ts, fire_ts}; no rule
+    // logic lives in JS.
     const bars: { time: number; color: string }[] = []
+    if (candidate?.pivot_ts != null) {
+      bars.push({ time: candidate.pivot_ts, color: '#38bdf8' })
+    }
     if (candidate?.strong_bar_ts) {
       for (const t of candidate.strong_bar_ts) {
         bars.push({ time: t, color: '#a78bfa' })
@@ -502,6 +505,7 @@ interface CandidateRow {
   model_target?: string | null
   model_version?: string | null
   model_scored_at?: string | null
+  pivot_ts?: number | null
   strong_bar_ts?: number[] | null
 }
 
@@ -634,13 +638,17 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
               <span className="inline-flex items-center gap-1.5">
                 <span
                   className="inline-block h-2.5 w-2.5 rounded-sm"
-                  style={{ backgroundColor: '#fbbf24' }}
+                  style={{ backgroundColor: '#38bdf8' }}
                   aria-hidden
                 />
                 <HelpLabel
-                  label="fire bar"
-                  title="Gold = fire bar"
-                  body="The 3rd consecutive in-direction close — the bar that confirmed the setup."
+                  label={pivotName + ' bar'}
+                  title={`Cyan = ${pivotName} bar`}
+                  body={
+                    pivotName === 'LOD'
+                      ? 'The bar that printed the session low (within the first 4 RTH 5-min bars). Anchor of the long TFO — every confirming bull close measures from here.'
+                      : 'The bar that printed the session high (within the first 4 RTH 5-min bars). Anchor of the short TFO — every confirming bear close measures from here.'
+                  }
                 />
               </span>
               <span className="inline-flex items-center gap-1.5">
@@ -657,6 +665,18 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
                       Confirming-run bars that pass the Brooks-strong rule: body ≥ 50% of range, close in the top 25% of range (longs) or bottom 25% (shorts). For this candidate, {candidate.strong_count} of {candidate.consecutive_count} confirming bars qualify.
                     </>
                   }
+                />
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-sm"
+                  style={{ backgroundColor: '#fbbf24' }}
+                  aria-hidden
+                />
+                <HelpLabel
+                  label="fire bar"
+                  title="Gold = fire bar"
+                  body="The 3rd consecutive in-direction close — the bar that confirmed the setup."
                 />
               </span>
             </div>

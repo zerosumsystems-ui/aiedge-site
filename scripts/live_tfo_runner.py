@@ -327,6 +327,7 @@ class TfoLiveRunner:
                 "consecutive_count": sig.consecutive_count,
                 "strong_count": sig.strong_count,
                 "score": sig.score,
+                "pivot_ts": sig.pivot_ts,
                 "strong_bar_ts": list(sig.strong_bar_timestamps),
                 "status": "new",
                 "source": "live",

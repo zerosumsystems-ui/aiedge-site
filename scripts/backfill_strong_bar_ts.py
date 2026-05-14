@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""One-shot: populate setup_candidates.strong_bar_ts on existing TFO rows.
+"""One-shot: populate setup_candidates.strong_bar_ts + pivot_ts on existing TFO rows.
 
-The detector emits strong_bar_timestamps now, but the 285 rows already
-in the DB pre-date that field. Re-running the full
-scripts/backfill_tfo_candidates.py would work but uses merge-duplicates,
-which would overwrite per-row trader fields (status, note) — non-destructive
-today because we have 0 labels, foot-gun later.
+The detector emits these fields now, but rows already in the DB
+pre-date them. Re-running the full scripts/backfill_tfo_candidates.py
+would work but uses merge-duplicates, which would overwrite per-row
+trader fields (status, note) — non-destructive today because we have
+0 labels, foot-gun later.
 
-This script only PATCHes strong_bar_ts on rows where it's still null.
-For each candidate it fetches the session 5min bars, re-runs the
-detector, matches by fire_ts + direction, and writes the timestamps.
-Idempotent; no other columns touched.
+This script only PATCHes the derived fields on rows where strong_bar_ts
+is still null. For each candidate it fetches the session 5min bars,
+re-runs the detector, matches by fire_ts + direction, and writes both
+strong_bar_ts and pivot_ts. Idempotent; no other columns touched.
 
 Usage:
     python3 scripts/backfill_strong_bar_ts.py
@@ -41,7 +41,10 @@ def supabase_get_rows(supabase_url: str, key: str) -> list[dict]:
     qs = {
         "select": "id,symbol,session_date,direction,fire_ts",
         "pattern": "eq.tfo",
-        "strong_bar_ts": "is.null",
+        # Either column missing → re-derive. The detector writes both
+        # atomically; running this twice on the same row is a no-op
+        # except for one extra /api/bars fetch.
+        "or": "(strong_bar_ts.is.null,pivot_ts.is.null)",
         "order": "fire_ts.asc",
         "limit": "5000",
     }
@@ -135,7 +138,10 @@ def main(argv: list[str] | None = None) -> int:
 
         strong_bar_ts = list(match.strong_bar_timestamps)
         try:
-            supabase_patch(supabase_url, key, int(row["id"]), {"strong_bar_ts": strong_bar_ts})
+            supabase_patch(supabase_url, key, int(row["id"]), {
+                "strong_bar_ts": strong_bar_ts,
+                "pivot_ts": match.pivot_ts,
+            })
         except Exception as e:
             print(f"  [err ] {row['symbol']} {row['session_date']}: {e}")
             n_skip += 1
@@ -143,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
         n_ok += 1
         print(
             f"  [ok ] {row['symbol']:5s} {row['session_date']} {row['direction']:<5s}"
-            f"  strong={len(strong_bar_ts)}"
+            f"  pivot_ts={match.pivot_ts} strong={len(strong_bar_ts)}"
         )
         time.sleep(args.throttle)
 

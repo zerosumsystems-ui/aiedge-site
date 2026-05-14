@@ -68,6 +68,16 @@ export interface FeaturedSetup {
    *  candidates set this to /symbol/{symbol}?t=...&pattern=...&direction=...
    *  so the link lands on the chart-deep-link view with the fire bar. */
   deepDiveHref?: string
+  /** Index (into `bars`) of the LOD (long) / HOD (short) pivot bar.
+   *  When provided, the chart paints that bar cyan and switches the
+   *  fire bar from an arrow marker to a body-painted gold candle —
+   *  matching the deep-dive (/symbol) chart's visual language. */
+  pivotBarIndex?: number
+  /** Indices (into `bars`) of Brooks-strong confirming bars. When
+   *  provided alongside `pivotBarIndex`, they paint purple. From
+   *  setup_candidates.strong_bar_ts (the detector's source of truth),
+   *  not re-derived in JS. */
+  strongBarIndices?: number[]
 }
 
 function mulberry32(seed: number): () => number {
@@ -336,7 +346,14 @@ const PALETTE = {
   text: "#9a9a9a",
   teal: "#00c896",
   red: "#e05555",
-  signalGold: "#f5c842",
+  // Match the deep-dive (/symbol) chart's body-painting palette so a
+  // user comparing the two views sees the same colors:
+  //   gold   #fbbf24 — fire bar
+  //   purple #a78bfa — Brooks-strong confirming bars
+  //   cyan   #38bdf8 — LOD/HOD pivot bar
+  signalGold: "#fbbf24",
+  strongPurple: "#a78bfa",
+  pivotCyan: "#38bdf8",
   phaseGold: "#e6c14a",
   ema: "#5a5a5a",
 }
@@ -387,7 +404,14 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
   // mid-render (e.g. switching between live and hero modes).
   const setup = setups[Math.min(setupIdx, setups.length - 1)] ?? setups[0]
 
-  const { chartBars, emaSeriesData } = useMemo(() => {
+  // When a setup ships index-based highlights (pivot / strong / fire),
+  // we body-paint the candles to match the deep-dive (/symbol) chart's
+  // language instead of layering an arrow marker. Hero-reel setups
+  // without indices keep their original arrow-marker rendering.
+  const bodyPaintMode =
+    setup.pivotBarIndex != null || (setup.strongBarIndices?.length ?? 0) > 0
+
+  const { chartBars, emaSeriesData, colorByIndex } = useMemo(() => {
     const t0 = Math.floor(Date.UTC(2025, 0, 6, 14, 30) / 1000)
     const cb = setup.bars.map((b, i) => ({
       time: (t0 + i * BAR_SECONDS) as UTCTimestamp,
@@ -398,8 +422,36 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
     }))
     const ema = computeEma(setup.bars, 20)
     const es = cb.map((b, i) => ({ time: b.time, value: ema[i] }))
-    return { chartBars: cb, emaSeriesData: es }
+    // Precedence: cyan (pivot) → purple (strong) → gold (fire). Map.set
+    // semantics match the deep-dive chart's LightweightChart.
+    const colorMap = new Map<number, string>()
+    if (setup.pivotBarIndex != null) {
+      colorMap.set(setup.pivotBarIndex, PALETTE.pivotCyan)
+    }
+    if (setup.strongBarIndices) {
+      for (const idx of setup.strongBarIndices) {
+        colorMap.set(idx, PALETTE.strongPurple)
+      }
+    }
+    colorMap.set(setup.signalBarIndex, PALETTE.signalGold)
+    return { chartBars: cb, emaSeriesData: es, colorByIndex: colorMap }
   }, [setup])
+
+  // Helper: reveal a sliced prefix of the candle data with body-paint
+  // overrides applied. Used by the initial render (reduced-motion path)
+  // and the per-bar reveal chain below.
+  const paintedSlice = useCallback(
+    (count: number) =>
+      bodyPaintMode
+        ? chartBars.slice(0, count).map((b, i) => {
+            const hl = colorByIndex.get(i)
+            return hl
+              ? { ...b, color: hl, borderColor: hl, wickColor: hl }
+              : b
+          })
+        : chartBars.slice(0, count),
+    [bodyPaintMode, chartBars, colorByIndex],
+  )
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -505,7 +557,7 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
     const applyFullRange = () =>
       api.timeScale().setVisibleLogicalRange(fullRange)
 
-    candle.setData([chartBars[0]])
+    candle.setData(paintedSlice(1))
     ema.setData([emaSeriesData[0]])
     applyFullRange()
 
@@ -519,22 +571,26 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
     window.setTimeout(() => setAdrVisible(true), 80)
 
     if (reducedMotion) {
-      candle.setData(chartBars)
+      candle.setData(paintedSlice(chartBars.length))
       ema.setData(emaSeriesData)
       applyFullRange()
       setRevealedCount(chartBars.length)
       setPhase("revealed")
       setCurrentPhaseLabel(phaseAt(setup.phases, chartBars.length - 1))
-      const sig = chartBars[setup.signalBarIndex]
-      createSeriesMarkers(candle, [
-        {
-          time: sig.time,
-          position: setup.direction === "long" ? "belowBar" : "aboveBar",
-          color: PALETTE.signalGold,
-          shape: setup.direction === "long" ? "arrowUp" : "arrowDown",
-          text: "signal",
-        } as SeriesMarker<Time>,
-      ])
+      // In body-paint mode the fire bar is its own gold candle; no
+      // arrow marker layered on top.
+      if (!bodyPaintMode) {
+        const sig = chartBars[setup.signalBarIndex]
+        createSeriesMarkers(candle, [
+          {
+            time: sig.time,
+            position: setup.direction === "long" ? "belowBar" : "aboveBar",
+            color: PALETTE.signalGold,
+            shape: setup.direction === "long" ? "arrowUp" : "arrowDown",
+            text: "signal",
+          } as SeriesMarker<Time>,
+        ])
+      }
       markersPlacedRef.current = true
       placeStopAndTargetLines()
     } else {
@@ -561,7 +617,7 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
       stopLineRef.current = null
       targetLineRef.current = null
     }
-  }, [chartBars, clearAllTimers, emaSeriesData, placeStopAndTargetLines, reducedMotion, setup])
+  }, [bodyPaintMode, chartBars, clearAllTimers, emaSeriesData, paintedSlice, placeStopAndTargetLines, reducedMotion, setup])
 
   /* Bar-by-bar reveal — setTimeout chain with deceleration. */
   useEffect(() => {
@@ -578,13 +634,17 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
       cumulative += revealDelay(i - 1, setup.signalBarIndex)
       const target = i
       const id = window.setTimeout(() => {
-        candle.setData(chartBars.slice(0, target))
+        candle.setData(paintedSlice(target))
         ema.setData(emaSeriesData.slice(0, target))
         chartRef.current?.timeScale().setVisibleLogicalRange(fullRange)
         setRevealedCount(target)
         setCurrentPhaseLabel(phaseAt(setup.phases, target - 1))
 
+        // Arrow marker is only used for legacy (hand-crafted) setups
+        // without index-based highlights. Body-paint mode shows the
+        // fire bar as a gold candle instead, matching the deep-dive.
         if (
+          !bodyPaintMode &&
           !markersPlacedRef.current &&
           target >= setup.signalBarIndex + 1
         ) {
@@ -617,7 +677,7 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
       for (const t of chainTimersRef.current) window.clearTimeout(t)
       chainTimersRef.current = []
     }
-  }, [phase, chartBars, emaSeriesData, placeStopAndTargetLines, setup, reducedMotion])
+  }, [phase, chartBars, emaSeriesData, paintedSlice, placeStopAndTargetLines, setup, reducedMotion, bodyPaintMode])
 
   /* Cycle to next setup after the dwell window. Single-setup mode
      (live candidate) skips cycling entirely. */
