@@ -39,11 +39,11 @@ import type { Signal } from "@/lib/types"
 
 /* ---------- Hero-tape data model ------------------------------------------ */
 
-interface RawBar { o: number; h: number; l: number; c: number }
-interface SetupEdge { eq: number; note: string }
-interface PhaseAnchor { from: number; label: string }
+export interface RawBar { o: number; h: number; l: number; c: number }
+export interface SetupEdge { eq: number; note: string }
+export interface PhaseAnchor { from: number; label: string }
 
-interface FeaturedSetup {
+export interface FeaturedSetup {
   symbol: string
   timeframe: string
   sessionLabel: string
@@ -56,10 +56,18 @@ interface FeaturedSetup {
   adrMultiple: number
   signalBarIndex: number
   entryPrice: number
-  stopPrice: number
-  targetPrice: number
+  /** Optional — when undefined, no STOP price line is drawn. Live
+   *  candidates often don't have a principled stop yet. */
+  stopPrice?: number
+  /** Optional — same as stopPrice. */
+  targetPrice?: number
   phases: PhaseAnchor[]
   bars: RawBar[]
+  /** Optional explicit destination for the "deep dive on $SYMBOL"
+   *  link. When omitted, falls back to /symbol/{symbol}. Live
+   *  candidates set this to /symbol/{symbol}?t=...&pattern=...&direction=...
+   *  so the link lands on the chart-deep-link view with the fire bar. */
+  deepDiveHref?: string
 }
 
 function mulberry32(seed: number): () => number {
@@ -350,7 +358,13 @@ function revealDelay(barIdx: number, signalIdx: number): number {
 
 /* ---------- Component ----------------------------------------------------- */
 
-export function HeroSetupTape() {
+/**
+ * `setups` overrides the hand-crafted hero reel above. When provided,
+ * the component cycles through those instead — used by /setups when
+ * URL params point at a live scanner candidate.
+ */
+export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[] } = {}) {
+  const setups = setupsProp ?? SETUPS
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const candleRef = useRef<ISeriesApi<"Candlestick"> | null>(null)
@@ -369,7 +383,9 @@ export function HeroSetupTape() {
   const [currentPhaseLabel, setCurrentPhaseLabel] = useState("")
   const [adrVisible, setAdrVisible] = useState(false)
 
-  const setup = SETUPS[setupIdx]
+  // Clamp the index in case the parent swaps `setups` to a shorter list
+  // mid-render (e.g. switching between live and hero modes).
+  const setup = setups[Math.min(setupIdx, setups.length - 1)] ?? setups[0]
 
   const { chartBars, emaSeriesData } = useMemo(() => {
     const t0 = Math.floor(Date.UTC(2025, 0, 6, 14, 30) / 1000)
@@ -406,6 +422,9 @@ export function HeroSetupTape() {
   const placeStopAndTargetLines = useCallback(() => {
     const candle = candleRef.current
     if (!candle || levelsPlacedRef.current) return
+    // Skip silently when the setup has no principled stop/target —
+    // typical for live candidates without explicit risk-frame data.
+    if (setup.stopPrice == null || setup.targetPrice == null) return
     stopLineRef.current = candle.createPriceLine({
       price: setup.stopPrice,
       color: PALETTE.red,
@@ -600,13 +619,14 @@ export function HeroSetupTape() {
     }
   }, [phase, chartBars, emaSeriesData, placeStopAndTargetLines, setup, reducedMotion])
 
-  /* Cycle to next setup after the dwell window. */
+  /* Cycle to next setup after the dwell window. Single-setup mode
+     (live candidate) skips cycling entirely. */
   useEffect(() => {
     if (phase !== "revealed") return
     if (reducedMotion) return
-    if (SETUPS.length < 2) return
+    if (setups.length < 2) return
     cycleTimerRef.current = window.setTimeout(() => {
-      setSetupIdx((i) => (i + 1) % SETUPS.length)
+      setSetupIdx((i) => (i + 1) % setups.length)
       setRevealedCount(0)
       setPhase("playing")
     }, REVEAL_HOLD_MS) as unknown as number
@@ -616,7 +636,7 @@ export function HeroSetupTape() {
         cycleTimerRef.current = null
       }
     }
-  }, [phase, reducedMotion])
+  }, [phase, reducedMotion, setups.length])
 
   /* ---------- render ---------- */
 
@@ -644,20 +664,22 @@ export function HeroSetupTape() {
             <span className="text-sub">{setup.sessionLabel}</span>
           </div>
           <div className="flex items-center gap-3">
-            {/* Cycle dots */}
-            <div className="flex items-center gap-[5px]" aria-hidden>
-              {SETUPS.map((_, i) => (
-                <span
-                  key={i}
-                  className={[
-                    "w-[5px] h-[5px] rounded-full transition-all duration-300 ease-out",
-                    i === setupIdx
-                      ? "bg-teal scale-[1.15]"
-                      : "bg-border scale-100",
-                  ].join(" ")}
-                />
-              ))}
-            </div>
+            {/* Cycle dots — hidden when only one setup is in rotation. */}
+            {setups.length > 1 && (
+              <div className="flex items-center gap-[5px]" aria-hidden>
+                {setups.map((_, i) => (
+                  <span
+                    key={i}
+                    className={[
+                      "w-[5px] h-[5px] rounded-full transition-all duration-300 ease-out",
+                      i === setupIdx
+                        ? "bg-teal scale-[1.15]"
+                        : "bg-border scale-100",
+                    ].join(" ")}
+                  />
+                ))}
+              </div>
+            )}
             <div
               aria-live="polite"
               className="font-mono text-[10px] uppercase tracking-[0.14em] text-sub tabular-nums"
@@ -742,7 +764,7 @@ export function HeroSetupTape() {
               </span>
               <span className="text-sub ml-1.5">· {setup.edge.note}</span>
               <Link
-                href={`/symbol/${encodeURIComponent(setup.symbol)}`}
+                href={setup.deepDiveHref ?? `/symbol/${encodeURIComponent(setup.symbol)}`}
                 className={[
                   "group inline-flex items-baseline gap-1 ml-3",
                   "text-teal hover:text-text",

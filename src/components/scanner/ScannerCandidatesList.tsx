@@ -225,7 +225,10 @@ export function ScannerCandidatesList() {
                   </thead>
                   <tbody>
                     {rows.map((c) => {
-                      const href = `/symbol/${c.symbol}?t=${c.fire_ts}&pattern=${c.pattern}&direction=${c.direction}`
+                      // Default click → /setups: animate this specific
+                      // candidate, then user taps "deep dive" there to
+                      // reach the chart view.
+                      const href = `/setups?ticker=${encodeURIComponent(c.symbol)}&t=${c.fire_ts}&pattern=${c.pattern}&direction=${c.direction}`
                       // Row-level click so the whole row is a tap target on
                       // mobile, not just the symbol cell. Keep the <Link>
                       // wrapping the symbol so keyboard / cmd-click / middle-
