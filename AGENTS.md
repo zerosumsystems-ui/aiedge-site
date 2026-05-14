@@ -66,6 +66,11 @@ Conventions:
   from that list into the cloud environment UI.
 - Vercel and GitHub are handled via MCP servers attached to the session — do
   not store `VERCEL_TOKEN` or `GITHUB_TOKEN` in the environment.
+- Linear is wired up via the hosted MCP server in `.mcp.json`
+  (`https://mcp.linear.app/sse`). It uses OAuth on first use, so no token
+  lives in the environment. In the Claude Code web UI, approve the server
+  once under Connections; the desktop CLI picks it up automatically from
+  `.mcp.json`.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never import it from a `"use
   client"` module.
 - The Fly aggregator (`Dockerfile.live-bars`, `fly.live-bars.toml`) deploys
