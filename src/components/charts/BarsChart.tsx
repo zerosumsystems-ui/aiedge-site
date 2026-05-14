@@ -30,9 +30,11 @@ interface Props {
    *  a single-day deep-link shows the regular session at 5-min granularity
    *  without extended-hours noise. */
   session?: 'rth' | 'all' | 'open'
+  /** Overlay a 20-period EMA on the candles, matching /chart's default look. */
+  showEma?: boolean
 }
 
-export function BarsChart({ ticker, from, to, annotations, height = 340, label, initialTf = 'auto', session }: Props) {
+export function BarsChart({ ticker, from, to, annotations, height = 340, label, initialTf = 'auto', session, showEma = false }: Props) {
   const [tfChoice, setTfChoice] = useState<TfChoice>(initialTf)
   const [bars, setBars] = useState<Bar[] | null>(null)
   const [effectiveTf, setEffectiveTf] = useState<ChartTimeframe | null>(null)
@@ -117,7 +119,7 @@ export function BarsChart({ ticker, from, to, annotations, height = 340, label, 
           {error ? `Chart unavailable: ${error}` : 'No bars returned for this range.'}
         </div>
       ) : (
-        <LightweightChart chart={chart} height={height} />
+        <LightweightChart chart={chart} height={height} showEma={showEma} />
       )}
     </div>
   )

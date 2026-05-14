@@ -147,7 +147,7 @@ export function BrokerPanel() {
               </h2>
             </div>
             <p className="text-xs text-sub">
-              Fills from connected Fidelity accounts are auto-logged via SnapTrade.
+              Fills from connected broker accounts are auto-logged via SnapTrade.
             </p>
           </div>
           <div className="text-right">
@@ -178,7 +178,7 @@ export function BrokerPanel() {
               disabled={connecting}
               className="px-3 py-1.5 rounded bg-teal text-[#001d20] text-xs font-semibold hover:bg-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {connecting ? 'Starting…' : 'Connect Fidelity'}
+              {connecting ? 'Starting…' : 'Connect broker'}
             </button>
           )}
           {connected && (

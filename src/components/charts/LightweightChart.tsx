@@ -26,6 +26,23 @@ interface Props {
   fitContent?: boolean
   logicalRange?: { from: number; to: number }
   interactive?: boolean
+  /** Overlay a 20-period EMA on the candles (matches /chart default). */
+  showEma?: boolean
+}
+
+const EMA_COLOR = '#E6C14A'
+const EMA_PERIOD = 20
+
+function computeEma(values: { time: UTCTimestamp; close: number }[], period: number) {
+  if (values.length === 0) return []
+  const k = 2 / (period + 1)
+  const out: { time: UTCTimestamp; value: number }[] = []
+  let ema = values[0].close
+  for (let i = 0; i < values.length; i++) {
+    ema = i === 0 ? values[i].close : values[i].close * k + ema * (1 - k)
+    if (i >= period - 1) out.push({ time: values[i].time, value: ema })
+  }
+  return out
 }
 
 const TEAL = '#00C896'
@@ -106,6 +123,7 @@ export function LightweightChart({
   fitContent = true,
   logicalRange,
   interactive = true,
+  showEma = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -250,6 +268,23 @@ export function LightweightChart({
       }
     })
     candleSeries.setData(candleData)
+
+    // EMA20 overlay — visual parity with /chart. Only when caller opts in.
+    if (showEma && chart.bars.length >= EMA_PERIOD) {
+      const emaSeries = api.addSeries(LineSeries, {
+        color: EMA_COLOR,
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      })
+      emaSeries.setData(
+        computeEma(
+          chart.bars.map((b) => ({ time: b.t as UTCTimestamp, close: b.c })),
+          EMA_PERIOD
+        )
+      )
+    }
 
     // Volume pane (hidden in compact mode)
     if (!compact && chart.bars.some((b) => typeof b.v === 'number' && (b.v ?? 0) > 0)) {
@@ -424,7 +459,7 @@ export function LightweightChart({
       api.remove()
       chartRef.current = null
     }
-  }, [chart, height, compact, hideScales, fitContent, interactive, logicalRange, layoutReady])
+  }, [chart, height, compact, hideScales, fitContent, interactive, logicalRange, layoutReady, showEma])
 
   if (!chart || !chart.bars || chart.bars.length === 0) {
     return (

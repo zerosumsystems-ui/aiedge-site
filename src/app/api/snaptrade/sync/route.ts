@@ -187,6 +187,66 @@ type Connection = {
   snaptrade_user_secret: string
 }
 
+type SnaptradeClient = ReturnType<typeof createSnaptradeClient>
+
+/**
+ * SnapTrade silently caps `getActivities` results per request — multi-year
+ * windows return only the most recent slice (worst with Robinhood, which
+ * compounds this with its own ~12-month upstream limit). Chunk the range
+ * into shorter windows and merge so the full backfill comes through.
+ */
+const CHUNK_DAYS = 180
+
+function chunkDateRange(startDate: string, endDate: string): { start: string; end: string }[] {
+  const start = new Date(startDate + 'T00:00:00Z').getTime()
+  const end = new Date(endDate + 'T00:00:00Z').getTime()
+  if (!isFinite(start) || !isFinite(end) || end < start) {
+    return [{ start: startDate, end: endDate }]
+  }
+  const dayMs = 86_400_000
+  const chunks: { start: string; end: string }[] = []
+  let cursor = start
+  while (cursor <= end) {
+    const next = Math.min(cursor + (CHUNK_DAYS - 1) * dayMs, end)
+    chunks.push({
+      start: new Date(cursor).toISOString().slice(0, 10),
+      end: new Date(next).toISOString().slice(0, 10),
+    })
+    cursor = next + dayMs
+  }
+  return chunks
+}
+
+async function fetchActivitiesForRange(
+  snaptrade: SnaptradeClient,
+  conn: Connection,
+  startDate: string,
+  endDate: string,
+  accountId?: string
+): Promise<SnapActivity[]> {
+  const out: SnapActivity[] = []
+  for (const { start, end } of chunkDateRange(startDate, endDate)) {
+    const { data } = await snaptrade.transactionsAndReporting.getActivities({
+      userId: conn.snaptrade_user_id,
+      userSecret: conn.snaptrade_user_secret,
+      startDate: start,
+      endDate: end,
+      ...(accountId ? { accounts: accountId } : {}),
+      // Don't pass `type` — we filter BUY/SELL in `activityToFilled` so
+      // dividends/reinvestments stay available for future phases.
+    })
+    const activitiesData = data as
+      | { activities?: SnapActivity[] }
+      | SnapActivity[]
+      | undefined
+    const activities: SnapActivity[] = Array.isArray(activitiesData)
+      ? activitiesData
+      : activitiesData?.activities ?? []
+    out.push(...activities)
+  }
+  return out
+}
+
 async function syncConnection(
   conn: Connection,
   startDate: string,
@@ -194,38 +254,61 @@ async function syncConnection(
 ): Promise<{ fills: FilledTrade[]; accountCount: number }> {
   const snaptrade = createSnaptradeClient()
 
-  // List accounts for the display count (the cross-account activities
-  // endpoint doesn't tell us total account count directly).
+  // List accounts so we can both display the count and fall back to a
+  // per-account fetch when the cross-account endpoint comes back empty
+  // (a known Robinhood quirk where the omnibus query returns 0 for older
+  // activities even though per-account queries return them).
   const { data: accountsResp } = await snaptrade.accountInformation.listUserAccounts({
     userId: conn.snaptrade_user_id,
     userSecret: conn.snaptrade_user_secret,
   })
   const accounts: SnapAccount[] = Array.isArray(accountsResp) ? accountsResp : []
 
-  // Pull ALL activities across ALL accounts in one shot. This endpoint is
-  // the canonical one — the older per-account `getAccountActivities` returns
-  // 0 for some account types (notably IRAs at Fidelity), even when the
-  // transactions endpoint returns hundreds of records for the same account.
-  const { data: activitiesResp } = await snaptrade.transactionsAndReporting.getActivities({
-    userId: conn.snaptrade_user_id,
-    userSecret: conn.snaptrade_user_secret,
-    startDate,
-    endDate,
-    // Don't pass `type` — we'll filter BUY/SELL in `activityToFilled` so
-    // we can also see dividends/reinvestments in future phases if useful.
-  })
+  // First pass: cross-account, date-chunked.
+  const raw = await fetchActivitiesForRange(snaptrade, conn, startDate, endDate)
 
-  // SDK historically has shipped both shapes — defend against either.
-  const activitiesData = activitiesResp as
-    | { activities?: SnapActivity[] }
-    | SnapActivity[]
-    | undefined
-  const activities: SnapActivity[] = Array.isArray(activitiesData)
-    ? activitiesData
-    : activitiesData?.activities ?? []
+  // Fallback: if the omnibus call returned nothing but the user has accounts,
+  // retry each account individually. Robinhood in particular has been seen
+  // to return 0 from the cross-account endpoint while per-account works.
+  if (raw.length === 0 && accounts.length > 0) {
+    for (const acct of accounts) {
+      if (!acct.id) continue
+      try {
+        const perAccount = await fetchActivitiesForRange(
+          snaptrade,
+          conn,
+          startDate,
+          endDate,
+          acct.id
+        )
+        raw.push(...perAccount)
+      } catch (err) {
+        console.warn(
+          `[snaptrade/sync] per-account fetch failed for account ${acct.id}:`,
+          err instanceof Error ? err.message : String(err)
+        )
+      }
+    }
+  }
+
+  // Dedupe by id (chunk boundaries can produce duplicates at exact-day overlaps,
+  // and the per-account fallback path can return rows that the cross-account
+  // path also returned on retry).
+  const seen = new Set<string>()
+  const deduped: SnapActivity[] = []
+  for (const a of raw) {
+    const key =
+      a.id ??
+      `${a.tradeDate ?? a.trade_date ?? a.settlementDate ?? a.settlement_date ?? ''}_${
+        a.symbol?.symbol ?? a.symbol?.raw_symbol ?? ''
+      }_${a.type ?? ''}_${a.units ?? a.quantity ?? ''}_${a.price ?? ''}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push(a)
+  }
 
   const fills: FilledTrade[] = []
-  for (const activity of activities) {
+  for (const activity of deduped) {
     const fill = activityToFilled(activity)
     if (fill) fills.push(fill)
   }
