@@ -1,0 +1,173 @@
+"""TFO (Trend From the Open) pattern detector.
+
+A "trend from the open" prints when:
+
+  - LOW of day forms within the first 4 RTH 5-min bars (bars 1..4),
+    THEN at least 3 consecutive bull closes follow, of which at least 2
+    are "strong" Brooks bull bars (body >= 50% of range, close in top
+    25% of range). Direction = "long".
+
+  - HIGH of day forms within the first 4 bars, then at least 3
+    consecutive bear closes follow, of which at least 2 are strong
+    Brooks bear bars. Direction = "short".
+
+The LOD/HOD bar itself does NOT count as one of the 3 confirming bars.
+
+Pure function on a list of 5-min bars (already filtered to RTH). No
+Databento or Supabase deps — callers fetch + persist. Designed to be
+called from both backfill (historical sweep) and live (each closed bar
+in the Fly aggregator).
+
+Scoring is small and deliberately stable for V1:
+    score = consecutive_count * 1.0 + strong_count * 0.5
+
+so an iron 4-of-4 strong-bar trend scores higher than the minimum
+3-with-2-strong, and downstream UI can sort by score.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Sequence
+
+
+@dataclass(frozen=True)
+class Bar5m:
+    """Minimal 5-minute OHLCV bar.
+
+    `t` is the bar-open epoch (seconds, UTC). Callers must hand bars in
+    chronological order, RTH-filtered, no gaps from the 9:30 ET open.
+    """
+    t: int
+    o: float
+    h: float
+    l: float
+    c: float
+    v: float = 0.0
+
+
+@dataclass(frozen=True)
+class TfoSignal:
+    direction: str          # 'long' or 'short'
+    fire_ts: int            # epoch seconds of the 3rd confirming bar
+    pivot_index: int        # bar index (0-based) where LOD/HOD formed
+    fired_bar_index: int    # bar index of the 3rd confirming bar
+    consecutive_count: int  # total run of in-direction closes after pivot
+    strong_count: int       # how many of those are Brooks-strong bars
+    score: float
+
+
+LOD_SEARCH_WINDOW = 4        # bars 1..4 (indices 0..3)
+MIN_CONSECUTIVE = 3
+MIN_STRONG = 2
+STRONG_BODY_RATIO = 0.5      # body >= 50% of range
+STRONG_CLOSE_POSITION = 0.75 # close in top 25% (long) / bottom 25% (short)
+
+
+def _is_strong_bull(bar: Bar5m) -> bool:
+    rng = bar.h - bar.l
+    if rng <= 0:
+        return False
+    body = bar.c - bar.o
+    if body <= 0:
+        return False
+    if body / rng < STRONG_BODY_RATIO:
+        return False
+    close_pos = (bar.c - bar.l) / rng
+    return close_pos >= STRONG_CLOSE_POSITION
+
+
+def _is_strong_bear(bar: Bar5m) -> bool:
+    rng = bar.h - bar.l
+    if rng <= 0:
+        return False
+    body = bar.o - bar.c
+    if body <= 0:
+        return False
+    if body / rng < STRONG_BODY_RATIO:
+        return False
+    close_pos = (bar.c - bar.l) / rng
+    return close_pos <= (1 - STRONG_CLOSE_POSITION)
+
+
+def _confirming_run(
+    bars: Sequence[Bar5m],
+    start: int,
+    direction: str,
+) -> tuple[int, int]:
+    """Count consecutive in-direction closes starting at `start`, and
+    how many of those are strong Brooks bars. Stops at the first bar
+    that breaks the direction. Returns (consecutive_count, strong_count).
+    """
+    consec = 0
+    strong = 0
+    for i in range(start, len(bars)):
+        b = bars[i]
+        if direction == "long":
+            if b.c <= b.o:
+                break
+            consec += 1
+            if _is_strong_bull(b):
+                strong += 1
+        else:
+            if b.c >= b.o:
+                break
+            consec += 1
+            if _is_strong_bear(b):
+                strong += 1
+    return consec, strong
+
+
+def detect_tfo(bars: Sequence[Bar5m]) -> list[TfoSignal]:
+    """Return all TFO signals found in this session's 5-min bars.
+
+    Returns 0, 1, or 2 signals (in theory both long and short can fire
+    in the same session if price reversed dramatically; in practice
+    rare). Caller decides how to rank if both.
+    """
+    if len(bars) < MIN_CONSECUTIVE + 1:
+        return []
+
+    signals: list[TfoSignal] = []
+    pivot_window = bars[:LOD_SEARCH_WINDOW]
+
+    # Long: low of day in first 4 bars
+    low_idx = min(range(len(pivot_window)), key=lambda i: pivot_window[i].l)
+    # Verify the LOD-so-far stays the LOD for the rest of the session
+    # (otherwise the "low of day" never actually settled within the
+    # first 4 bars).
+    session_low = min(b.l for b in bars)
+    if abs(pivot_window[low_idx].l - session_low) < 1e-9:
+        consec, strong = _confirming_run(bars, low_idx + 1, "long")
+        if consec >= MIN_CONSECUTIVE and strong >= MIN_STRONG:
+            fire_bar_idx = low_idx + MIN_CONSECUTIVE
+            score = consec * 1.0 + strong * 0.5
+            signals.append(TfoSignal(
+                direction="long",
+                fire_ts=bars[fire_bar_idx].t,
+                pivot_index=low_idx,
+                fired_bar_index=fire_bar_idx,
+                consecutive_count=consec,
+                strong_count=strong,
+                score=score,
+            ))
+
+    # Short: high of day in first 4 bars
+    high_idx = max(range(len(pivot_window)), key=lambda i: pivot_window[i].h)
+    session_high = max(b.h for b in bars)
+    if abs(pivot_window[high_idx].h - session_high) < 1e-9:
+        consec, strong = _confirming_run(bars, high_idx + 1, "short")
+        if consec >= MIN_CONSECUTIVE and strong >= MIN_STRONG:
+            fire_bar_idx = high_idx + MIN_CONSECUTIVE
+            score = consec * 1.0 + strong * 0.5
+            signals.append(TfoSignal(
+                direction="short",
+                fire_ts=bars[fire_bar_idx].t,
+                pivot_index=high_idx,
+                fired_bar_index=fire_bar_idx,
+                consecutive_count=consec,
+                strong_count=strong,
+                score=score,
+            ))
+
+    return signals
