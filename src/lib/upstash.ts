@@ -60,3 +60,12 @@ export async function get(key: string): Promise<string | null> {
   const result = await call<string | null>("get", key)
   return typeof result === "string" ? result : null
 }
+
+/**
+ * SETEX — set `key` to `value` with a TTL in seconds. Used by /api/bars
+ * to back-cache historical responses so subsequent edge-cache misses
+ * don't re-hit Databento (which can be 3-15s for cold tickers).
+ */
+export async function setEx(key: string, value: string, ttlSeconds: number): Promise<void> {
+  await call<string>("setex", key, String(Math.max(1, Math.floor(ttlSeconds))), value)
+}

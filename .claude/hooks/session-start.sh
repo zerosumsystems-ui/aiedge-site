@@ -22,13 +22,19 @@ fi
 
 if ! command -v flyctl >/dev/null 2>&1; then
   echo "[session-start] Installing flyctl..."
-  curl -fsSL --max-time 60 https://fly.io/install.sh | sh >/dev/null 2>&1 || {
+  # Download then execute. `curl ... | sh` breaks in sandboxed envs where
+  # the install script's inner curl to api.fly.io returns a malformed URL.
+  installer=$(mktemp)
+  if curl -fsSL --max-time 60 https://fly.io/install.sh -o "$installer" \
+     && bash "$installer" >/dev/null 2>&1; then
+    ln -sf "$HOME/.fly/bin/flyctl" /usr/local/bin/flyctl 2>/dev/null || true
+    ln -sf "$HOME/.fly/bin/flyctl" /usr/local/bin/fly    2>/dev/null || true
+    export PATH="$HOME/.fly/bin:$PATH"
+    echo "[session-start] flyctl installed: $(flyctl version 2>/dev/null | head -1 || echo unknown)"
+  else
     echo "[session-start] flyctl install failed (network?). Skipping."
-    exit 0
-  }
-  ln -sf "$HOME/.fly/bin/flyctl" /usr/local/bin/flyctl 2>/dev/null || true
-  ln -sf "$HOME/.fly/bin/flyctl" /usr/local/bin/fly    2>/dev/null || true
-  echo "[session-start] flyctl installed: $(flyctl version 2>/dev/null | head -1 || echo unknown)"
+  fi
+  rm -f "$installer"
 else
   echo "[session-start] flyctl OK"
 fi
