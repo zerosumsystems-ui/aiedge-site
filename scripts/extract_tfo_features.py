@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Extract a bar-level feature vector for every TFO candidate.
 
-Inputs come from /api/bars at 5min RTH granularity for the candidate's
-session. Outputs go to setup_candidates.features as JSONB. Idempotent:
-skips rows where features_extracted_at is set, unless --recompute.
+Backfill driver. Reads candidates needing features from Supabase, fetches
+RTH 5min bars from /api/bars, and writes the feature vector to
+setup_candidates.features. The actual feature math lives in
+scripts/tfo_features.py — the same module the live Fly aggregator imports.
 
-The feature set is intentionally small and pre-fire-only so it can be
-computed live the moment a candidate fires (V1 → backfill, V2 → live).
-Names are short + stable; we'll add more as the model matures.
+Idempotent: skips rows where features_extracted_at is set, unless
+--recompute.
 
 Required env:
     SUPABASE_URL              -- e.g. https://YOUR.supabase.co
@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import sys
 import time
@@ -26,6 +25,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime
+
+# tfo_features is a sibling script. Same import pattern the backfill
+# detector uses.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from tfo_features import extract_features_for_fire  # noqa: E402
 
 DEFAULT_BASE_URL = "https://www.aiedge.trade"
 
@@ -104,103 +108,20 @@ def supabase_patch(supabase_url: str, key: str, candidate_id: int, patch: dict) 
 
 # ----- feature extraction ---------------------------------------------
 
-def bar_body_ratio(b: dict) -> float:
-    rng = float(b["h"]) - float(b["l"])
-    if rng <= 0:
-        return 0.0
-    return abs(float(b["c"]) - float(b["o"])) / rng
-
-
-def bar_close_position(b: dict) -> float:
-    """Where in the bar's range did it close, 0=at low, 1=at high."""
-    rng = float(b["h"]) - float(b["l"])
-    if rng <= 0:
-        return 0.5
-    return (float(b["c"]) - float(b["l"])) / rng
-
-
-def bar_upper_tail(b: dict) -> float:
-    rng = float(b["h"]) - float(b["l"])
-    if rng <= 0:
-        return 0.0
-    return (float(b["h"]) - max(float(b["o"]), float(b["c"]))) / rng
-
-
-def bar_lower_tail(b: dict) -> float:
-    rng = float(b["h"]) - float(b["l"])
-    if rng <= 0:
-        return 0.0
-    return (min(float(b["o"]), float(b["c"])) - float(b["l"])) / rng
-
-
-def safe_div(a: float, b: float, default: float = 0.0) -> float:
-    if not math.isfinite(b) or b == 0:
-        return default
-    return a / b
-
-
 def extract_features(row: dict, bars: list[dict]) -> dict | None:
-    """All features are deliberately pre-fire-bar-inclusive — nothing
-    leaks from the future. Returns None if we don't have enough bars
-    to compute meaningfully (e.g., fire bar absent)."""
-    fire_ts = int(row["fire_ts"])
-    pivot_index = row.get("pivot_index")
-    fired_idx = next((i for i, b in enumerate(bars) if int(b["t"]) == fire_ts), None)
-    if fired_idx is None or fired_idx < 1:
-        return None
+    """Thin Supabase-row adapter over tfo_features.extract_features_for_fire.
 
-    fire = bars[fired_idx]
-    open_bar = bars[0]
-    pre_fire = bars[: fired_idx + 1]
-    confirming = bars[(pivot_index or 0) + 1 : fired_idx + 1] if pivot_index is not None else bars[: fired_idx + 1]
-
-    # Range / volume context across the pre-fire window.
-    pre_ranges = [float(b["h"]) - float(b["l"]) for b in pre_fire]
-    avg_range = sum(pre_ranges) / len(pre_ranges) if pre_ranges else 0.0
-    fire_range = float(fire["h"]) - float(fire["l"])
-
-    pre_vols = [float(b.get("v") or 0) for b in pre_fire[:-1]]  # everything before fire
-    avg_vol_pre = sum(pre_vols) / len(pre_vols) if pre_vols else 0.0
-    fire_vol = float(fire.get("v") or 0)
-
-    # Distance the fire bar's close has traveled from session open.
-    session_open = float(open_bar["o"])
-    dist_from_open_pct = safe_div(float(fire["c"]) - session_open, session_open) * 100.0
-
-    # Body / tail / close-position stats on the fire bar specifically.
-    fb_body = bar_body_ratio(fire)
-    fb_close_pos = bar_close_position(fire)
-    fb_upper_tail = bar_upper_tail(fire)
-    fb_lower_tail = bar_lower_tail(fire)
-
-    # Confirming-run stats: average body ratio + average close position
-    # of the bars in the run.
-    if confirming:
-        avg_body_ratio = sum(bar_body_ratio(b) for b in confirming) / len(confirming)
-        avg_close_pos = sum(bar_close_position(b) for b in confirming) / len(confirming)
-    else:
-        avg_body_ratio = 0.0
-        avg_close_pos = 0.5
-
-    return {
-        "fire_bar_body_ratio": round(fb_body, 4),
-        "fire_bar_close_position": round(fb_close_pos, 4),
-        "fire_bar_upper_tail": round(fb_upper_tail, 4),
-        "fire_bar_lower_tail": round(fb_lower_tail, 4),
-        "fire_bar_range_pct": round(safe_div(fire_range, float(fire["c"])) * 100, 4),
-        "fire_bar_vs_avg_range": round(safe_div(fire_range, avg_range), 4),
-        "fire_bar_vs_avg_volume": round(safe_div(fire_vol, avg_vol_pre), 4),
-        "dist_from_open_pct": round(dist_from_open_pct, 4),
-        "confirming_avg_body_ratio": round(avg_body_ratio, 4),
-        "confirming_avg_close_position": round(avg_close_pos, 4),
-        "bars_since_open": fired_idx,           # 0-indexed; bar 3 = 4th bar of session
-        "consecutive_count": int(row.get("consecutive_count") or 0),
-        "strong_count": int(row.get("strong_count") or 0),
-        "strong_fraction": round(
-            safe_div(int(row.get("strong_count") or 0), int(row.get("consecutive_count") or 1)),
-            4,
-        ),
-    }
+    Pulls the detection fields off the candidate row, then delegates to
+    the shared pure module. Live (Fly) and backfill (this script) run
+    the same math.
+    """
+    return extract_features_for_fire(
+        bars,
+        fire_ts=int(row["fire_ts"]),
+        pivot_index=row.get("pivot_index"),
+        consecutive_count=int(row.get("consecutive_count") or 0),
+        strong_count=int(row.get("strong_count") or 0),
+    )
 
 
 # ----- main -----------------------------------------------------------

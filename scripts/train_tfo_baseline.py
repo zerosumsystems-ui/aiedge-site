@@ -270,8 +270,14 @@ def main(argv: list[str] | None = None) -> int:
         df.to_csv(parquet_path, index=False)
         print(f"  parquet unavailable ({e}); wrote CSV instead", file=sys.stderr)
 
+    generated_at = datetime.now(timezone.utc).isoformat()
+    # Model version is the training timestamp in compact form. The same
+    # string ends up in setup_candidates.model_version, so any /scanner
+    # row's score can be traced back to the exact training run.
+    model_version = "v1-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     report = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": generated_at,
+        "model_version": model_version,
         "n_rows": int(len(df)),
         "feature_columns": feature_cols,
         "session_groups": int(df["session_date"].nunique()),
@@ -289,7 +295,8 @@ def main(argv: list[str] | None = None) -> int:
                 "model": model,
                 "feature_columns": feature_cols,
                 "target": target,
-                "trained_at": report["generated_at"],
+                "model_version": model_version,
+                "trained_at": generated_at,
             }, model_path)
             model_paths[target] = str(model_path.relative_to(ROOT))
     report["model_paths"] = model_paths

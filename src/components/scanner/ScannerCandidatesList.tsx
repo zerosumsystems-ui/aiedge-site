@@ -19,6 +19,10 @@ interface Candidate {
   status: string
   source: "backfill" | "live"
   created_at: string
+  model_score: number | null
+  model_target: string | null
+  model_version: string | null
+  model_scored_at: string | null
 }
 
 type PatternFilter = "all" | "tfo"
@@ -30,6 +34,16 @@ const PATTERN_LABEL: Record<string, string> = {
 
 function formatScore(n: number): string {
   return n.toFixed(1)
+}
+
+// Color the model score by confidence band. Calibration on the V1 model
+// is decent (Brier ~0.21) so a 0.65+ probability actually maps to real
+// edge — anything below 0.5 means the model expects the setup not to pay.
+function modelScoreClass(p: number): string {
+  if (p >= 0.80) return "text-teal font-semibold"
+  if (p >= 0.65) return "text-teal"
+  if (p >= 0.50) return "text-text"
+  return "text-sub"
 }
 
 function formatTime(epochSec: number): string {
@@ -156,6 +170,12 @@ export function ScannerCandidatesList() {
                       <th className="px-3 py-2 text-right">Fire</th>
                       <th className="px-3 py-2 text-right">Run</th>
                       <th className="px-3 py-2 text-right">Strong</th>
+                      <th
+                        className="px-3 py-2 text-right"
+                        title="P(setup pays >= 1% favorably within 2h) from the V1 model"
+                      >
+                        Model
+                      </th>
                       <th className="px-3 py-2 text-right">Score</th>
                     </tr>
                   </thead>
@@ -202,6 +222,18 @@ export function ScannerCandidatesList() {
                           </td>
                           <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
                             {c.strong_count}/{c.consecutive_count}
+                          </td>
+                          <td
+                            className={`px-3 py-2 text-right font-mono text-xs tabular-nums ${
+                              c.model_score == null ? "text-sub/60" : modelScoreClass(c.model_score)
+                            }`}
+                            title={
+                              c.model_score == null
+                                ? "Not scored yet — model runs on new fires only"
+                                : `${c.model_target ?? "mfe_ge_1pct"} • ${c.model_version ?? "v1"}`
+                            }
+                          >
+                            {c.model_score == null ? "—" : `${Math.round(c.model_score * 100)}%`}
                           </td>
                           <td className="px-3 py-2 text-right font-mono text-xs tabular-nums font-semibold">
                             {formatScore(c.score)}

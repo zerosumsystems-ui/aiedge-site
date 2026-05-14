@@ -441,6 +441,10 @@ interface CandidateRow {
   outcome_window_bars?: number | null
   outcome_bars_seen?: number | null
   outcome_computed_at?: string | null
+  model_score?: number | null
+  model_target?: string | null
+  model_version?: string | null
+  model_scored_at?: string | null
 }
 
 const TFO_CRITERIA = [
@@ -513,6 +517,14 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
           <span className={`font-semibold ${dirColor}`}>{fireMarker.direction}</span>
         </div>
         <div className="ml-auto flex items-center gap-3">
+          {candidate && candidate.model_score != null && (
+            <span
+              className="font-mono text-[11px] tabular-nums text-text"
+              title={`${candidate.model_target ?? 'mfe_ge_1pct'} • ${candidate.model_version ?? 'v1'}`}
+            >
+              model <span className="font-semibold">{Math.round(candidate.model_score * 100)}%</span>
+            </span>
+          )}
           {candidate && (
             <span className="font-mono text-[11px] tabular-nums text-text">
               score <span className="font-semibold">{candidate.score.toFixed(1)}</span>

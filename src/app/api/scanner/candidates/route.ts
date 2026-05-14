@@ -42,9 +42,14 @@ export async function GET(request: Request) {
       'id, symbol, session_date, pattern, direction, fire_ts, pivot_index, ' +
         'fired_bar_index, consecutive_count, strong_count, score, status, note, source, created_at, ' +
         'outcome_window_bars, outcome_net_pct, outcome_mfe_pct, outcome_mae_pct, outcome_bars_seen, outcome_computed_at, ' +
-        'features, features_extracted_at',
+        'features, features_extracted_at, ' +
+        'model_score, model_target, model_version, model_scored_at',
     )
+    // Within a session, model_score desc surfaces the "model thinks this
+    // pays" candidates first. Rule-based score is the final tiebreaker
+    // so behavior is unchanged on rows without a model score yet.
     .order('session_date', { ascending: false })
+    .order('model_score', { ascending: false, nullsFirst: false })
     .order('score', { ascending: false })
     .limit(limit)
 

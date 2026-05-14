@@ -33,8 +33,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# local model/data artifacts
-/artifacts/
+# Local model/data artifacts — ignore everything inside artifacts/...
+/artifacts/*
+# ... except the production joblib model, which is baked into the Fly
+# image at deploy time. Only the production target (mfe_ge_1pct) ships;
+# net_positive + reports + dataset stay local.
+!/artifacts/tfo-baseline/
+/artifacts/tfo-baseline/*
+!/artifacts/tfo-baseline/tfo_baseline_mfe_ge_1pct.joblib
 
 # env files (can opt-in for committing if needed)
 .env*
