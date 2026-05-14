@@ -1,5 +1,6 @@
 import type { Bar, ChartTimeframe } from '@/lib/types'
 import { filterRegularSessionBars } from '@/lib/opening-features'
+import { get as upstashGet, isUpstashConfigured, setEx as upstashSetEx } from '@/lib/upstash'
 
 export const dynamic = 'force-dynamic'
 
@@ -481,6 +482,39 @@ export async function GET(request: Request) {
     if (now - entry.startedAt > INFLIGHT_MAX_AGE_MS) inflight.delete(key)
   }
 
+  // Persistent cache for fully-past windows. Bars in a closed window
+  // never change, so we back the Vercel edge cache with Upstash Redis
+  // and skip Databento entirely on hit. This protects against edge-cache
+  // misses (cold region, new visitor, post-revalidation window) where
+  // Databento would otherwise take 3-15s for a cold ticker. The cache
+  // key mirrors `inflightKey` exactly so two requests with the same
+  // shape share both the in-flight Promise AND the Redis entry.
+  const todayEt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+  const fullyPast = resolvedTo < todayEt
+  const cacheKey = `bars:cache:v2:${inflightKey}`
+  if (fullyPast && isUpstashConfigured()) {
+    try {
+      const cached = await upstashGet(cacheKey)
+      if (cached) {
+        return new Response(cached, {
+          status: 200,
+          headers: {
+            'Cache-Control': 'public, s-maxage=86400, max-age=86400, immutable',
+            'Content-Type': 'application/json',
+            'X-Bars-Cache': 'hit',
+          },
+        })
+      }
+    } catch {
+      // Cache miss/network error — fall through to Databento.
+    }
+  }
+
   const existing = inflight.get(inflightKey)
   const work = existing?.promise ?? (async () => {
     // Fetch + parse rows for a given schema. Returns either parsed bars or
@@ -609,18 +643,22 @@ export async function GET(request: Request) {
       // past — those bars never change, so Vercel's edge can absorb every
       // repeat hit (incognito visits, new users, etc.). Today-inclusive
       // requests still get a short edge cache because the live route
-      // (/api/bars/live) handles the trailing minutes.
-      const todayEt = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/New_York',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(new Date())
-      const fullyPast = resolvedTo < todayEt
+      // (/api/bars/live) handles the trailing minutes. `fullyPast` is
+      // computed outside the work block so the Redis pre-check above
+      // and the post-fetch write below share the same value.
       const cacheControl = fullyPast
         ? 'public, s-maxage=86400, max-age=86400, immutable'
         : 'public, s-maxage=30, max-age=10, stale-while-revalidate=60'
-      return { status: 200, body: JSON.stringify(payload), cacheControl }
+      const body = JSON.stringify(payload)
+      if (fullyPast && isUpstashConfigured()) {
+        // Fire-and-forget — don't block the response on the cache write.
+        // 24h TTL matches the edge cache; a v2 prefix on the key means
+        // stale shapes from older deploys are ignored.
+        upstashSetEx(cacheKey, body, 24 * 3600).catch((err) => {
+          console.error('[bars] upstash setEx failed:', err)
+        })
+      }
+      return { status: 200, body, cacheControl }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
       console.error(`[bars] ${ticker} ${from}→${to} @ ${schema} failed:`, message)
@@ -645,6 +683,7 @@ export async function GET(request: Request) {
     headers: {
       'Cache-Control': result.cacheControl,
       'Content-Type': 'application/json',
+      'X-Bars-Cache': fullyPast ? 'miss' : 'skip',
     },
   })
 }
