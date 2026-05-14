@@ -340,6 +340,50 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
   )
 }
 
+/**
+ * Fetch the single setup_candidates row pinned by (ticker, pattern,
+ * direction, session_date). Used by both SetupBanner (to render
+ * detection details + outcome) and SymbolChart (to paint Brooks-strong
+ * confirming bars). The /api/scanner/candidates pinned-lookup serves
+ * Cache-Control: no-store so post-save reads are fresh; we don't need
+ * a client-side dedupe here.
+ */
+function useCandidate(ticker: string, fireMarker: FireMarker | null): CandidateRow | null {
+  const sessionDateIso = useMemo(() => {
+    if (!fireMarker) return null
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(fireMarker.fireTs * 1000))
+  }, [fireMarker])
+
+  const [candidate, setCandidate] = useState<CandidateRow | null>(null)
+  useEffect(() => {
+    if (!fireMarker || !sessionDateIso) return
+    const ac = new AbortController()
+    const qs = new URLSearchParams({
+      symbol: ticker,
+      pattern: fireMarker.pattern,
+      direction: fireMarker.direction,
+      date: sessionDateIso,
+      limit: '1',
+    })
+    fetch(`/api/scanner/candidates?${qs}`, { signal: ac.signal, cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: { candidates: CandidateRow[] }) => {
+        setCandidate(d.candidates[0] ?? null)
+      })
+      .catch(() => {
+        // Soft-fail — callers render without detection details.
+      })
+    return () => ac.abort()
+  }, [ticker, fireMarker, sessionDateIso])
+
+  return candidate
+}
+
 function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireMarker | null }) {
   // Deep-link mode: clamp to that single RTH session at 5-min granularity
   // so the marker snaps to the exact fire bar (the detector emits 5-min-
@@ -359,15 +403,34 @@ function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
     return { from: fromDate.toISOString().slice(0, 10), to: toDate.toISOString().slice(0, 10) }
   }, [fireMarker])
 
+  // Pull the candidate so we can paint Brooks-strong bars purple along
+  // the confirming run. Shared with SetupBanner — same pinned lookup,
+  // edge-cached upstream.
+  const candidate = useCandidate(ticker, fireMarker)
+
   const annotations = useMemo<ChartAnnotations | undefined>(() => {
     if (!fireMarker) return undefined
-    // Color the qualifying candle itself gold rather than overlay a
-    // marker on top — cleaner read, no overlap with neighbors. The
-    // direction is already conveyed by the setup banner above.
-    return {
+    // Fire bar gold (#fbbf24): the qualifying candle itself rather than
+    // a marker on top — cleaner read, no overlap with neighbors.
+    const ann: ChartAnnotations = {
       highlightBars: [{ time: fireMarker.fireTs, color: '#fbbf24' }],
     }
-  }, [fireMarker])
+    // Brooks-strong confirming bars purple (#a78bfa). The detector
+    // fires when pivot_index + 3 == fired_bar_index, so the pivot bar
+    // is exactly 3 × 5min before the fire bar in time. The confirming
+    // run extends from pivot+1 through pivot+consecutive_count.
+    if (candidate && candidate.consecutive_count != null) {
+      const pivotTs = fireMarker.fireTs - 3 * 300
+      const endTs = pivotTs + candidate.consecutive_count * 300
+      ann.highlightStrongRun = {
+        pivotTs,
+        endTs,
+        direction: fireMarker.direction,
+        color: '#a78bfa',
+      }
+    }
+    return ann
+  }, [fireMarker, candidate])
 
   return (
     <BarsChart
@@ -464,16 +527,6 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
     month: 'short',
     day: 'numeric',
   })
-  // ISO date for the /api/scanner/candidates lookup (server stores in
-  // ET-aligned YYYY-MM-DD).
-  const sessionDateIso = useMemo(() => {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/New_York',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(fireMarker.fireTs * 1000))
-  }, [fireMarker.fireTs])
   const fireTime = new Date(fireMarker.fireTs * 1000).toLocaleTimeString('en-US', {
     timeZone: 'America/New_York',
     hour: '2-digit',
@@ -482,26 +535,7 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
   })
   const dirColor = fireMarker.direction === 'long' ? 'text-teal' : 'text-red'
 
-  const [candidate, setCandidate] = useState<CandidateRow | null>(null)
-  useEffect(() => {
-    const ac = new AbortController()
-    const qs = new URLSearchParams({
-      symbol: ticker,
-      pattern: fireMarker.pattern,
-      direction: fireMarker.direction,
-      date: sessionDateIso,
-      limit: '1',
-    })
-    fetch(`/api/scanner/candidates?${qs}`, { signal: ac.signal, cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d: { candidates: CandidateRow[] }) => {
-        setCandidate(d.candidates[0] ?? null)
-      })
-      .catch(() => {
-        // Soft-fail — banner still renders without match details.
-      })
-    return () => ac.abort()
-  }, [ticker, fireMarker.pattern, fireMarker.direction, sessionDateIso])
+  const candidate = useCandidate(ticker, fireMarker)
 
   const isTfo = fireMarker.pattern.toLowerCase() === 'tfo'
   const pivotName = fireMarker.direction === 'long' ? 'LOD' : 'HOD'
@@ -595,6 +629,42 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
                   body: 'The bar whose close confirmed the 3rd in-direction close — the moment the setup triggered. Time-stamped in the header.',
                 }}
               />
+            </div>
+          )}
+          {/* Chart-paint legend. Mirrors what LightweightChart applies on
+              the chart below, so a reader can decode the colored bars
+              without scrolling away or guessing. */}
+          {candidate && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-sub">
+              <span className="text-[9px] uppercase tracking-[0.16em]">Chart colors</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-sm"
+                  style={{ backgroundColor: '#fbbf24' }}
+                  aria-hidden
+                />
+                <HelpLabel
+                  label="fire bar"
+                  title="Gold = fire bar"
+                  body="The 3rd consecutive in-direction close — the bar that confirmed the setup."
+                />
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-sm"
+                  style={{ backgroundColor: '#a78bfa' }}
+                  aria-hidden
+                />
+                <HelpLabel
+                  label="Brooks-strong"
+                  title="Purple = Brooks-strong"
+                  body={
+                    <>
+                      Confirming-run bars that pass the Brooks-strong rule: body ≥ 50% of range, close in the top 25% of range (longs) or bottom 25% (shorts). For this candidate, {candidate.strong_count} of {candidate.consecutive_count} confirming bars qualify.
+                    </>
+                  }
+                />
+              </span>
             </div>
           )}
         </div>

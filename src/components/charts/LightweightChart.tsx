@@ -217,10 +217,43 @@ export function LightweightChart({
       lastValueVisible: false,
     })
 
-    // Build per-bar color overrides from annotations.highlightBars so the
-    // scanner deep-link can paint the fire bar gold (body + border + wick)
-    // rather than layering a marker on top of the candle.
+    // Build per-bar color overrides.
+    //
+    // Precedence (highest wins):
+    //   1. highlightBars      — explicit per-bar paint (e.g. fire bar gold)
+    //   2. highlightStrongRun — Brooks-strong bars in the confirming run
+    //
+    // The Brooks-strong rule mirrors scripts/tfo_detector.py. Kept in JS
+    // so the chart paint is driven only by the candidate row's
+    // (pivotTs, endTs, direction) — no extra fetch, no extra column on
+    // setup_candidates. If the Python rule definition ever changes,
+    // update both. (Long-term: persist strong_indices on the candidate
+    // so this duplication goes away.)
     const highlightByTime = new Map<number, string>()
+    const strong = chart.annotations?.highlightStrongRun
+    if (strong) {
+      const closeTopThreshold = 0.75
+      for (const b of chart.bars) {
+        if (b.t <= strong.pivotTs || b.t > strong.endTs) continue
+        const rng = b.h - b.l
+        if (rng <= 0) continue
+        if (strong.direction === 'long') {
+          const body = b.c - b.o
+          if (body <= 0) continue
+          if (body / rng < 0.5) continue
+          const closePos = (b.c - b.l) / rng
+          if (closePos < closeTopThreshold) continue
+        } else {
+          const body = b.o - b.c
+          if (body <= 0) continue
+          if (body / rng < 0.5) continue
+          const closePos = (b.c - b.l) / rng
+          if (closePos > 1 - closeTopThreshold) continue
+        }
+        highlightByTime.set(b.t, strong.color)
+      }
+    }
+    // highlightBars layers AFTER so an explicit fire-bar gold wins.
     for (const h of chart.annotations?.highlightBars ?? []) {
       highlightByTime.set(h.time, h.color)
     }

@@ -55,6 +55,22 @@ export interface ChartAnnotations {
    * fire bar in gold instead of layering a marker on top of the chart.
    */
   highlightBars?: { time: number; color: string }[]
+  /**
+   * Paint Brooks-strong bars inside a confirming run a single color.
+   * The chart iterates its own `bars`, applies the strong rule
+   * (body ≥ 50% of range, close in the top 25% / bottom 25% for the
+   * given direction), and colors every match in (pivotTs, endTs].
+   *
+   * `highlightBars` (e.g. the gold fire bar) overrides this color if a
+   * bar appears in both sets — the fire bar is shown gold even when
+   * it's itself Brooks-strong.
+   */
+  highlightStrongRun?: {
+    pivotTs: number              // epoch of LOD/HOD bar (exclusive lower bound)
+    endTs: number                // epoch of last bar in the confirming run (inclusive upper bound)
+    direction: 'long' | 'short'
+    color: string                // e.g. '#a78bfa' (purple-400)
+  }
   verdict?: { decision: string; probability: number; rr: number }
   agreement?: "AGREE" | "PARTIAL" | "MINOR" | "MAJOR" | "DISAGREE" | "INVERTED"
   adrMultiple?: number
