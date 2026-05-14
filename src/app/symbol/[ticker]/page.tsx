@@ -435,6 +435,12 @@ interface CandidateRow {
   score: number
   status?: string
   note?: string
+  outcome_net_pct?: number | null
+  outcome_mfe_pct?: number | null
+  outcome_mae_pct?: number | null
+  outcome_window_bars?: number | null
+  outcome_bars_seen?: number | null
+  outcome_computed_at?: string | null
 }
 
 const TFO_CRITERIA = [
@@ -537,6 +543,25 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
               <Metric label="fire bar" value={`bar ${candidate.fired_bar_index + 1}`} />
             </div>
           )}
+        </div>
+      )}
+
+      {candidate && candidate.outcome_computed_at && (
+        <div className="border-t border-border/60 px-4 py-3">
+          <div className="mb-2 flex items-baseline gap-3">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-sub">Outcome</span>
+            <span className="text-[10px] text-sub/80">
+              next {candidate.outcome_bars_seen ?? candidate.outcome_window_bars} × 5min
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-[11px]">
+            <Metric
+              label="net"
+              value={`${(candidate.outcome_net_pct ?? 0) >= 0 ? '+' : ''}${(candidate.outcome_net_pct ?? 0).toFixed(2)}%`}
+            />
+            <Metric label="MFE" value={`+${(candidate.outcome_mfe_pct ?? 0).toFixed(2)}%`} />
+            <Metric label="MAE" value={`-${(candidate.outcome_mae_pct ?? 0).toFixed(2)}%`} />
+          </div>
         </div>
       )}
     </section>
