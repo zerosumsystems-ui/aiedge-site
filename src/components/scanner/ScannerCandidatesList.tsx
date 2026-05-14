@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { HelpLabel } from "@/components/ui/HelpLabel"
 
 interface Candidate {
   id: number
@@ -165,18 +166,61 @@ export function ScannerCandidatesList() {
                   <thead className="border-b border-border bg-bg text-[11px] uppercase tracking-[0.12em] text-sub">
                     <tr>
                       <th className="px-3 py-2 text-left">Symbol</th>
-                      <th className="px-3 py-2 text-left">Pattern</th>
-                      <th className="px-3 py-2 text-left">Dir</th>
-                      <th className="px-3 py-2 text-right">Fire</th>
-                      <th className="px-3 py-2 text-right">Run</th>
-                      <th className="px-3 py-2 text-right">Strong</th>
-                      <th
-                        className="px-3 py-2 text-right"
-                        title="P(setup pays >= 1% favorably within 2h) from the V1 model"
-                      >
-                        Model
+                      <th className="px-3 py-2 text-left">
+                        <HelpLabel
+                          label="Pattern"
+                          title="Setup type"
+                          body="TFO = Trend From the Open. Low (or high) of day forms in the first 4 RTH 5-min bars, then 3+ consecutive in-direction closes follow, 2+ of them Brooks-strong."
+                        />
                       </th>
-                      <th className="px-3 py-2 text-right">Score</th>
+                      <th className="px-3 py-2 text-left">
+                        <HelpLabel
+                          label="Dir"
+                          title="Direction"
+                          body="Long if the session low formed early and price ran up. Short if the session high formed early and price ran down."
+                        />
+                      </th>
+                      <th className="px-3 py-2 text-right">
+                        <HelpLabel
+                          label="Fire"
+                          title="Fire bar time (ET)"
+                          body="When the 3rd consecutive in-direction close printed — the moment the setup confirmed."
+                        />
+                      </th>
+                      <th className="px-3 py-2 text-right">
+                        <HelpLabel
+                          label="Run"
+                          title="Consecutive count"
+                          body="Total run of in-direction closes after the pivot (the LOD/HOD bar). The setup needs at least 3."
+                        />
+                      </th>
+                      <th className="px-3 py-2 text-right">
+                        <HelpLabel
+                          label="Strong"
+                          title="Brooks-strong / total"
+                          body="How many of the confirming closes are Brooks-strong bars (body ≥ 50% of range, close in the top 25% for longs / bottom 25% for shorts) out of the total run. Need ≥ 2."
+                        />
+                      </th>
+                      <th className="px-3 py-2 text-right">
+                        <HelpLabel
+                          label="Model"
+                          title="Model probability"
+                          body={
+                            <>
+                              Calibrated P(this setup pays ≥ 1% favorably within the next 2 hours) from the V1 model (LogReg trained on 285 historical fires, AUC 0.75).
+                              Color bands: ≥80% bold teal, ≥65% teal, ≥50% neutral, &lt;50% muted.
+                              Hover the cell to see the model version.
+                            </>
+                          }
+                        />
+                      </th>
+                      <th className="px-3 py-2 text-right">
+                        <HelpLabel
+                          label="Score"
+                          title="Rule-based score"
+                          body="consecutive_count × 1.0 + strong_count × 0.5. Higher means a longer / cleaner confirming run. This is the pre-ML ranking signal; the Model column is the post-ML one."
+                        />
+                      </th>
                     </tr>
                   </thead>
                   <tbody>

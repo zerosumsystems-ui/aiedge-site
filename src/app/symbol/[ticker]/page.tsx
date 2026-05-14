@@ -15,6 +15,7 @@ import type {
   TradeRead,
   TradesPayload,
 } from '@/lib/types'
+import { HelpLabel } from '@/components/ui/HelpLabel'
 import { ScannerCard } from '@/components/scanner/ScannerCard'
 import { TradeCard } from '@/components/trades/TradeCard'
 import { JournalCard } from '@/components/journal/JournalCard'
@@ -518,16 +519,29 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
         </div>
         <div className="ml-auto flex items-center gap-3">
           {candidate && candidate.model_score != null && (
-            <span
-              className="font-mono text-[11px] tabular-nums text-text"
-              title={`${candidate.model_target ?? 'mfe_ge_1pct'} • ${candidate.model_version ?? 'v1'}`}
-            >
-              model <span className="font-semibold">{Math.round(candidate.model_score * 100)}%</span>
+            <span className="font-mono text-[11px] tabular-nums text-text">
+              <HelpLabel
+                label="model"
+                title={`Model: ${candidate.model_target ?? 'mfe_ge_1pct'}`}
+                body={
+                  <>
+                    Calibrated P(this setup pays ≥ 1% favorably within the next 2 hours).
+                    Trained on 285 historical TFO fires, cross-validated AUC 0.75.
+                    Model version: <span className="font-mono">{candidate.model_version ?? 'v1'}</span>.
+                  </>
+                }
+              />{' '}
+              <span className="font-semibold">{Math.round(candidate.model_score * 100)}%</span>
             </span>
           )}
           {candidate && (
             <span className="font-mono text-[11px] tabular-nums text-text">
-              score <span className="font-semibold">{candidate.score.toFixed(1)}</span>
+              <HelpLabel
+                label="score"
+                title="Rule-based score"
+                body="consecutive_count × 1.0 + strong_count × 0.5. Higher = longer / cleaner confirming run. Pre-ML ranking signal; the model column is the post-ML one."
+              />{' '}
+              <span className="font-semibold">{candidate.score.toFixed(1)}</span>
             </span>
           )}
           <span className="font-mono text-[11px] tabular-nums text-sub">
@@ -549,10 +563,38 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
           </ul>
           {candidate && (
             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] sm:grid-cols-4">
-              <Metric label={`${pivotName} bar`} value={`bar ${candidate.pivot_index + 1} / 4`} />
-              <Metric label={`${closeName} closes`} value={`${candidate.consecutive_count}`} />
-              <Metric label="strong" value={`${candidate.strong_count} / ${candidate.consecutive_count}`} />
-              <Metric label="fire bar" value={`bar ${candidate.fired_bar_index + 1}`} />
+              <Metric
+                label={`${pivotName} bar`}
+                value={`bar ${candidate.pivot_index + 1} / 4`}
+                help={{
+                  title: `${pivotName} bar position`,
+                  body: `Which of the first 4 RTH 5-min bars formed the ${pivotName === 'LOD' ? 'session low' : 'session high'}. The setup requires this to happen in bars 1–4 and to stay the ${pivotName === 'LOD' ? 'low' : 'high'} for the rest of the session.`,
+                }}
+              />
+              <Metric
+                label={`${closeName} closes`}
+                value={`${candidate.consecutive_count}`}
+                help={{
+                  title: 'Consecutive in-direction closes',
+                  body: `Total run of ${closeName} closes after the pivot bar. The setup needs at least 3; longer / cleaner runs score higher.`,
+                }}
+              />
+              <Metric
+                label="strong"
+                value={`${candidate.strong_count} / ${candidate.consecutive_count}`}
+                help={{
+                  title: 'Brooks-strong bars',
+                  body: 'How many of the confirming closes are Brooks-strong: body ≥ 50% of range, close in the top 25% of range (longs) or bottom 25% (shorts). The setup needs at least 2.',
+                }}
+              />
+              <Metric
+                label="fire bar"
+                value={`bar ${candidate.fired_bar_index + 1}`}
+                help={{
+                  title: 'Fire bar',
+                  body: 'The bar whose close confirmed the 3rd in-direction close — the moment the setup triggered. Time-stamped in the header.',
+                }}
+              />
             </div>
           )}
         </div>
@@ -563,16 +605,38 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
           <div className="mb-2 flex items-baseline gap-3">
             <span className="text-[10px] uppercase tracking-[0.16em] text-sub">Outcome</span>
             <span className="text-[10px] text-sub/80">
-              next {candidate.outcome_bars_seen ?? candidate.outcome_window_bars} × 5min
+              <HelpLabel
+                label={`next ${candidate.outcome_bars_seen ?? candidate.outcome_window_bars} × 5min`}
+                title="Evaluation window"
+                body="The 24 × 5-min bars after the fire bar — a 2-hour forward window. Outcomes (net / MFE / MAE) are measured inside this window only; the model is calibrated against the same horizon."
+              />
             </span>
           </div>
           <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-[11px]">
             <Metric
               label="net"
               value={`${(candidate.outcome_net_pct ?? 0) >= 0 ? '+' : ''}${(candidate.outcome_net_pct ?? 0).toFixed(2)}%`}
+              help={{
+                title: 'Net move',
+                body: "Close-to-close move from the fire bar's close to the close of the last bar in the window, signed in the setup's direction (positive = paid). Random walks dominate this metric — use it as one signal, not a verdict.",
+              }}
             />
-            <Metric label="MFE" value={`+${(candidate.outcome_mfe_pct ?? 0).toFixed(2)}%`} />
-            <Metric label="MAE" value={`-${(candidate.outcome_mae_pct ?? 0).toFixed(2)}%`} />
+            <Metric
+              label="MFE"
+              value={`+${(candidate.outcome_mfe_pct ?? 0).toFixed(2)}%`}
+              help={{
+                title: 'Maximum Favorable Excursion',
+                body: "Best price reached in the setup's direction during the window, vs the fire-bar close. Tells you the most a trader could have made if they timed the exit perfectly. The V1 model predicts P(MFE ≥ 1%).",
+              }}
+            />
+            <Metric
+              label="MAE"
+              value={`-${(candidate.outcome_mae_pct ?? 0).toFixed(2)}%`}
+              help={{
+                title: 'Maximum Adverse Excursion',
+                body: "Worst price against the setup's direction during the window, vs the fire-bar close. Tells you how much heat a trade would've taken — useful for setting stops.",
+              }}
+            />
           </div>
         </div>
       )}
@@ -580,10 +644,20 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  help,
+}: {
+  label: string
+  value: string
+  help?: { title: string; body: React.ReactNode }
+}) {
   return (
     <div>
-      <div className="text-[9px] uppercase tracking-wide text-sub">{label}</div>
+      <div className="text-[9px] uppercase tracking-wide text-sub">
+        {help ? <HelpLabel label={label} title={help.title} body={help.body} /> : label}
+      </div>
       <div className="font-mono tabular-nums text-text">{value}</div>
     </div>
   )
