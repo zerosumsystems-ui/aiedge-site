@@ -89,15 +89,14 @@ export function liveCandidateToFeatured(
     candidate.pivot_index ?? Math.max(0, fireIdx - 3)
   if (pivotIdx < 0 || pivotIdx >= bars.length) return null
 
-  // Window the chart: from session open through fire bar + 4 follow-up
-  // bars (so the reveal animation lands on the fire and then shows a
-  // bit of follow-through). Keep all pre-fire bars so the user sees
-  // the LOD/HOD form.
-  const start = 0
-  const end = Math.min(bars.length, fireIdx + 5)
-  const windowBars = bars.slice(start, end)
-  const adjPivot = pivotIdx - start
-  const adjFire = fireIdx - start
+  // Show the full RTH session — the upstream /api/bars query already
+  // filters to RTH, so all bars are 9:30 → 16:00 ET. The reveal animation
+  // lands on the fire bar and then continues through the rest of the
+  // session so the trader sees what happened *after* the setup fired
+  // (the outcome window). This matches the deep-dive chart's framing.
+  const windowBars = bars
+  const adjPivot = pivotIdx
+  const adjFire = fireIdx
 
   // Build phase anchors — each labels the top-left chip from that bar
   // onward, until the next anchor takes over.
@@ -145,19 +144,20 @@ export function liveCandidateToFeatured(
     }
   }
 
-  // Translate the detector's epoch timestamps into bar indices relative
-  // to our windowed `bars` array. Both fields come from the same source
-  // of truth (setup_candidates pivot_ts / strong_bar_ts written by the
-  // Python detector) — the chart re-derives nothing.
+  // Translate the detector's epoch timestamps into bar indices. The
+  // windowBars array now spans the full session, so indices into `bars`
+  // and `windowBars` are identical. Both fields come from the same
+  // source of truth (setup_candidates pivot_ts / strong_bar_ts written
+  // by the Python detector) — the chart re-derives nothing.
   let pivotBarIndex: number | undefined
   if (candidate.pivot_ts != null) {
-    const idx = bars.findIndex((b) => b.t === candidate.pivot_ts)
-    if (idx >= 0) pivotBarIndex = idx - start
+    const idx = windowBars.findIndex((b) => b.t === candidate.pivot_ts)
+    if (idx >= 0) pivotBarIndex = idx
   }
   const strongBarIndices: number[] = []
   for (const t of candidate.strong_bar_ts ?? []) {
-    const idx = bars.findIndex((b) => b.t === t)
-    if (idx >= 0) strongBarIndices.push(idx - start)
+    const idx = windowBars.findIndex((b) => b.t === t)
+    if (idx >= 0) strongBarIndices.push(idx)
   }
 
   const modelScore = candidate.model_score
@@ -183,7 +183,7 @@ export function liveCandidateToFeatured(
     stopPrice,
     targetPrice,
     phases,
-    bars: windowBars.map<RawBar>((b) => ({ o: b.o, h: b.h, l: b.l, c: b.c })),
+    bars: windowBars.map<RawBar>((b) => ({ t: b.t, o: b.o, h: b.h, l: b.l, c: b.c })),
     deepDiveHref: `/symbol/${encodeURIComponent(candidate.symbol)}?t=${candidate.fire_ts}&pattern=${candidate.pattern}&direction=${candidate.direction}`,
     pivotBarIndex,
     strongBarIndices,

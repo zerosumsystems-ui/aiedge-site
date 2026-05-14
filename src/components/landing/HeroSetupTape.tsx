@@ -39,7 +39,17 @@ import type { Signal } from "@/lib/types"
 
 /* ---------- Hero-tape data model ------------------------------------------ */
 
-export interface RawBar { o: number; h: number; l: number; c: number }
+export interface RawBar {
+  o: number
+  h: number
+  l: number
+  c: number
+  /** Optional epoch seconds. Live setups populate this from the real
+   *  /api/bars response so the chart x-axis shows real ET times.
+   *  Hand-crafted setups omit it and the component synthesizes evenly-
+   *  spaced timestamps from a fake anchor. */
+  t?: number
+}
 export interface SetupEdge { eq: number; note: string }
 export interface PhaseAnchor { from: number; label: string }
 
@@ -363,6 +373,16 @@ const BASE_REVEAL_MS = 145
 const REVEAL_HOLD_MS = 10000
 const ENTRY_FADE_MS = 600
 
+// ET HH:MM formatter for x-axis tick labels + crosshair time chip. Same
+// timezone-aware Intl format the deep-dive chart uses, so a user
+// comparing /setups and /symbol sees identical times.
+const ET_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: false,
+})
+
 function revealDelay(barIdx: number, signalIdx: number): number {
   const since = barIdx - signalIdx - 1
   if (since < 0) return BASE_REVEAL_MS
@@ -412,9 +432,11 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
     setup.pivotBarIndex != null || (setup.strongBarIndices?.length ?? 0) > 0
 
   const { chartBars, emaSeriesData, colorByIndex } = useMemo(() => {
+    // Use real epoch seconds when the setup ships them (live mode);
+    // fall back to a synthetic anchor for hand-crafted hero-reel setups.
     const t0 = Math.floor(Date.UTC(2025, 0, 6, 14, 30) / 1000)
     const cb = setup.bars.map((b, i) => ({
-      time: (t0 + i * BAR_SECONDS) as UTCTimestamp,
+      time: ((b.t ?? t0 + i * BAR_SECONDS) as UTCTimestamp),
       open: b.o,
       high: b.h,
       low: b.l,
@@ -525,6 +547,19 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
         borderColor: PALETTE.axis,
         timeVisible: true,
         secondsVisible: false,
+        // Render tick labels as ET HH:MM. Matches the deep-dive
+        // (/symbol) chart's formatter, so a user comparing the two
+        // views sees the same time strings on the x-axis.
+        tickMarkFormatter: (time: Time) => {
+          if (typeof time !== "number") return ""
+          return ET_TIME_FORMATTER.format(new Date(time * 1000))
+        },
+      },
+      localization: {
+        timeFormatter: (time: Time) => {
+          if (typeof time !== "number") return ""
+          return ET_TIME_FORMATTER.format(new Date(time * 1000))
+        },
       },
       crosshair: { mode: 0 },
       handleScroll: false,
