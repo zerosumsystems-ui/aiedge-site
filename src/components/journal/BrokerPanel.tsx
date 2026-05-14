@@ -16,6 +16,17 @@ interface BrokerStatus {
   lastSync: string | null
 }
 
+interface AccountDiagnostic {
+  accountId: string
+  accountName: string | null
+  institution: string | null
+  endpoint: 'account-level' | 'transactions-fallback' | 'failed'
+  pages: number
+  activitiesFetched: number
+  fillsAfterFilter: number
+  error: string | null
+}
+
 function relativeTime(iso: string | null): string {
   if (!iso) return 'never'
   const diff = Date.now() - new Date(iso).getTime()
@@ -32,6 +43,7 @@ export function BrokerPanel() {
   const [syncing, setSyncing] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [lastDiagnostics, setLastDiagnostics] = useState<AccountDiagnostic[] | null>(null)
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -77,6 +89,7 @@ export function BrokerPanel() {
   const onSyncNow = async () => {
     setSyncing(true)
     setMessage(null)
+    setLastDiagnostics(null)
     try {
       const r = await fetch('/api/snaptrade/sync', {
         method: 'POST',
@@ -89,6 +102,7 @@ export function BrokerPanel() {
         kind: 'ok',
         text: `Synced ${data.fillsFetched ?? 0} fills from ${data.accounts ?? 0} account(s)`,
       })
+      setLastDiagnostics(Array.isArray(data.accountDiagnostics) ? data.accountDiagnostics : null)
       await refreshStatus()
     } catch (err) {
       setMessage({
@@ -216,12 +230,63 @@ export function BrokerPanel() {
             {message.text}
           </div>
         )}
+
+        {lastDiagnostics && lastDiagnostics.length > 0 && (
+          <SyncDiagnostics diagnostics={lastDiagnostics} />
+        )}
       </div>
 
       <div className="text-[11px] text-gray leading-relaxed">
-        Nightly cron (Phase 2) will auto-refresh fills at ~18:15 ET Mon–Fri. Use <em>Sync now</em> for
-        same-day verification. Pre-trade Brooks pairing + per-setup R-multiple stats ship in Phase 2.
+        A nightly GitHub Action re-syncs fills at 18:15 ET (Mon–Fri, post-close). Use <em>Sync now</em>
+        for same-day verification. If <em>Sync now</em> returns 0 fills, expand the diagnostics above to
+        see which endpoint each account used and how many activities came back.
       </div>
     </div>
+  )
+}
+
+function SyncDiagnostics({ diagnostics }: { diagnostics: AccountDiagnostic[] }) {
+  return (
+    <details className="mt-3 text-[11px]">
+      <summary className="cursor-pointer text-sub hover:text-text select-none">
+        Last sync diagnostics ({diagnostics.length} account{diagnostics.length === 1 ? '' : 's'})
+      </summary>
+      <div className="mt-2 space-y-1.5 border-l-2 border-border pl-3">
+        {diagnostics.map((d) => {
+          const label = d.institution || d.accountName || d.accountId.slice(0, 8)
+          const tone =
+            d.endpoint === 'failed'
+              ? 'text-red-400'
+              : d.fillsAfterFilter > 0
+              ? 'text-teal'
+              : 'text-yellow-400'
+          return (
+            <div key={d.accountId} className={`tabular-nums ${tone}`}>
+              <span className="font-semibold">{label}</span>
+              <span className="text-gray"> · {d.endpoint}</span>
+              <span className="text-gray"> · {d.pages} page{d.pages === 1 ? '' : 's'}</span>
+              <span className="text-sub">
+                {' '}
+                · {d.activitiesFetched} activities → {d.fillsAfterFilter} fills
+              </span>
+              {d.error && <div className="text-red-400 mt-0.5">error: {d.error}</div>}
+              {d.activitiesFetched > 0 && d.fillsAfterFilter === 0 && (
+                <div className="text-sub mt-0.5">
+                  Activities returned but none matched BUY/SELL stock fills (likely options,
+                  dividends, transfers, or sub-share quantities).
+                </div>
+              )}
+              {d.activitiesFetched === 0 && d.endpoint !== 'failed' && (
+                <div className="text-sub mt-0.5">
+                  SnapTrade returned no activities for this account in the requested window.
+                  For Robinhood, this can mean the historical pull is still pending after the
+                  initial connection.
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </details>
   )
 }

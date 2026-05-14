@@ -189,11 +189,21 @@ type Connection = {
 
 type SnaptradeClient = ReturnType<typeof createSnaptradeClient>
 
+interface AccountDiag {
+  accountId: string
+  accountName: string | null
+  institution: string | null
+  endpoint: 'account-level' | 'transactions-fallback' | 'failed'
+  pages: number
+  activitiesFetched: number
+  fillsAfterFilter: number
+  error: string | null
+}
+
 /**
- * SnapTrade silently caps `getActivities` results per request — multi-year
- * windows return only the most recent slice (worst with Robinhood, which
- * compounds this with its own ~12-month upstream limit). Chunk the range
- * into shorter windows and merge so the full backfill comes through.
+ * Fallback chunking for the deprecated transactionsAndReporting endpoint.
+ * Only used if the modern accountInformation.getAccountActivities path
+ * throws — it paginates by offset/limit instead, no chunking needed there.
  */
 const CHUNK_DAYS = 180
 
@@ -217,12 +227,54 @@ function chunkDateRange(startDate: string, endDate: string): { start: string; en
   return chunks
 }
 
-async function fetchActivitiesForRange(
+/**
+ * Modern path — SnapTrade's recommended endpoint as of the 2026-04-25
+ * deprecation of transactionsAndReporting.getActivities. Per-account,
+ * offset-paginated, 1000 rows/page. Returns the raw activities; let the
+ * caller dedupe and filter.
+ */
+async function fetchAccountActivitiesPaginated(
+  snaptrade: SnaptradeClient,
+  conn: Connection,
+  accountId: string,
+  startDate: string,
+  endDate: string
+): Promise<{ activities: SnapActivity[]; pages: number }> {
+  const out: SnapActivity[] = []
+  const limit = 1000
+  const MAX_PAGES = 50 // safety: 50k activities/account is plenty
+  let offset = 0
+  let pages = 0
+  for (let i = 0; i < MAX_PAGES; i++) {
+    const { data } = await snaptrade.accountInformation.getAccountActivities({
+      accountId,
+      userId: conn.snaptrade_user_id,
+      userSecret: conn.snaptrade_user_secret,
+      startDate,
+      endDate,
+      offset,
+      limit,
+    })
+    pages++
+    const page = (data as { data?: SnapActivity[] } | undefined)?.data ?? []
+    out.push(...page)
+    if (page.length < limit) break
+    offset += limit
+  }
+  return { activities: out, pages }
+}
+
+/**
+ * Legacy fallback — only fires if the modern endpoint throws for an
+ * account. Chunked by date because the deprecated endpoint silently caps
+ * results per request.
+ */
+async function fetchActivitiesViaTransactionsAPI(
   snaptrade: SnaptradeClient,
   conn: Connection,
   startDate: string,
   endDate: string,
-  accountId?: string
+  accountId: string
 ): Promise<SnapActivity[]> {
   const out: SnapActivity[] = []
   for (const { start, end } of chunkDateRange(startDate, endDate)) {
@@ -231,9 +283,7 @@ async function fetchActivitiesForRange(
       userSecret: conn.snaptrade_user_secret,
       startDate: start,
       endDate: end,
-      ...(accountId ? { accounts: accountId } : {}),
-      // Don't pass `type` — we filter BUY/SELL in `activityToFilled` so
-      // dividends/reinvestments stay available for future phases.
+      accounts: accountId,
     })
     const activitiesData = data as
       | { activities?: SnapActivity[] }
@@ -251,69 +301,96 @@ async function syncConnection(
   conn: Connection,
   startDate: string,
   endDate: string
-): Promise<{ fills: FilledTrade[]; accountCount: number }> {
+): Promise<{ fills: FilledTrade[]; accountCount: number; accountDiags: AccountDiag[] }> {
   const snaptrade = createSnaptradeClient()
 
-  // List accounts so we can both display the count and fall back to a
-  // per-account fetch when the cross-account endpoint comes back empty
-  // (a known Robinhood quirk where the omnibus query returns 0 for older
-  // activities even though per-account queries return them).
   const { data: accountsResp } = await snaptrade.accountInformation.listUserAccounts({
     userId: conn.snaptrade_user_id,
     userSecret: conn.snaptrade_user_secret,
   })
   const accounts: SnapAccount[] = Array.isArray(accountsResp) ? accountsResp : []
 
-  // First pass: cross-account, date-chunked.
-  const raw = await fetchActivitiesForRange(snaptrade, conn, startDate, endDate)
+  const allFills: FilledTrade[] = []
+  const seenIds = new Set<string>()
+  const accountDiags: AccountDiag[] = []
 
-  // Fallback: if the omnibus call returned nothing but the user has accounts,
-  // retry each account individually. Robinhood in particular has been seen
-  // to return 0 from the cross-account endpoint while per-account works.
-  if (raw.length === 0 && accounts.length > 0) {
-    for (const acct of accounts) {
-      if (!acct.id) continue
+  for (const acct of accounts) {
+    if (!acct.id) continue
+    const institutionName = acct.institutionName ?? acct.brokerage?.name ?? null
+    const diag: AccountDiag = {
+      accountId: acct.id,
+      accountName: acct.name ?? null,
+      institution: institutionName,
+      endpoint: 'account-level',
+      pages: 0,
+      activitiesFetched: 0,
+      fillsAfterFilter: 0,
+      error: null,
+    }
+
+    let activities: SnapActivity[] = []
+    try {
+      const result = await fetchAccountActivitiesPaginated(
+        snaptrade,
+        conn,
+        acct.id,
+        startDate,
+        endDate
+      )
+      activities = result.activities
+      diag.pages = result.pages
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.warn(
+        `[snaptrade/sync] account-level fetch failed for ${acct.id} (${institutionName ?? '?'}): ${message}. Falling back to transactionsAndReporting.`
+      )
+      diag.endpoint = 'transactions-fallback'
       try {
-        const perAccount = await fetchActivitiesForRange(
+        activities = await fetchActivitiesViaTransactionsAPI(
           snaptrade,
           conn,
           startDate,
           endDate,
           acct.id
         )
-        raw.push(...perAccount)
-      } catch (err) {
-        console.warn(
-          `[snaptrade/sync] per-account fetch failed for account ${acct.id}:`,
-          err instanceof Error ? err.message : String(err)
+      } catch (fallbackErr) {
+        diag.endpoint = 'failed'
+        diag.error = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)
+        console.error(
+          `[snaptrade/sync] both endpoints failed for ${acct.id}: ${diag.error}`
         )
+        accountDiags.push(diag)
+        continue
       }
     }
+
+    diag.activitiesFetched = activities.length
+
+    let fillCount = 0
+    for (const activity of activities) {
+      const key =
+        activity.id ??
+        `${activity.tradeDate ?? activity.trade_date ?? activity.settlementDate ?? activity.settlement_date ?? ''}_${
+          activity.symbol?.symbol ?? activity.symbol?.raw_symbol ?? ''
+        }_${activity.type ?? ''}_${activity.units ?? activity.quantity ?? ''}_${activity.price ?? ''}`
+      if (seenIds.has(key)) continue
+      seenIds.add(key)
+      const fill = activityToFilled(activity)
+      if (fill) {
+        allFills.push(fill)
+        fillCount++
+      }
+    }
+    diag.fillsAfterFilter = fillCount
+
+    console.log(
+      `[snaptrade/sync] ${institutionName ?? 'broker'} ${acct.id} via ${diag.endpoint}: ${diag.activitiesFetched} activities, ${diag.fillsAfterFilter} fills`
+    )
+
+    accountDiags.push(diag)
   }
 
-  // Dedupe by id (chunk boundaries can produce duplicates at exact-day overlaps,
-  // and the per-account fallback path can return rows that the cross-account
-  // path also returned on retry).
-  const seen = new Set<string>()
-  const deduped: SnapActivity[] = []
-  for (const a of raw) {
-    const key =
-      a.id ??
-      `${a.tradeDate ?? a.trade_date ?? a.settlementDate ?? a.settlement_date ?? ''}_${
-        a.symbol?.symbol ?? a.symbol?.raw_symbol ?? ''
-      }_${a.type ?? ''}_${a.units ?? a.quantity ?? ''}_${a.price ?? ''}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    deduped.push(a)
-  }
-
-  const fills: FilledTrade[] = []
-  for (const activity of deduped) {
-    const fill = activityToFilled(activity)
-    if (fill) fills.push(fill)
-  }
-
-  return { fills, accountCount: accounts.length }
+  return { fills: allFills, accountCount: accounts.length, accountDiags }
 }
 
 async function resolveConnections(
@@ -391,12 +468,14 @@ export async function POST(request: Request) {
   const allFills: FilledTrade[] = []
   let totalAccounts = 0
   let lastSyncError: string | null = null
+  const allDiags: AccountDiag[] = []
 
   for (const conn of connections) {
     try {
-      const { fills, accountCount } = await syncConnection(conn, startDate, endDate)
+      const { fills, accountCount, accountDiags } = await syncConnection(conn, startDate, endDate)
       allFills.push(...fills)
       totalAccounts += accountCount
+      allDiags.push(...accountDiags)
       await admin
         .from('broker_connections')
         .update({
@@ -452,5 +531,6 @@ export async function POST(request: Request) {
     fillsFetched: allFills.length,
     fillsTotal: mergedFills.length,
     lastSyncError,
+    accountDiagnostics: allDiags,
   })
 }
