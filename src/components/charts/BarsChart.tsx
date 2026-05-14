@@ -22,10 +22,18 @@ interface Props {
   annotations?: ChartAnnotations
   height?: number
   label?: string
+  /** Initial timeframe selection. Defaults to 'auto'. Used by deep-links
+   *  (e.g. /symbol/X?t=fire_ts) to land on the same timeframe the upstream
+   *  detector saw, so markers snap to the right bar. */
+  initialTf?: TfChoice
+  /** Optional Databento session filter. 'rth' restricts to 9:30-16:00 ET so
+   *  a single-day deep-link shows the regular session at 5-min granularity
+   *  without extended-hours noise. */
+  session?: 'rth' | 'all' | 'open'
 }
 
-export function BarsChart({ ticker, from, to, annotations, height = 340, label }: Props) {
-  const [tfChoice, setTfChoice] = useState<TfChoice>('auto')
+export function BarsChart({ ticker, from, to, annotations, height = 340, label, initialTf = 'auto', session }: Props) {
+  const [tfChoice, setTfChoice] = useState<TfChoice>(initialTf)
   const [bars, setBars] = useState<Bar[] | null>(null)
   const [effectiveTf, setEffectiveTf] = useState<ChartTimeframe | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -33,6 +41,7 @@ export function BarsChart({ ticker, from, to, annotations, height = 340, label }
 
   useEffect(() => {
     const qs = new URLSearchParams({ ticker, from, to, tf: tfChoice })
+    if (session) qs.set('session', session)
     let cancelled = false
 
     fetch(`/api/bars?${qs}`)
@@ -63,7 +72,7 @@ export function BarsChart({ ticker, from, to, annotations, height = 340, label }
     return () => {
       cancelled = true
     }
-  }, [ticker, from, to, tfChoice])
+  }, [ticker, from, to, tfChoice, session])
 
   const chart = useMemo<ChartData | null>(() => {
     if (!bars || !effectiveTf) return null
