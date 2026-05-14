@@ -167,12 +167,25 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
         />
       </header>
 
+      {/* Setup banner — only when deep-linked from /scanner. Clearly names
+       *  the session date + pattern + direction above the chart. */}
+      {fireMarker && (
+        <SetupBanner ticker={ticker} fireMarker={fireMarker} />
+      )}
+
       {/* Symbol chart — always shown so clicking any ticker surfaces price */}
       <section className="mb-6">
         <SymbolChart ticker={ticker} fireMarker={fireMarker} />
       </section>
 
-      {!hasAnything && (
+      {/* Similar past sessions, replacing the today's-context blocks when
+       *  the user is reviewing a historical setup. */}
+      {fireMarker && (
+        <SimilarCharts ticker={ticker} fireTs={fireMarker.fireTs} />
+      )}
+
+      {/* "No linked context" hint only makes sense in default mode. */}
+      {!fireMarker && !hasAnything && (
         <div className="flex items-center justify-center py-12">
           <div className="text-center max-w-md">
             <div className="text-sm text-sub mb-2">No linked context for {ticker}</div>
@@ -187,8 +200,9 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
         </div>
       )}
 
-      {/* Scanner snapshot (today) */}
-      {scanner && (
+      {/* Today's scanner snapshot — irrelevant when reviewing a historical
+       *  candidate from /scanner, so hidden on deep-link. */}
+      {!fireMarker && scanner && (
         <section className="mb-6">
           <SectionHeader
             label="Current scanner state"
@@ -377,5 +391,138 @@ function SummaryStrip({
         </div>
       ))}
     </div>
+  )
+}
+
+function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireMarker }) {
+  // Display the session date in ET, not UTC. The fire bar is mid-RTH so
+  // the ET date and UTC date match — but format with ET zone for clarity.
+  const sessionDate = new Date(fireMarker.fireTs * 1000).toLocaleDateString('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+  const fireTime = new Date(fireMarker.fireTs * 1000).toLocaleTimeString('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  const dirColor = fireMarker.direction === 'long' ? 'text-teal' : 'text-red'
+  return (
+    <section className="mb-4 rounded-md border border-border bg-surface px-4 py-3">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <div className="text-[10px] uppercase tracking-[0.16em] text-sub">Setup</div>
+        <div className="text-sm font-semibold text-text">{ticker}</div>
+        <div className="text-sm text-text">{sessionDate}</div>
+        <div className="text-xs uppercase tracking-wide text-sub">
+          {fireMarker.pattern} ·{' '}
+          <span className={`font-semibold ${dirColor}`}>{fireMarker.direction}</span>
+        </div>
+        <div className="ml-auto font-mono text-[11px] tabular-nums text-sub">
+          fire bar @ {fireTime} ET
+        </div>
+      </div>
+    </section>
+  )
+}
+
+interface AnalogMatch {
+  rank: number
+  slug: string
+  date: string
+  ticker: string
+  dtw: number
+  flipped: boolean
+}
+
+function SimilarCharts({ ticker, fireTs }: { ticker: string; fireTs: number }) {
+  const [matches, setMatches] = useState<AnalogMatch[] | null>(null)
+  const [inCorpus, setInCorpus] = useState<boolean | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const sessionDate = useMemo(() => {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(fireTs * 1000))
+  }, [fireTs])
+
+  useEffect(() => {
+    const ac = new AbortController()
+    fetch(`/api/scanner/analogs?date=${sessionDate}&ticker=${ticker}&limit=5`, {
+      signal: ac.signal,
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return (await r.json()) as { matches: AnalogMatch[]; inCorpus: boolean }
+      })
+      .then((d) => {
+        setMatches(d.matches)
+        setInCorpus(d.inCorpus)
+      })
+      .catch((e: unknown) => {
+        if (ac.signal.aborted) return
+        setError(e instanceof Error ? e.message : String(e))
+      })
+    return () => ac.abort()
+  }, [sessionDate, ticker])
+
+  return (
+    <section className="mb-6">
+      <SectionHeader
+        label="Similar past sessions"
+        hint={
+          matches === null
+            ? 'Loading…'
+            : inCorpus === false
+              ? 'This session is not in the analog corpus yet'
+              : `Top ${matches.length} chart-shape matches by DTW`
+        }
+      />
+      {error && (
+        <div className="rounded-md border border-red/40 bg-red/10 px-3 py-2 text-xs text-red">
+          {error}
+        </div>
+      )}
+      {!error && matches !== null && matches.length === 0 && (
+        <div className="rounded-md border border-border bg-surface px-3 py-6 text-center text-xs text-sub">
+          {inCorpus === false
+            ? `No analogs computed for ${ticker} on ${sessionDate} — the EOD corpus refresh adds new sessions nightly.`
+            : 'No similar sessions found.'}
+        </div>
+      )}
+      {!error && matches !== null && matches.length > 0 && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {matches.map((m) => (
+            <Link
+              key={m.slug}
+              href={`/history?tab=analogs&date=${sessionDate}&ticker=${ticker}`}
+              className="block rounded-md border border-border bg-surface px-3 py-3 hover:bg-surface-hover"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold text-text">{m.ticker}</div>
+                  <div className="text-xs text-sub">{m.date}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] uppercase tracking-wide text-sub">DTW</div>
+                  <div className="font-mono text-xs tabular-nums text-text">{m.dtw.toFixed(2)}</div>
+                </div>
+              </div>
+              {m.flipped && (
+                <div className="mt-1 text-[10px] uppercase tracking-wide text-red/80">
+                  Flipped (mirrored shape)
+                </div>
+              )}
+            </Link>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
