@@ -410,26 +410,19 @@ function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
 
   const annotations = useMemo<ChartAnnotations | undefined>(() => {
     if (!fireMarker) return undefined
-    // Fire bar gold (#fbbf24): the qualifying candle itself rather than
-    // a marker on top — cleaner read, no overlap with neighbors.
-    const ann: ChartAnnotations = {
-      highlightBars: [{ time: fireMarker.fireTs, color: '#fbbf24' }],
-    }
-    // Brooks-strong confirming bars purple (#a78bfa). The detector
-    // fires when pivot_index + 3 == fired_bar_index, so the pivot bar
-    // is exactly 3 × 5min before the fire bar in time. The confirming
-    // run extends from pivot+1 through pivot+consecutive_count.
-    if (candidate && candidate.consecutive_count != null) {
-      const pivotTs = fireMarker.fireTs - 3 * 300
-      const endTs = pivotTs + candidate.consecutive_count * 300
-      ann.highlightStrongRun = {
-        pivotTs,
-        endTs,
-        direction: fireMarker.direction,
-        color: '#a78bfa',
+    // Brooks-strong bars purple (#a78bfa) FIRST, fire bar gold (#fbbf24)
+    // LAST so the fire bar always wins the precedence Map.set in
+    // LightweightChart — even when the fire bar is itself Brooks-strong.
+    // The strong-bar timestamps come straight from the detector via
+    // setup_candidates.strong_bar_ts; no Brooks rule lives in JS.
+    const bars: { time: number; color: string }[] = []
+    if (candidate?.strong_bar_ts) {
+      for (const t of candidate.strong_bar_ts) {
+        bars.push({ time: t, color: '#a78bfa' })
       }
     }
-    return ann
+    bars.push({ time: fireMarker.fireTs, color: '#fbbf24' })
+    return { highlightBars: bars }
   }, [fireMarker, candidate])
 
   return (
@@ -509,6 +502,7 @@ interface CandidateRow {
   model_target?: string | null
   model_version?: string | null
   model_scored_at?: string | null
+  strong_bar_ts?: number[] | null
 }
 
 const TFO_CRITERIA = [

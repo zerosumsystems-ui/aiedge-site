@@ -51,26 +51,13 @@ export interface ChartAnnotations {
   markers?: ChartMarkerAnnotation[]      // labeled chart markers for scanner/setup review
   /**
    * Per-bar candle highlight. Any bar whose `t` matches gets its body,
-   * border, and wick colored — used by the scanner deep-link to flag the
-   * fire bar in gold instead of layering a marker on top of the chart.
+   * border, and wick colored — used by the scanner deep-link to flag
+   * the fire bar in gold and Brooks-strong confirming bars in purple,
+   * straight from setup_candidates.strong_bar_ts (the detector's
+   * source of truth). Later entries override earlier ones, so the
+   * caller controls precedence by order.
    */
   highlightBars?: { time: number; color: string }[]
-  /**
-   * Paint Brooks-strong bars inside a confirming run a single color.
-   * The chart iterates its own `bars`, applies the strong rule
-   * (body ≥ 50% of range, close in the top 25% / bottom 25% for the
-   * given direction), and colors every match in (pivotTs, endTs].
-   *
-   * `highlightBars` (e.g. the gold fire bar) overrides this color if a
-   * bar appears in both sets — the fire bar is shown gold even when
-   * it's itself Brooks-strong.
-   */
-  highlightStrongRun?: {
-    pivotTs: number              // epoch of LOD/HOD bar (exclusive lower bound)
-    endTs: number                // epoch of last bar in the confirming run (inclusive upper bound)
-    direction: 'long' | 'short'
-    color: string                // e.g. '#a78bfa' (purple-400)
-  }
   verdict?: { decision: string; probability: number; rr: number }
   agreement?: "AGREE" | "PARTIAL" | "MINOR" | "MAJOR" | "DISAGREE" | "INVERTED"
   adrMultiple?: number

@@ -40,7 +40,8 @@ export async function GET(request: Request) {
     .from('setup_candidates')
     .select(
       'id, symbol, session_date, pattern, direction, fire_ts, pivot_index, ' +
-        'fired_bar_index, consecutive_count, strong_count, score, status, note, source, created_at, ' +
+        'fired_bar_index, consecutive_count, strong_count, score, strong_bar_ts, ' +
+        'status, note, source, created_at, ' +
         'outcome_window_bars, outcome_net_pct, outcome_mfe_pct, outcome_mae_pct, outcome_bars_seen, outcome_computed_at, ' +
         'features, features_extracted_at, ' +
         'model_score, model_target, model_version, model_scored_at',

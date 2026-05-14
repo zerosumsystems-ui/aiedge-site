@@ -55,6 +55,12 @@ class TfoSignal:
     consecutive_count: int  # total run of in-direction closes after pivot
     strong_count: int       # how many of those are Brooks-strong bars
     score: float
+    # Epoch seconds of every Brooks-strong bar inside the confirming
+    # run. Stored on the candidate row (strong_bar_ts column) so the
+    # chart paints the exact same bars the detector counted — no
+    # re-derivation of the Brooks rule in JS. Tuple keeps the dataclass
+    # frozen.
+    strong_bar_timestamps: tuple[int, ...] = ()
 
 
 LOD_SEARCH_WINDOW = 4        # bars 1..4 (indices 0..3)
@@ -94,13 +100,16 @@ def _confirming_run(
     bars: Sequence[Bar5m],
     start: int,
     direction: str,
-) -> tuple[int, int]:
+) -> tuple[int, int, list[int]]:
     """Count consecutive in-direction closes starting at `start`, and
     how many of those are strong Brooks bars. Stops at the first bar
-    that breaks the direction. Returns (consecutive_count, strong_count).
+    that breaks the direction. Returns (consecutive_count, strong_count,
+    strong_indices) where strong_indices are the absolute bar indices
+    (into `bars`) of every Brooks-strong bar in the run — in order.
     """
     consec = 0
     strong = 0
+    strong_indices: list[int] = []
     for i in range(start, len(bars)):
         b = bars[i]
         if direction == "long":
@@ -109,13 +118,15 @@ def _confirming_run(
             consec += 1
             if _is_strong_bull(b):
                 strong += 1
+                strong_indices.append(i)
         else:
             if b.c >= b.o:
                 break
             consec += 1
             if _is_strong_bear(b):
                 strong += 1
-    return consec, strong
+                strong_indices.append(i)
+    return consec, strong, strong_indices
 
 
 def detect_tfo(bars: Sequence[Bar5m]) -> list[TfoSignal]:
@@ -138,7 +149,7 @@ def detect_tfo(bars: Sequence[Bar5m]) -> list[TfoSignal]:
     # first 4 bars).
     session_low = min(b.l for b in bars)
     if abs(pivot_window[low_idx].l - session_low) < 1e-9:
-        consec, strong = _confirming_run(bars, low_idx + 1, "long")
+        consec, strong, strong_indices = _confirming_run(bars, low_idx + 1, "long")
         if consec >= MIN_CONSECUTIVE and strong >= MIN_STRONG:
             fire_bar_idx = low_idx + MIN_CONSECUTIVE
             score = consec * 1.0 + strong * 0.5
@@ -150,13 +161,14 @@ def detect_tfo(bars: Sequence[Bar5m]) -> list[TfoSignal]:
                 consecutive_count=consec,
                 strong_count=strong,
                 score=score,
+                strong_bar_timestamps=tuple(bars[i].t for i in strong_indices),
             ))
 
     # Short: high of day in first 4 bars
     high_idx = max(range(len(pivot_window)), key=lambda i: pivot_window[i].h)
     session_high = max(b.h for b in bars)
     if abs(pivot_window[high_idx].h - session_high) < 1e-9:
-        consec, strong = _confirming_run(bars, high_idx + 1, "short")
+        consec, strong, strong_indices = _confirming_run(bars, high_idx + 1, "short")
         if consec >= MIN_CONSECUTIVE and strong >= MIN_STRONG:
             fire_bar_idx = high_idx + MIN_CONSECUTIVE
             score = consec * 1.0 + strong * 0.5
@@ -168,6 +180,7 @@ def detect_tfo(bars: Sequence[Bar5m]) -> list[TfoSignal]:
                 consecutive_count=consec,
                 strong_count=strong,
                 score=score,
+                strong_bar_timestamps=tuple(bars[i].t for i in strong_indices),
             ))
 
     return signals

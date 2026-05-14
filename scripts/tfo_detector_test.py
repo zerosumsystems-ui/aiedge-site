@@ -71,6 +71,11 @@ def test_long_tfo_minimum_fire():
     assert_eq(s.fire_ts, 1900, "fire_ts is bar-3 open")
     assert_eq(s.consecutive_count, 3, "exactly 3 consecutive")
     assert_eq(s.strong_count, 3, "all 3 are strong")
+    assert_eq(
+        s.strong_bar_timestamps,
+        (1300, 1600, 1900),
+        "strong_bar_timestamps lists all 3 strong bar opens in order",
+    )
 
 
 def test_short_tfo_minimum_fire():
@@ -92,6 +97,11 @@ def test_short_tfo_minimum_fire():
     assert_eq(s.pivot_index, 3, "pivot at bar 3")
     assert_eq(s.fired_bar_index, 6, "fires at bar 6")
     assert_eq(s.fire_ts, 2800, "fire_ts is bar-6 open")
+    assert_eq(
+        s.strong_bar_timestamps,
+        (2200, 2500, 2800),
+        "short strong_bar_timestamps lists all 3 strong bar opens in order",
+    )
 
 
 def test_no_fire_when_lod_outside_first_4():

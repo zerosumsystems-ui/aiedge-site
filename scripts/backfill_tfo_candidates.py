@@ -183,6 +183,7 @@ def signal_to_row(symbol: str, day: date_t, signal) -> dict:
         "consecutive_count": signal.consecutive_count,
         "strong_count": signal.strong_count,
         "score": signal.score,
+        "strong_bar_ts": list(signal.strong_bar_timestamps),
         "status": "new",
         "source": "backfill",
     }
