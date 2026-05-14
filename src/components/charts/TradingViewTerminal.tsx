@@ -968,6 +968,11 @@ function storedVolumeVisible(): boolean {
   return typeof value === "boolean" ? value : true
 }
 
+function storedSessionRangeStripVisible(): boolean {
+  const value = readChartPrefs().sessionRangeStripVisible
+  return typeof value === "boolean" ? value : true
+}
+
 function storedDisplayTimezone(): DisplayTimezone {
   const value = readChartPrefs().displayTimezone
   return value === "UTC" || value === "local" ? value : "ET"
@@ -1651,6 +1656,7 @@ function ChartSurface({
   liveStatus,
   liveSubscribed,
   volumeVisible,
+  sessionRangeStripVisible,
   emaVisible,
   emaPeriod,
   htfEmaPeriods,
@@ -1680,6 +1686,7 @@ function ChartSurface({
   onSelectSessionMode,
   onToggleLevel,
   onToggleVolume,
+  onToggleSessionRangeStrip,
   onToggleEma,
   onToggleVwap,
   onToggleHtfEma,
@@ -1703,6 +1710,7 @@ function ChartSurface({
   liveStatus: LiveStatus
   liveSubscribed: boolean
   volumeVisible: boolean
+  sessionRangeStripVisible: boolean
   emaVisible: boolean
   emaPeriod: number
   htfEmaPeriods: Record<HtfKey, number>
@@ -1732,6 +1740,7 @@ function ChartSurface({
   onSelectSessionMode: (mode: SessionMode) => void
   onToggleLevel: (group: LevelGroup) => void
   onToggleVolume: () => void
+  onToggleSessionRangeStrip: () => void
   onToggleEma: () => void
   onToggleVwap: () => void
   onToggleHtfEma: (key: HtfKey) => void
@@ -2718,7 +2727,7 @@ function ChartSurface({
               {alwaysIn === "long" ? "Long" : alwaysIn === "short" ? "Short" : "Mixed"}
             </span>
           ) : null}
-          {sessionRange > 0 ? (
+          {sessionRangeStripVisible && sessionRange > 0 ? (
             <div className="glass-chip pointer-events-auto flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 rounded-md px-2 py-1 font-mono text-[10px] tabular-nums text-sub/90 sm:text-[11px]">
               <span className="sm:hidden"><span className="text-sub/60">R</span> {sessionRange.toFixed(2)}</span>
               <span className="hidden sm:inline"><span className="text-sub/60">SR</span> {sessionRange.toFixed(2)}</span>
@@ -3253,6 +3262,7 @@ function IndicatorsMenu({
   timeframe,
   availableHtfs,
   volumeVisible,
+  sessionRangeStripVisible,
   emaVisible,
   emaPeriod,
   htfEmaPeriods,
@@ -3272,6 +3282,7 @@ function IndicatorsMenu({
   compareSymbol,
   replayActive,
   onToggleVolume,
+  onToggleSessionRangeStrip,
   onToggleEma,
   onToggleHtfEma,
   onToggleVwap,
@@ -3293,6 +3304,7 @@ function IndicatorsMenu({
   timeframe: ChartViewTimeframe
   availableHtfs: typeof HTF_SPECS
   volumeVisible: boolean
+  sessionRangeStripVisible: boolean
   emaVisible: boolean
   emaPeriod: number
   htfEmaPeriods: Record<HtfKey, number>
@@ -3312,6 +3324,7 @@ function IndicatorsMenu({
   compareSymbol: string | null
   replayActive: boolean
   onToggleVolume: () => void
+  onToggleSessionRangeStrip: () => void
   onToggleEma: () => void
   onToggleHtfEma: (key: HtfKey) => void
   onToggleVwap: () => void
@@ -3406,6 +3419,7 @@ function IndicatorsMenu({
   ]
   const chartOverlays: IndicatorRow[] = [
     { key: "vol", label: "Volume", active: volumeVisible, swatch: "rgba(0, 200, 150, 0.7)", onToggle: onToggleVolume, settings: null },
+    { key: "sr-strip", label: "Session range strip", active: sessionRangeStripVisible, swatch: "rgba(180, 180, 180, 0.85)", onToggle: onToggleSessionRangeStrip, settings: null },
     { key: "vwap", label: "VWAP", active: vwapVisible, swatch: "rgba(180, 130, 230, 0.85)", onToggle: onToggleVwap, settings: null },
     {
       key: "micro",
@@ -3705,6 +3719,9 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
   const [mobileWatchlistOpen, setMobileWatchlistOpen] = useState(false)
   const [levelVisibility, setLevelVisibility] = useState<LevelVisibility>(() => symbolLevelVisibility(initialSymbol))
   const [volumeVisible, setVolumeVisible] = useState(() => symbolVolumeVisible(initialSymbol))
+  // Session-range / scalp / swing / stop strip on the chart. Global pref
+  // (not per-symbol) since it's a chart-wide overlay preference.
+  const [sessionRangeStripVisible, setSessionRangeStripVisible] = useState(storedSessionRangeStripVisible)
   const [emaVisible, setEmaVisible] = useState(() => symbolEmaVisible(initialSymbol))
   const [vwapVisible, setVwapVisible] = useState(() => symbolVwapVisible(initialSymbol))
   const [htfEmaVisibility, setHtfEmaVisibility] = useState<HtfVisibility>(() => symbolHtfEmaVisibility(initialSymbol))
@@ -3752,13 +3769,14 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
       watchlistVisible,
       levelVisibility,
       volumeVisible,
+      sessionRangeStripVisible,
       microGapsVisible,
       fvgVisible,
       htfContextVisible,
       displayTimezone,
       compareSymbol,
     })
-  }, [barWindow, compareSymbol, displayTimezone, fvgVisible, htfContextVisible, levelVisibility, microGapsVisible, selectedSymbol, sessionMode, timeframe, volumeVisible, watchlistVisible])
+  }, [barWindow, compareSymbol, displayTimezone, fvgVisible, htfContextVisible, levelVisibility, microGapsVisible, selectedSymbol, sessionMode, sessionRangeStripVisible, timeframe, volumeVisible, watchlistVisible])
 
   useEffect(() => {
     // Per-symbol overrides — written on every state change so the
@@ -4729,6 +4747,7 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
             timeframe={timeframe}
             availableHtfs={availableHtfsFor(timeframe)}
             volumeVisible={volumeVisible}
+            sessionRangeStripVisible={sessionRangeStripVisible}
             emaVisible={emaVisible}
             emaPeriod={emaPeriod}
             htfEmaPeriods={htfEmaPeriods}
@@ -4748,6 +4767,7 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
             compareSymbol={compareSymbol}
             replayActive={effectiveReplayIndex != null}
             onToggleVolume={toggleVolume}
+            onToggleSessionRangeStrip={() => setSessionRangeStripVisible((v) => !v)}
             onToggleEma={toggleEma}
             onToggleHtfEma={toggleHtfEma}
             onToggleVwap={toggleVwap}
@@ -4816,6 +4836,7 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
               liveStatus={liveStatus}
               liveSubscribed={liveSubscribedSet.has(selectedSymbol)}
               volumeVisible={volumeVisible}
+              sessionRangeStripVisible={sessionRangeStripVisible}
               emaVisible={emaVisible}
               emaPeriod={emaPeriod}
               htfEmaPeriods={htfEmaPeriods}
@@ -4845,6 +4866,7 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
               onSelectSessionMode={setSessionMode}
               onToggleLevel={toggleLevelGroup}
               onToggleVolume={toggleVolume}
+              onToggleSessionRangeStrip={() => setSessionRangeStripVisible((v) => !v)}
               onToggleEma={toggleEma}
               onToggleVwap={toggleVwap}
               onToggleHtfEma={toggleHtfEma}
