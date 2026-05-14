@@ -37,6 +37,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from datetime import date as date_t, datetime, timedelta
 from typing import Iterable
@@ -171,8 +172,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="End date YYYY-MM-DD (default: yesterday ET)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print candidates instead of writing to Supabase")
-    parser.add_argument("--throttle", type=float, default=0.15,
-                        help="Seconds to sleep between /api/bars calls")
+    parser.add_argument("--concurrency", type=int, default=6,
+                        help="Parallel workers fetching /api/bars (default 6)")
+    parser.add_argument("--throttle", type=float, default=0.0,
+                        help="Seconds to sleep between submits when concurrency=1 "
+                             "(ignored at higher concurrency)")
     args = parser.parse_args(argv)
 
     if args.until:
@@ -198,21 +202,40 @@ def main(argv: list[str] | None = None) -> int:
 
     total_signals = 0
     rows_batch: list[dict] = []
+
+    def scan_one(ticker_day: tuple[str, date_t]) -> tuple[str, date_t, list]:
+        t, d = ticker_day
+        bars = fetch_session_5m_bars(args.base_url, t, d)
+        if not bars:
+            return t, d, []
+        return t, d, detect_tfo(bars)
+
     for ticker in args.tickers:
-        for day in days:
-            bars = fetch_session_5m_bars(args.base_url, ticker, day)
-            if not bars:
-                continue
-            signals = detect_tfo(bars)
+        # Process one ticker at a time so per-ticker flush still works,
+        # but fan out the (ticker, day) calls in parallel within that
+        # ticker. Single-ticker sweep is the common live-incremental path.
+        jobs = [(ticker, d) for d in days]
+
+        if args.concurrency <= 1:
+            results = []
+            for j in jobs:
+                results.append(scan_one(j))
+                if args.throttle > 0:
+                    time.sleep(args.throttle)
+        else:
+            with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
+                results = list(ex.map(scan_one, jobs))
+
+        # Order results by day so the log reads chronologically.
+        results.sort(key=lambda r: r[1])
+        for t, d, signals in results:
             if not signals:
                 continue
             for s in signals:
-                row = signal_to_row(ticker, day, s)
-                rows_batch.append(row)
+                rows_batch.append(signal_to_row(t, d, s))
                 total_signals += 1
-                print(f"  [hit ] {ticker} {day} {s.direction:<5s} "
+                print(f"  [hit ] {t} {d} {s.direction:<5s} "
                       f"score={s.score:.1f} fire_ts={s.fire_ts}", flush=True)
-            time.sleep(args.throttle)
 
         # Flush per-ticker so a crash mid-sweep loses at most one symbol.
         if rows_batch and not args.dry_run:
