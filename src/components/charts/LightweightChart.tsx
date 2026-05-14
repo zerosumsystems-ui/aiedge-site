@@ -217,13 +217,35 @@ export function LightweightChart({
       lastValueVisible: false,
     })
 
-    const candleData = chart.bars.map((b) => ({
-      time: b.t as UTCTimestamp,
-      open: b.o,
-      high: b.h,
-      low: b.l,
-      close: b.c,
-    }))
+    // Build per-bar color overrides from annotations.highlightBars so the
+    // scanner deep-link can paint the fire bar gold (body + border + wick)
+    // rather than layering a marker on top of the candle.
+    const highlightByTime = new Map<number, string>()
+    for (const h of chart.annotations?.highlightBars ?? []) {
+      highlightByTime.set(h.time, h.color)
+    }
+    const candleData = chart.bars.map((b) => {
+      const hl = highlightByTime.get(b.t)
+      if (hl) {
+        return {
+          time: b.t as UTCTimestamp,
+          open: b.o,
+          high: b.h,
+          low: b.l,
+          close: b.c,
+          color: hl,
+          borderColor: hl,
+          wickColor: hl,
+        }
+      }
+      return {
+        time: b.t as UTCTimestamp,
+        open: b.o,
+        high: b.h,
+        low: b.l,
+        close: b.c,
+      }
+    })
     candleSeries.setData(candleData)
 
     // Volume pane (hidden in compact mode)
