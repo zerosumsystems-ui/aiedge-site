@@ -327,16 +327,16 @@ function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
 
   const annotations = useMemo<ChartAnnotations | undefined>(() => {
     if (!fireMarker) return undefined
-    // Small circle below/above the fire bar — keeps the candle clean. The
-    // pattern name is already in the chart label ("TFO · AMZN" up top), so
-    // we don't repeat it on the marker. An arrowUp/Down + text overlay
-    // cluttered nearby bars; a single colored dot is plenty.
+    // Gold dot on the fire bar — the bar the setup qualified on.
+    // Direction is already conveyed by belowBar (long) vs aboveBar (short)
+    // and the chart label/banner; the color just needs to flag "this is
+    // the qualifying bar." Gold reads as "highlight" across themes.
     return {
       markers: [{
         time: fireMarker.fireTs,
         shape: 'circle',
         position: fireMarker.direction === 'long' ? 'belowBar' : 'aboveBar',
-        color: fireMarker.direction === 'long' ? '#1ca37b' : '#e05d5d',
+        color: '#fbbf24',
       }],
     }
   }, [fireMarker])
@@ -394,16 +394,45 @@ function SummaryStrip({
   )
 }
 
+interface CandidateRow {
+  symbol: string
+  session_date: string
+  pattern: string
+  direction: 'long' | 'short'
+  fire_ts: number
+  pivot_index: number
+  fired_bar_index: number
+  consecutive_count: number
+  strong_count: number
+  score: number
+}
+
+const TFO_CRITERIA = [
+  { label: '⓵', text: 'Low (or High) of day forms within the first 4 RTH 5-min bars' },
+  { label: '⓶', text: '3+ consecutive bull (or bear) closes after the pivot bar' },
+  { label: '⓷', text: '2+ of those closes are Brooks-strong: body ≥50% of range, close in the top 25% (longs) or bottom 25% (shorts)' },
+]
+
 function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireMarker }) {
   // Display the session date in ET, not UTC. The fire bar is mid-RTH so
   // the ET date and UTC date match — but format with ET zone for clarity.
-  const sessionDate = new Date(fireMarker.fireTs * 1000).toLocaleDateString('en-US', {
+  const sessionDateEt = new Date(fireMarker.fireTs * 1000).toLocaleDateString('en-US', {
     timeZone: 'America/New_York',
     weekday: 'short',
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   })
+  // ISO date for the /api/scanner/candidates lookup (server stores in
+  // ET-aligned YYYY-MM-DD).
+  const sessionDateIso = useMemo(() => {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(fireMarker.fireTs * 1000))
+  }, [fireMarker.fireTs])
   const fireTime = new Date(fireMarker.fireTs * 1000).toLocaleTimeString('en-US', {
     timeZone: 'America/New_York',
     hour: '2-digit',
@@ -411,21 +440,85 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
     hour12: false,
   })
   const dirColor = fireMarker.direction === 'long' ? 'text-teal' : 'text-red'
+
+  const [candidate, setCandidate] = useState<CandidateRow | null>(null)
+  useEffect(() => {
+    const ac = new AbortController()
+    const qs = new URLSearchParams({
+      symbol: ticker,
+      pattern: fireMarker.pattern,
+      direction: fireMarker.direction,
+      date: sessionDateIso,
+      limit: '1',
+    })
+    fetch(`/api/scanner/candidates?${qs}`, { signal: ac.signal })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: { candidates: CandidateRow[] }) => {
+        setCandidate(d.candidates[0] ?? null)
+      })
+      .catch(() => {
+        // Soft-fail — banner still renders without match details.
+      })
+    return () => ac.abort()
+  }, [ticker, fireMarker.pattern, fireMarker.direction, sessionDateIso])
+
+  const isTfo = fireMarker.pattern.toLowerCase() === 'tfo'
+  const pivotName = fireMarker.direction === 'long' ? 'LOD' : 'HOD'
+  const closeName = fireMarker.direction === 'long' ? 'bull' : 'bear'
+
   return (
-    <section className="mb-4 rounded-md border border-border bg-surface px-4 py-3">
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+    <section className="mb-4 rounded-md border border-border bg-surface">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
         <div className="text-[10px] uppercase tracking-[0.16em] text-sub">Setup</div>
         <div className="text-sm font-semibold text-text">{ticker}</div>
-        <div className="text-sm text-text">{sessionDate}</div>
+        <div className="text-sm text-text">{sessionDateEt}</div>
         <div className="text-xs uppercase tracking-wide text-sub">
           {fireMarker.pattern} ·{' '}
           <span className={`font-semibold ${dirColor}`}>{fireMarker.direction}</span>
         </div>
-        <div className="ml-auto font-mono text-[11px] tabular-nums text-sub">
-          fire bar @ {fireTime} ET
+        <div className="ml-auto flex items-center gap-3">
+          {candidate && (
+            <span className="font-mono text-[11px] tabular-nums text-text">
+              score <span className="font-semibold">{candidate.score.toFixed(1)}</span>
+            </span>
+          )}
+          <span className="font-mono text-[11px] tabular-nums text-sub">
+            fire bar @ {fireTime} ET
+          </span>
         </div>
       </div>
+
+      {isTfo && (
+        <div className="border-t border-border/60 px-4 py-3">
+          <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-sub">Criteria</div>
+          <ul className="space-y-1 text-xs leading-relaxed text-sub">
+            {TFO_CRITERIA.map((c) => (
+              <li key={c.label} className="flex gap-2">
+                <span className="shrink-0 font-mono text-text/70">{c.label}</span>
+                <span>{c.text}</span>
+              </li>
+            ))}
+          </ul>
+          {candidate && (
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] sm:grid-cols-4">
+              <Metric label={`${pivotName} bar`} value={`bar ${candidate.pivot_index + 1} / 4`} />
+              <Metric label={`${closeName} closes`} value={`${candidate.consecutive_count}`} />
+              <Metric label="strong" value={`${candidate.strong_count} / ${candidate.consecutive_count}`} />
+              <Metric label="fire bar" value={`bar ${candidate.fired_bar_index + 1}`} />
+            </div>
+          )}
+        </div>
+      )}
     </section>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[9px] uppercase tracking-wide text-sub">{label}</div>
+      <div className="font-mono tabular-nums text-text">{value}</div>
+    </div>
   )
 }
 
