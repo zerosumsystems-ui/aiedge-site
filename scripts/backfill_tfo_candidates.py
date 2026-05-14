@@ -46,8 +46,23 @@ from typing import Iterable
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from tfo_detector import Bar5m, detect_tfo  # noqa: E402
 
-DEFAULT_TICKERS = ["SPY", "QQQ", "NVDA", "AAPL", "MSFT", "TSLA", "META", "AMZN", "GOOGL"]
-DEFAULT_DAYS = 30
+# Highly liquid US equities — index ETFs + megacaps + sector volatility.
+# Picked for: tight spreads (clean Databento data), real intraday range
+# (TFO needs an actual session move to fire), and a mix of microstructure
+# styles (tech-megacap, financial, consumer-volatile) so the model isn't
+# fitting a single style.
+DEFAULT_TICKERS = [
+    # Index ETFs
+    "SPY", "QQQ", "IWM", "DIA",
+    # Mega-cap tech
+    "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA",
+    "AMD", "NFLX", "AVGO", "CRM", "ORCL", "ADBE", "INTC",
+    # Financials / payments
+    "JPM", "BAC", "V", "MA",
+    # Volatile movers
+    "COIN", "PLTR", "UBER",
+]
+DEFAULT_DAYS = 90
 DEFAULT_BASE_URL = "https://www.aiedge.trade"
 
 
