@@ -41,7 +41,8 @@ export async function GET(request: Request) {
     .select(
       'id, symbol, session_date, pattern, direction, fire_ts, pivot_index, ' +
         'fired_bar_index, consecutive_count, strong_count, score, status, note, source, created_at, ' +
-        'outcome_window_bars, outcome_net_pct, outcome_mfe_pct, outcome_mae_pct, outcome_bars_seen, outcome_computed_at',
+        'outcome_window_bars, outcome_net_pct, outcome_mfe_pct, outcome_mae_pct, outcome_bars_seen, outcome_computed_at, ' +
+        'features, features_extracted_at',
     )
     .order('session_date', { ascending: false })
     .order('score', { ascending: false })
