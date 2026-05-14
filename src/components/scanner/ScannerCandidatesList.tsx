@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 interface Candidate {
   id: number
@@ -41,6 +42,7 @@ function formatTime(epochSec: number): string {
 }
 
 export function ScannerCandidatesList() {
+  const router = useRouter()
   const [candidates, setCandidates] = useState<Candidate[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [patternFilter, setPatternFilter] = useState<PatternFilter>("all")
@@ -158,39 +160,55 @@ export function ScannerCandidatesList() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((c) => (
-                      <tr
-                        key={c.id}
-                        className="border-b border-border/60 last:border-b-0 hover:bg-surface-hover"
-                      >
-                        <td className="px-3 py-2 font-semibold">
-                          <Link
-                            href={`/symbol/${c.symbol}?t=${c.fire_ts}&pattern=${c.pattern}&direction=${c.direction}`}
-                            className="text-teal hover:underline"
-                          >
-                            {c.symbol}
-                          </Link>
-                        </td>
-                        <td className="px-3 py-2 text-xs uppercase tracking-wide text-sub">
-                          {PATTERN_LABEL[c.pattern] ?? c.pattern}
-                        </td>
-                        <td className={`px-3 py-2 text-xs font-semibold uppercase ${c.direction === "long" ? "text-teal" : "text-red"}`}>
-                          {c.direction}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
-                          {formatTime(c.fire_ts)}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
-                          {c.consecutive_count}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
-                          {c.strong_count}/{c.consecutive_count}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono text-xs tabular-nums font-semibold">
-                          {formatScore(c.score)}
-                        </td>
-                      </tr>
-                    ))}
+                    {rows.map((c) => {
+                      const href = `/symbol/${c.symbol}?t=${c.fire_ts}&pattern=${c.pattern}&direction=${c.direction}`
+                      // Row-level click so the whole row is a tap target on
+                      // mobile, not just the symbol cell. Keep the <Link>
+                      // wrapping the symbol so keyboard / cmd-click / middle-
+                      // click open in a new tab as expected.
+                      return (
+                        <tr
+                          key={c.id}
+                          tabIndex={0}
+                          onClick={() => router.push(href)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              router.push(href)
+                            }
+                          }}
+                          className="cursor-pointer border-b border-border/60 last:border-b-0 hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none"
+                        >
+                          <td className="px-3 py-2 font-semibold">
+                            <Link
+                              href={href}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-teal hover:underline"
+                            >
+                              {c.symbol}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-2 text-xs uppercase tracking-wide text-sub">
+                            {PATTERN_LABEL[c.pattern] ?? c.pattern}
+                          </td>
+                          <td className={`px-3 py-2 text-xs font-semibold uppercase ${c.direction === "long" ? "text-teal" : "text-red"}`}>
+                            {c.direction}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
+                            {formatTime(c.fire_ts)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
+                            {c.consecutive_count}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
+                            {c.strong_count}/{c.consecutive_count}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-xs tabular-nums font-semibold">
+                            {formatScore(c.score)}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
