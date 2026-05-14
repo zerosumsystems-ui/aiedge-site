@@ -481,7 +481,7 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
       date: sessionDateIso,
       limit: '1',
     })
-    fetch(`/api/scanner/candidates?${qs}`, { signal: ac.signal })
+    fetch(`/api/scanner/candidates?${qs}`, { signal: ac.signal, cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: { candidates: CandidateRow[] }) => {
         setCandidate(d.candidates[0] ?? null)
@@ -586,7 +586,7 @@ function CandidateFeedback({ ticker, fireMarker }: { ticker: string; fireMarker:
       date: sessionDateIso,
       limit: '1',
     })
-    fetch(`/api/scanner/candidates?${qs}`, { signal: ac.signal })
+    fetch(`/api/scanner/candidates?${qs}`, { signal: ac.signal, cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: { candidates: CandidateRow[] }) => {
         const c = d.candidates[0]
