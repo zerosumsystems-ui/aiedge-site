@@ -410,22 +410,27 @@ function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
 
   const annotations = useMemo<ChartAnnotations | undefined>(() => {
     if (!fireMarker) return undefined
-    // Precedence (later wins, per LightweightChart's Map.set):
-    //   pivot bar cyan  → strong bars purple → fire bar gold
-    // All three timestamps come straight from the detector via
-    // setup_candidates.{pivot_ts, strong_bar_ts, fire_ts}; no rule
-    // logic lives in JS.
+    // Per-bar body paint: Brooks-strong purple → fire bar gold (later
+    // wins). The pivot bar gets a horizontal dotted cyan price line
+    // instead of a colored candle — it's a structural level, not a
+    // single bar to call out. All timestamps come straight from the
+    // detector via setup_candidates.{strong_bar_ts, fire_ts, pivot_ts}.
     const bars: { time: number; color: string }[] = []
-    if (candidate?.pivot_ts != null) {
-      bars.push({ time: candidate.pivot_ts, color: '#38bdf8' })
-    }
     if (candidate?.strong_bar_ts) {
       for (const t of candidate.strong_bar_ts) {
         bars.push({ time: t, color: '#a78bfa' })
       }
     }
     bars.push({ time: fireMarker.fireTs, color: '#fbbf24' })
-    return { highlightBars: bars }
+    const ann: ChartAnnotations = { highlightBars: bars }
+    if (candidate?.pivot_ts != null) {
+      ann.pivotPriceLine = {
+        time: candidate.pivot_ts,
+        direction: fireMarker.direction,
+        color: '#38bdf8',
+      }
+    }
+    return ann
   }, [fireMarker, candidate])
 
   return (
@@ -636,18 +641,21 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-sub">
               <span className="text-[9px] uppercase tracking-[0.16em]">Chart colors</span>
               <span className="inline-flex items-center gap-1.5">
+                {/* Dotted strip swatch to indicate a price-line, not a
+                    candle body. Matches the dotted style applied to the
+                    chart's pivot line. */}
                 <span
-                  className="inline-block h-2.5 w-2.5 rounded-sm"
-                  style={{ backgroundColor: '#38bdf8' }}
+                  className="inline-block h-0 w-3"
+                  style={{ borderTop: '2px dotted #38bdf8' }}
                   aria-hidden
                 />
                 <HelpLabel
-                  label={pivotName + ' bar'}
-                  title={`Cyan = ${pivotName} bar`}
+                  label={pivotName + ' line'}
+                  title={`Cyan dotted line = ${pivotName} level`}
                   body={
                     pivotName === 'LOD'
-                      ? 'The bar that printed the session low (within the first 4 RTH 5-min bars). Anchor of the long TFO — every confirming bull close measures from here.'
-                      : 'The bar that printed the session high (within the first 4 RTH 5-min bars). Anchor of the short TFO — every confirming bear close measures from here.'
+                      ? 'Horizontal price line at the session low. Drawn at the low of the bar that printed the LOD within the first 4 RTH 5-min bars — the structural anchor every confirming bull close measures against.'
+                      : 'Horizontal price line at the session high. Drawn at the high of the bar that printed the HOD within the first 4 RTH 5-min bars — the structural anchor every confirming bear close measures against.'
                   }
                 />
               </span>

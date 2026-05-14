@@ -269,6 +269,25 @@ export function LightweightChart({
     })
     candleSeries.setData(candleData)
 
+    // Pivot price line — dotted horizontal at the LOD/HOD bar's
+    // extreme. Drawn as a price line rather than a colored candle so
+    // the level reads as a structural anchor across the whole chart.
+    const pivot = chart.annotations?.pivotPriceLine
+    if (pivot) {
+      const pivotBar = chart.bars.find((b) => b.t === pivot.time)
+      if (pivotBar) {
+        const price = pivot.direction === 'long' ? pivotBar.l : pivotBar.h
+        candleSeries.createPriceLine({
+          price,
+          color: pivot.color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+          title: pivot.label ?? (pivot.direction === 'long' ? 'LOD' : 'HOD'),
+        })
+      }
+    }
+
     // EMA20 overlay — visual parity with /chart. Only when caller opts in.
     if (showEma && chart.bars.length >= EMA_PERIOD) {
       const emaSeries = api.addSeries(LineSeries, {

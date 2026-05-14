@@ -449,12 +449,11 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
     }))
     const ema = computeEma(setup.bars, 20)
     const es = cb.map((b, i) => ({ time: b.time, value: ema[i] }))
-    // Precedence: cyan (pivot) → purple (strong) → gold (fire). Map.set
-    // semantics match the deep-dive chart's LightweightChart.
+    // Body-paint precedence: purple (strong) → gold (fire). Map.set
+    // semantics match the deep-dive chart's LightweightChart. The
+    // pivot bar is NOT body-painted — it gets a horizontal dotted
+    // cyan price line instead (placed below in placePivotLine).
     const colorMap = new Map<number, string>()
-    if (setup.pivotBarIndex != null) {
-      colorMap.set(setup.pivotBarIndex, PALETTE.pivotCyan)
-    }
     if (setup.strongBarIndices) {
       for (const idx of setup.strongBarIndices) {
         colorMap.set(idx, PALETTE.strongPurple)
@@ -497,6 +496,27 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
       cycleTimerRef.current = null
     }
   }, [])
+
+  const pivotLineRef = useRef<IPriceLine | null>(null)
+  const pivotPlacedRef = useRef(false)
+
+  const placePivotLine = useCallback(() => {
+    const candle = candleRef.current
+    if (!candle || pivotPlacedRef.current) return
+    if (setup.pivotBarIndex == null) return
+    const bar = setup.bars[setup.pivotBarIndex]
+    if (!bar) return
+    const price = setup.direction === 'long' ? bar.l : bar.h
+    pivotLineRef.current = candle.createPriceLine({
+      price,
+      color: PALETTE.pivotCyan,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: setup.direction === 'long' ? 'LOD' : 'HOD',
+    })
+    pivotPlacedRef.current = true
+  }, [setup.pivotBarIndex, setup.bars, setup.direction])
 
   const placeStopAndTargetLines = useCallback(() => {
     const candle = candleRef.current
@@ -603,8 +623,10 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
 
     markersPlacedRef.current = false
     levelsPlacedRef.current = false
+    pivotPlacedRef.current = false
     stopLineRef.current = null
     targetLineRef.current = null
+    pivotLineRef.current = null
 
     setCurrentPhaseLabel(phaseAt(setup.phases, 0))
     setAdrVisible(false)
@@ -632,6 +654,7 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
         ])
       }
       markersPlacedRef.current = true
+      placePivotLine()
       placeStopAndTargetLines()
     } else {
       setPhase("playing")
@@ -656,8 +679,9 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
       emaRef.current = null
       stopLineRef.current = null
       targetLineRef.current = null
+      pivotLineRef.current = null
     }
-  }, [bodyPaintMode, chartBars, clearAllTimers, emaSeriesData, paintedSlice, placeStopAndTargetLines, reducedMotion, setup])
+  }, [bodyPaintMode, chartBars, clearAllTimers, emaSeriesData, paintedSlice, placePivotLine, placeStopAndTargetLines, reducedMotion, setup])
 
   /* Bar-by-bar reveal — setTimeout chain with deceleration. */
   useEffect(() => {
@@ -701,6 +725,14 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
           markersPlacedRef.current = true
         }
 
+        // Pivot LOD/HOD line appears as soon as that bar is on screen.
+        if (
+          setup.pivotBarIndex != null &&
+          target >= setup.pivotBarIndex + 1
+        ) {
+          placePivotLine()
+        }
+
         // Stop/target lines fade in two bars after the signal triangle.
         if (target >= setup.signalBarIndex + 2) {
           placeStopAndTargetLines()
@@ -717,7 +749,7 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
       for (const t of chainTimersRef.current) window.clearTimeout(t)
       chainTimersRef.current = []
     }
-  }, [phase, chartBars, emaSeriesData, paintedSlice, placeStopAndTargetLines, setup, reducedMotion, bodyPaintMode])
+  }, [phase, chartBars, emaSeriesData, paintedSlice, placePivotLine, placeStopAndTargetLines, setup, reducedMotion, bodyPaintMode])
 
   /* Cycle to next setup after the dwell window. Single-setup mode
      (live candidate) skips cycling entirely. */

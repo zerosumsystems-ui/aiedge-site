@@ -58,6 +58,20 @@ export interface ChartAnnotations {
    * caller controls precedence by order.
    */
   highlightBars?: { time: number; color: string }[]
+  /**
+   * Dotted horizontal price line at the LOD/HOD pivot bar's extreme.
+   * Drawn instead of body-painting the bar so the level reads as a
+   * structural anchor running across the chart — "everything since
+   * this bar measures against this price." The chart looks up the bar
+   * at `time` in `chart.bars` and uses its low (direction=long) or
+   * high (direction=short).
+   */
+  pivotPriceLine?: {
+    time: number                  // epoch matching a bar.t in chart.bars
+    direction: 'long' | 'short'   // long → bar.l, short → bar.h
+    color: string                 // e.g. '#38bdf8'
+    label?: string                // axis label; defaults to LOD/HOD
+  }
   verdict?: { decision: string; probability: number; rr: number }
   agreement?: "AGREE" | "PARTIAL" | "MINOR" | "MAJOR" | "DISAGREE" | "INVERTED"
   adrMultiple?: number
