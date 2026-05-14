@@ -369,7 +369,7 @@ const PALETTE = {
 }
 
 const BAR_SECONDS = 5 * 60
-const BASE_REVEAL_MS = 145
+const BASE_REVEAL_MS = 100
 const REVEAL_HOLD_MS = 10000
 const ENTRY_FADE_MS = 600
 
@@ -383,14 +383,19 @@ const ET_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
   hour12: false,
 })
 
+// Reveal pacing. The deliberate beat through the signal bar + immediate
+// follow-through stays (it's what makes the fire moment register), then
+// the rest of the session moves at ~110ms/bar — fast enough that a
+// full RTH window (~78 bars) finishes in ~8-9s instead of ~22s, slow
+// enough that you can still read what's happening.
 function revealDelay(barIdx: number, signalIdx: number): number {
   const since = barIdx - signalIdx - 1
-  if (since < 0) return BASE_REVEAL_MS
-  if (since === 0) return 175
-  if (since === 1) return 210
-  if (since === 2) return 250
-  if (since === 3) return 280
-  return 300
+  if (since < 0) return BASE_REVEAL_MS   // pre-signal lead-in
+  if (since === 0) return 175            // signal bar — hold the beat
+  if (since === 1) return 200            // gentle decay
+  if (since === 2) return 215
+  if (since === 3) return 225
+  return 110                              // settled post-window pacing
 }
 
 /* ---------- Component ----------------------------------------------------- */
