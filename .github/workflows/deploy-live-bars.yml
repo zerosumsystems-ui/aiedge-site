@@ -18,6 +18,10 @@ on:
       - "Dockerfile.live-bars"
       - "fly.live-bars.toml"
       - "scripts/live_bars_aggregator.py"
+      - "scripts/live_tfo_runner.py"
+      - "scripts/tfo_detector.py"
+      - "scripts/tfo_features.py"
+      - "artifacts/tfo-baseline/tfo_baseline_mfe_ge_1pct.joblib"
       - ".github/workflows/deploy-live-bars.yml"
   workflow_dispatch:
 

@@ -1,10 +1,12 @@
 # Dockerfile for the Databento live-bar aggregator.
 # Pairs with fly.live-bars.toml. The aggregator is a long-lived Python
 # process that subscribes to Databento live data, buckets trades into
-# 1-minute OHLCV bars per symbol, and writes each closed bar to Upstash
-# Redis. /api/bars/live (in this same repo) reads from the same key.
+# 1-minute OHLCV bars per symbol, writes each closed bar to Upstash
+# Redis, and (when the model + Supabase env are present) runs live TFO
+# detection + inline scoring on each closed 5min bar, inserting scored
+# rows into setup_candidates.
 #
-# Build context is the repo root so we can grab scripts/live_bars_aggregator.py.
+# Build context is the repo root so we can grab scripts/ + artifacts/.
 #
 # To build from behind a TLS-intercepting proxy (e.g. a sandbox), pass
 # the host's CA bundle as a BuildKit secret so pip can verify pypi:
@@ -22,18 +24,37 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Databento is the only third-party dep. Stdlib handles everything else
-# (Upstash REST via urllib, signal handling, env loading, bar bucketing).
-# Pin databento so unrelated SDK changes don't break the aggregator
-# silently — bump intentionally after testing.
+# Databento for the live stream. scikit-learn + joblib + numpy for the
+# live TFO scorer (scripts/live_tfo_runner.py). Pinned so unrelated SDK
+# changes don't break the aggregator silently — bump intentionally after
+# testing.
 RUN --mount=type=secret,id=ca,target=/tmp/ca-extra.crt \
     if [ -s /tmp/ca-extra.crt ]; then \
-        pip install --cert /tmp/ca-extra.crt "databento>=0.55,<0.60"; \
+        pip install --cert /tmp/ca-extra.crt \
+            "databento>=0.55,<0.60" \
+            "scikit-learn>=1.4,<2" \
+            "joblib>=1.3,<2" \
+            "numpy>=2.0,<3"; \
     else \
-        pip install "databento>=0.55,<0.60"; \
+        pip install \
+            "databento>=0.55,<0.60" \
+            "scikit-learn>=1.4,<2" \
+            "joblib>=1.3,<2" \
+            "numpy>=2.0,<3"; \
     fi
 
+# Aggregator + shared TFO modules. The aggregator imports tfo_detector
+# and tfo_features as sibling modules; live_tfo_runner imports both too.
+# Keeping everything flat under /app matches the on-disk sibling layout.
 COPY scripts/live_bars_aggregator.py /app/live_bars_aggregator.py
+COPY scripts/live_tfo_runner.py /app/live_tfo_runner.py
+COPY scripts/tfo_detector.py /app/tfo_detector.py
+COPY scripts/tfo_features.py /app/tfo_features.py
+
+# Production joblib model. Baked into the image so a deploy is a single
+# atomic unit (code + model versioned together). The runner reads
+# TFO_MODEL_PATH (default /app/model.joblib).
+COPY artifacts/tfo-baseline/tfo_baseline_mfe_ge_1pct.joblib /app/model.joblib
 
 # Run unbuffered so Fly's log stream gets each line in real time.
 CMD ["python", "-u", "/app/live_bars_aggregator.py"]

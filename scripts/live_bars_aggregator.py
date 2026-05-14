@@ -560,6 +560,16 @@ def run() -> None:
     cache = Upstash(upstash_url, upstash_token)
     partial_interval_s = float(optional_env("PARTIAL_BAR_INTERVAL_S", "0.5"))
 
+    # TFO live runner — secondary feature; failures here never crash the
+    # primary bar-writing path. The runner disables itself cleanly if
+    # SUPABASE_URL / SERVICE_ROLE_KEY / model.joblib aren't available.
+    try:
+        from live_tfo_runner import TfoLiveRunner
+        tfo_runner = TfoLiveRunner()
+    except Exception as exc:
+        log.warning("TfoLiveRunner construction failed (continuing without it): %s", exc)
+        tfo_runner = None
+
     def on_close(sym: str, bar: Bar) -> None:
         log.info(
             "[%s] %d  o=%.2f h=%.2f l=%.2f c=%.2f v=%d",
@@ -568,6 +578,12 @@ def run() -> None:
         _health_mark("last_bar_at", time.time())
         _health_bump("bars_total")
         cache.write_bar(sym, bar)
+        if tfo_runner is not None and tfo_runner.enabled:
+            # Pass the bar as a plain dict so live_tfo_runner doesn't take
+            # a dependency on Bar (and so synthetic tests can call it).
+            tfo_runner.on_1m_close(sym, {
+                "t": bar.t, "o": bar.o, "h": bar.h, "l": bar.l, "c": bar.c, "v": bar.v,
+            })
 
     def on_partial(sym: str, bar: Bar) -> None:
         cache.write_partial(sym, bar)
