@@ -4,7 +4,7 @@
     "playwright": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "args": ["-y", "@playwright/mcp@latest", "--ignore-https-errors"]
     },
     "sentry": {
       "type": "http",
