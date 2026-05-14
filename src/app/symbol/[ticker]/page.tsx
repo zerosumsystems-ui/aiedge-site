@@ -313,13 +313,16 @@ function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
 
   const annotations = useMemo<ChartAnnotations | undefined>(() => {
     if (!fireMarker) return undefined
+    // Small circle below/above the fire bar — keeps the candle clean. The
+    // pattern name is already in the chart label ("TFO · AMZN" up top), so
+    // we don't repeat it on the marker. An arrowUp/Down + text overlay
+    // cluttered nearby bars; a single colored dot is plenty.
     return {
       markers: [{
         time: fireMarker.fireTs,
-        shape: fireMarker.direction === 'long' ? 'arrowUp' : 'arrowDown',
+        shape: 'circle',
         position: fireMarker.direction === 'long' ? 'belowBar' : 'aboveBar',
         color: fireMarker.direction === 'long' ? '#1ca37b' : '#e05d5d',
-        text: fireMarker.pattern.toUpperCase(),
       }],
     }
   }, [fireMarker])
