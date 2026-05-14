@@ -134,7 +134,13 @@ def supabase_upsert(
     """
     if not rows:
         return 200, None
-    endpoint = supabase_url.rstrip("/") + "/rest/v1/setup_candidates"
+    # on_conflict must match the unique constraint exactly for
+    # resolution=merge-duplicates to upsert instead of plain-inserting
+    # (which would 409 against already-present rows).
+    endpoint = (
+        supabase_url.rstrip("/")
+        + "/rest/v1/setup_candidates?on_conflict=symbol,session_date,pattern,direction"
+    )
     data = json.dumps(rows).encode("utf-8")
     req = urllib.request.Request(
         endpoint,
