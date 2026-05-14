@@ -20,6 +20,16 @@ else
   echo "[session-start] npm deps OK"
 fi
 
+if [ -f scripts/requirements-ml.txt ]; then
+  if python3 -c "import sklearn, pandas, joblib" >/dev/null 2>&1; then
+    echo "[session-start] ML deps OK"
+  else
+    echo "[session-start] Installing ML deps (pip3 install -r scripts/requirements-ml.txt)..."
+    pip3 install --quiet -r scripts/requirements-ml.txt || \
+      echo "[session-start] ML deps install failed (offline?). Skipping."
+  fi
+fi
+
 if ! command -v flyctl >/dev/null 2>&1; then
   echo "[session-start] Installing flyctl..."
   # Download then execute. `curl ... | sh` breaks in sandboxed envs where

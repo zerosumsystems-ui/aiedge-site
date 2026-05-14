@@ -1,0 +1,13 @@
+# Python deps for the offline ML pipeline.
+#
+# Used by:
+#   scripts/train_tfo_baseline.py
+#   scripts/train_aapl_opening_baseline.py
+#
+# Installed by .claude/hooks/session-start.sh into the system Python on
+# cloud sessions, and by Will's local env on the Mac mini.
+
+scikit-learn>=1.4,<2
+pandas>=2.0,<3
+joblib>=1.3,<2
+pyarrow>=14,<22
