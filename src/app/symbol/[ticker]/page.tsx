@@ -1,14 +1,17 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import type {
+  ChartAnnotations,
   FilledTrade,
   FilledTradesPayload,
   JournalEntry,
   JournalPayload,
   ScanPayload,
   ScanResult,
+  SignalDirection,
   TradeRead,
   TradesPayload,
 } from '@/lib/types'
@@ -39,9 +42,28 @@ function formatMoney(n: number): string {
   })
 }
 
+interface FireMarker {
+  fireTs: number
+  direction: SignalDirection
+  pattern: string
+}
+
 export default function SymbolPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker: rawTicker } = use(params)
   const ticker = decodeURIComponent(rawTicker).toUpperCase()
+
+  // Deep-link from /scanner: ?t=epoch_seconds&pattern=tfo&direction=long
+  // surfaces the candidate's fire bar on the chart. Absent params = default view.
+  const searchParams = useSearchParams()
+  const fireMarker = useMemo<FireMarker | null>(() => {
+    const tRaw = searchParams?.get('t')
+    const t = tRaw ? Number(tRaw) : NaN
+    const dir = searchParams?.get('direction')
+    const pattern = searchParams?.get('pattern')
+    if (!Number.isFinite(t) || t <= 0) return null
+    if (dir !== 'long' && dir !== 'short') return null
+    return { fireTs: t, direction: dir, pattern: pattern ?? 'fire' }
+  }, [searchParams])
 
   const [scanner, setScanner] = useState<ScanResult | null>(null)
   const [scanDate, setScanDate] = useState<string>('')
@@ -147,7 +169,7 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
 
       {/* Symbol chart — always shown so clicking any ticker surfaces price */}
       <section className="mb-6">
-        <SymbolChart ticker={ticker} />
+        <SymbolChart ticker={ticker} fireMarker={fireMarker} />
       </section>
 
       {!hasAnything && (
@@ -270,12 +292,46 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
   )
 }
 
-function SymbolChart({ ticker }: { ticker: string }) {
-  const to = new Date().toISOString().slice(0, 10)
-  const fromDate = new Date()
-  fromDate.setDate(fromDate.getDate() - 14)
-  const from = fromDate.toISOString().slice(0, 10)
-  return <BarsChart ticker={ticker} from={from} to={to} label={`Price · ${ticker}`} />
+function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireMarker | null }) {
+  // When the user clicked through from /scanner, center the window on the
+  // fire bar's session so the marker is on-screen. Otherwise default to
+  // the last 14 days.
+  const { from, to } = useMemo(() => {
+    if (fireMarker) {
+      const fireDate = new Date(fireMarker.fireTs * 1000)
+      const toIso = fireDate.toISOString().slice(0, 10)
+      const fromDate = new Date(fireMarker.fireTs * 1000)
+      fromDate.setDate(fromDate.getDate() - 5)
+      return { from: fromDate.toISOString().slice(0, 10), to: toIso }
+    }
+    const toDate = new Date()
+    const fromDate = new Date()
+    fromDate.setDate(fromDate.getDate() - 14)
+    return { from: fromDate.toISOString().slice(0, 10), to: toDate.toISOString().slice(0, 10) }
+  }, [fireMarker])
+
+  const annotations = useMemo<ChartAnnotations | undefined>(() => {
+    if (!fireMarker) return undefined
+    return {
+      markers: [{
+        time: fireMarker.fireTs,
+        shape: fireMarker.direction === 'long' ? 'arrowUp' : 'arrowDown',
+        position: fireMarker.direction === 'long' ? 'belowBar' : 'aboveBar',
+        color: fireMarker.direction === 'long' ? '#1ca37b' : '#e05d5d',
+        text: fireMarker.pattern.toUpperCase(),
+      }],
+    }
+  }, [fireMarker])
+
+  return (
+    <BarsChart
+      ticker={ticker}
+      from={from}
+      to={to}
+      annotations={annotations}
+      label={fireMarker ? `${fireMarker.pattern.toUpperCase()} · ${ticker}` : `Price · ${ticker}`}
+    />
+  )
 }
 
 function SectionHeader({ label, hint }: { label: string; hint?: string }) {
