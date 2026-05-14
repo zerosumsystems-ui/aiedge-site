@@ -22,6 +22,7 @@ export async function GET(request: Request) {
   const direction = searchParams.get('direction')
   const symbol = searchParams.get('symbol')
   const since = searchParams.get('since')
+  const date = searchParams.get('date')                  // exact session_date match
   const limitRaw = Number(searchParams.get('limit') ?? 200)
   const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? Math.floor(limitRaw) : 200, 1), 500)
 
@@ -49,6 +50,7 @@ export async function GET(request: Request) {
   if (direction) q = q.eq('direction', direction)
   if (symbol) q = q.eq('symbol', symbol.toUpperCase())
   if (since) q = q.gte('session_date', since)
+  if (date) q = q.eq('session_date', date)
 
   const { data, error } = await q
   if (error) {
