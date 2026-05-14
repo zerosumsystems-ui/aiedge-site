@@ -293,16 +293,17 @@ export default function SymbolPage({ params }: { params: Promise<{ ticker: strin
 }
 
 function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireMarker | null }) {
-  // When the user clicked through from /scanner, center the window on the
-  // fire bar's session so the marker is on-screen. Otherwise default to
-  // the last 14 days.
+  // Deep-link mode: clamp to that single RTH session at 5-min granularity
+  // so the marker snaps to the exact fire bar (the detector emits 5-min-
+  // aligned timestamps) and the user can see the LOD + 3 confirming
+  // closes in detail. Default mode: 14 days, auto timeframe.
   const { from, to } = useMemo(() => {
     if (fireMarker) {
-      const fireDate = new Date(fireMarker.fireTs * 1000)
-      const toIso = fireDate.toISOString().slice(0, 10)
-      const fromDate = new Date(fireMarker.fireTs * 1000)
-      fromDate.setDate(fromDate.getDate() - 5)
-      return { from: fromDate.toISOString().slice(0, 10), to: toIso }
+      // fire_ts is epoch seconds at a 5-min boundary somewhere between
+      // 09:45 and 16:00 ET, which is always the same UTC date as the ET
+      // session date — so toISOString().slice(0,10) is safe here.
+      const iso = new Date(fireMarker.fireTs * 1000).toISOString().slice(0, 10)
+      return { from: iso, to: iso }
     }
     const toDate = new Date()
     const fromDate = new Date()
@@ -329,6 +330,8 @@ function SymbolChart({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
       from={from}
       to={to}
       annotations={annotations}
+      initialTf={fireMarker ? '5min' : 'auto'}
+      session={fireMarker ? 'rth' : undefined}
       label={fireMarker ? `${fireMarker.pattern.toUpperCase()} · ${ticker}` : `Price · ${ticker}`}
     />
   )
