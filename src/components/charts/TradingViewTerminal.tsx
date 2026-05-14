@@ -27,6 +27,22 @@ function isIntradayTimeframe(tf: ChartViewTimeframe): tf is IntradayTimeframe {
   return tf === "1min" || tf === "5min" || tf === "15min" || tf === "30min" || tf === "1h"
 }
 
+// Live-bar poll cadence. The Fly aggregator updates the in-progress 1m bar
+// every ~500ms, so 1m views poll tight (1s) for a real-time feel. On wider
+// timeframes the user can't perceive sub-bar movement, so we slow down a lot.
+// Daily / weekly aren't polled at all (handled by the isIntradayTimeframe
+// gate at the call site).
+function liveTickIntervalMs(tf: ChartViewTimeframe): number {
+  switch (tf) {
+    case "1min": return 1_000
+    case "5min": return 3_000
+    case "15min": return 5_000
+    case "30min": return 10_000
+    case "1h": return 15_000
+    default: return 60_000
+  }
+}
+
 // Calendar lookback (in days) when fetching for non-intraday timeframes.
 // Picked so each timeframe shows ~60 bars of history — slightly over so
 // holidays and weekends don't shrink the view.
@@ -1472,11 +1488,13 @@ function SymbolScroller({
   symbol,
   symbols,
   onSelect,
+  onPrefetch,
   onAdd,
 }: {
   symbol: string
   symbols: string[]
   onSelect: (symbol: string) => void
+  onPrefetch?: (symbol: string) => void
   onAdd: (symbol: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -1558,6 +1576,8 @@ function SymbolScroller({
                     role="option"
                     aria-selected={active}
                     data-symbol={item}
+                    onPointerEnter={onPrefetch ? () => onPrefetch(item) : undefined}
+                    onFocus={onPrefetch ? () => onPrefetch(item) : undefined}
                     onClick={() => {
                       onSelect(item)
                       setQuery("")
@@ -1653,6 +1673,7 @@ function ChartSurface({
   compareBars,
   onClearCompare,
   onSelectSymbol,
+  onPrefetchSymbol,
   onAddSymbol,
   onSelectTimeframe,
   onSelectBarWindow,
@@ -1704,6 +1725,7 @@ function ChartSurface({
   compareBars: Bar[]
   onClearCompare: () => void
   onSelectSymbol: (symbol: string) => void
+  onPrefetchSymbol: (symbol: string) => void
   onAddSymbol: (symbol: string) => void
   onSelectTimeframe: (timeframe: ChartViewTimeframe) => void
   onSelectBarWindow: (barWindow: number) => void
@@ -2878,7 +2900,7 @@ function ChartSurface({
           ) : null}
         </div>
 
-        <SymbolScroller symbol={symbol} symbols={symbols} onSelect={onSelectSymbol} onAdd={onAddSymbol} />
+        <SymbolScroller symbol={symbol} symbols={symbols} onSelect={onSelectSymbol} onPrefetch={onPrefetchSymbol} onAdd={onAddSymbol} />
       </div>
     </section>
   )
@@ -2889,11 +2911,13 @@ function Watchlist({
   selected,
   quotes,
   onSelect,
+  onPrefetch,
 }: {
   symbols: string[]
   selected: string
   quotes: Record<string, Quote>
   onSelect: (symbol: string) => void
+  onPrefetch?: (symbol: string) => void
 }) {
   return (
     <div className="rounded-md border border-border bg-surface">
@@ -2910,6 +2934,8 @@ function Watchlist({
             <button
               key={symbol}
               type="button"
+              onPointerEnter={onPrefetch ? () => onPrefetch(symbol) : undefined}
+              onFocus={onPrefetch ? () => onPrefetch(symbol) : undefined}
               onClick={() => onSelect(symbol)}
               className={`grid min-h-11 w-full grid-cols-[minmax(58px,1fr)_auto_auto] items-center gap-3 border-b border-border px-3 py-2 text-left last:border-b-0 sm:min-h-0 ${
                 active ? "bg-surface-hover" : "hover:bg-surface-hover"
@@ -2938,6 +2964,7 @@ function SidePanel({
   symbols,
   selectedSymbol,
   onSelectSymbol,
+  onPrefetchSymbol,
 }: {
   symbol: string
   bars: Bar[]
@@ -2945,6 +2972,7 @@ function SidePanel({
   symbols: string[]
   selectedSymbol: string
   onSelectSymbol: (symbol: string) => void
+  onPrefetchSymbol?: (symbol: string) => void
 }) {
   const metrics = metricsFor(bars)
   const positive = (metrics.change ?? 0) >= 0
@@ -2966,7 +2994,7 @@ function SidePanel({
         </div>
       </div>
 
-      <Watchlist symbols={symbols} selected={selectedSymbol} quotes={quotes} onSelect={onSelectSymbol} />
+      <Watchlist symbols={symbols} selected={selectedSymbol} quotes={quotes} onSelect={onSelectSymbol} onPrefetch={onPrefetchSymbol} />
     </aside>
   )
 }
@@ -4151,7 +4179,7 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
     const startPolling = () => {
       if (interval !== null) return
       if (!isIntradayTimeframe(timeframe)) return
-      interval = window.setInterval(() => load(true), 1_000)
+      interval = window.setInterval(() => load(true), liveTickIntervalMs(timeframe))
     }
     const stopPolling = () => {
       if (interval !== null) {
@@ -4496,9 +4524,54 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
     setReplayIndex(null)
     setPriorRthBars([])
     setContextBars([])
+    // Optimistic clear: drop the old symbol's bars immediately so the chart
+    // doesn't sit with stale data + new header while the new fetch is in
+    // flight (up to ~15s p95 for cold Databento tickers). The skeleton/empty
+    // state shows until the next load() pushes new bars.
+    setHistoryBars([])
+    setLiveBars([])
     setSelectedSymbol(clean)
     setSymbolDraft(clean)
   }, [selectedSymbol, timeframe, barWindow, sessionMode, levelVisibility, volumeVisible, emaVisible, vwapVisible, htfEmaVisibility, barNumbersVisible, microGapsVisible, fvgVisible, htfContextVisible, htfContextCount, microGapsMaxActive, fvgMaxActive, emaPeriod, htfEmaPeriods])
+
+  // Fired on pointer-enter / hover over a watchlist row. Warms the bars
+  // memo cache so that when the user actually clicks, the historical fetch
+  // is already a memo hit. fetchBarsWithMemory dedupes by URL, so firing
+  // this repeatedly while the cursor drifts is cheap. Mirrors the URL
+  // pattern of the main load effect — keep them in sync if either changes.
+  const prefetchSymbol = useCallback((sym: string) => {
+    const clean = sym.trim().toUpperCase()
+    if (!clean || clean === selectedSymbol) return
+    const sessionDate = todayEt()
+    if (!isIntradayTimeframe(timeframe)) {
+      const lookbackDays = NON_INTRADAY_FETCH_DAYS[timeframe]
+      const fromCandidates = previousEtDates(sessionDate, lookbackDays)
+      const fromDate = fromCandidates[fromCandidates.length - 1] ?? sessionDate
+      const qs = new URLSearchParams({
+        ticker: clean,
+        from: fromDate,
+        to: sessionDate,
+        tf: timeframe,
+        limit: "1000",
+      })
+      void fetchBarsWithMemory(`/api/bars?${qs}`, 300_000).catch(() => undefined)
+      return
+    }
+    const fetchDays = fetchDaysForBarWindow(barWindow, timeframe)
+    const sessionFilter: "rth" | "all" = sessionMode === "rth" ? "rth" : "all"
+    const limit = rawLimitFor(timeframe, barWindow, fetchDays)
+    const todayQs = new URLSearchParams({
+      ticker: clean,
+      from: sessionDate,
+      to: sessionDate,
+      tf: "1min",
+      session: sessionFilter,
+      limit: String(limit),
+    })
+    const liveQs = new URLSearchParams({ ticker: clean, minutes: "720" })
+    void fetchBarsWithMemory(`/api/bars?${todayQs}`, 120_000).catch(() => undefined)
+    void fetchBarsWithMemory(`/api/bars/live?${liveQs}`, 15_000).catch(() => undefined)
+  }, [barWindow, fetchBarsWithMemory, selectedSymbol, sessionMode, timeframe])
 
   const toggleLevelGroup = useCallback((group: LevelGroup) => {
     setLevelVisibility((current) => ({ ...current, [group]: !current[group] }))
@@ -4765,6 +4838,7 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
               compareBars={displayCompareBars}
               onClearCompare={clearCompareSymbol}
               onSelectSymbol={selectSymbol}
+              onPrefetchSymbol={prefetchSymbol}
               onAddSymbol={addSymbol}
               onSelectTimeframe={setTimeframe}
               onSelectBarWindow={setBarWindow}
@@ -4793,6 +4867,7 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
               symbols={symbols}
               selectedSymbol={selectedSymbol}
               onSelectSymbol={selectSymbol}
+              onPrefetchSymbol={prefetchSymbol}
             />
           </div>
         )}
@@ -4829,6 +4904,7 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
                   selectSymbol(symbol)
                   setMobileWatchlistOpen(false)
                 }}
+                onPrefetchSymbol={prefetchSymbol}
               />
             </div>
           </div>
