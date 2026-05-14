@@ -154,13 +154,20 @@ def supabase_upsert(
             "Prefer": "resolution=merge-duplicates,return=minimal",
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.status, None
-    except urllib.error.HTTPError as e:
-        return e.code, e.read()[:300].decode("utf-8", errors="replace")
-    except Exception as e:
-        return 0, str(e)
+    # Retry transient network/SSL hiccups once before giving up; we don't
+    # want a 1-in-a-thousand TLS handshake glitch to abort a sweep that
+    # already ran 90 days of Databento fetches.
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.status, None
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()[:300].decode("utf-8", errors="replace")
+        except Exception as e:
+            last_exc = e
+            time.sleep(1.0 + attempt)
+    return 0, str(last_exc)
 
 
 def signal_to_row(symbol: str, day: date_t, signal) -> dict:
@@ -259,12 +266,16 @@ def main(argv: list[str] | None = None) -> int:
                       f"score={s.score:.1f} fire_ts={s.fire_ts}", flush=True)
 
         # Flush per-ticker so a crash mid-sweep loses at most one symbol.
+        # On Supabase error, log + continue to the next ticker instead of
+        # aborting — a transient hiccup on ticker N shouldn't lose the
+        # remaining tickers' work. The dropped batch can be re-run since
+        # detect_tfo is deterministic and the upsert is idempotent.
         if rows_batch and not args.dry_run:
             status, err = supabase_upsert(supabase_url, service_role_key, rows_batch)
             if err:
-                print(f"  [supabase] HTTP {status}: {err}", flush=True)
-                return 3
-            print(f"  [supabase] upserted {len(rows_batch)} rows", flush=True)
+                print(f"  [supabase] HTTP {status}: {err[:200]}  (continuing)", flush=True)
+            else:
+                print(f"  [supabase] upserted {len(rows_batch)} rows", flush=True)
             rows_batch = []
 
     print(f"\nDone. Total signals: {total_signals}", flush=True)
