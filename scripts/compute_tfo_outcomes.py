@@ -74,9 +74,21 @@ def supabase_patch(supabase_url: str, service_role: str, candidate_id: int, patc
             "Prefer": "return=minimal",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        if r.status >= 300:
-            raise RuntimeError(f"supabase PATCH {candidate_id} -> {r.status}")
+    # Retry transient network/SSL hiccups once. A one-off TLS error on
+    # row N shouldn't lose the remaining sweep — every row is independent.
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                if r.status >= 300:
+                    raise RuntimeError(f"supabase PATCH {candidate_id} -> {r.status}")
+                return
+        except urllib.error.HTTPError:
+            raise
+        except Exception as e:
+            last_exc = e
+            time.sleep(1.0 + attempt)
+    raise RuntimeError(f"supabase PATCH {candidate_id} retried + still failed: {last_exc}")
 
 
 def fetch_session_5m_bars(base_url: str, ticker: str, day: str, timeout: float = 60.0) -> list[dict]:
@@ -173,7 +185,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  [skip] {row['symbol']} {row['session_date']} — no post-fire bars", flush=True)
             n_skip += 1
             continue
-        supabase_patch(supabase_url, service_role, int(row["id"]), outcome)
+        try:
+            supabase_patch(supabase_url, service_role, int(row["id"]), outcome)
+        except Exception as e:
+            print(f"  [err ] {row['symbol']} {row['session_date']}: {e}", flush=True)
+            n_skip += 1
+            continue
         n_ok += 1
         direction = row["direction"]
         sign = "+" if outcome["outcome_net_pct"] >= 0 else ""
