@@ -98,10 +98,16 @@ export function BrokerPanel() {
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error ?? 'sync failed')
-      setMessage({
-        kind: 'ok',
-        text: `Synced ${data.fillsFetched ?? 0} fills from ${data.accounts ?? 0} account(s)`,
-      })
+      const parts = [`Synced ${data.fillsFetched ?? 0} fills from ${data.accounts ?? 0} account(s)`]
+      if (data.roundTripCount != null) {
+        parts.push(`${data.roundTripCount} round-trips (${data.openRoundTripCount ?? 0} open)`)
+      }
+      if (data.orphanExitFills > 0) {
+        parts.push(
+          `${data.orphanExitFills} orphan exit${data.orphanExitFills === 1 ? '' : 's'} (${data.orphanExitShares ?? 0} sh) — sales of positions opened before the sync window`
+        )
+      }
+      setMessage({ kind: 'ok', text: parts.join(' · ') })
       setLastDiagnostics(Array.isArray(data.accountDiagnostics) ? data.accountDiagnostics : null)
       await refreshStatus()
     } catch (err) {

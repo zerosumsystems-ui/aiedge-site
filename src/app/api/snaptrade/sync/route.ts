@@ -512,7 +512,14 @@ export async function POST(request: Request) {
   })
   const paired = pairFills(mergedFills, trades.trades)
   const stats = perSetupStats(paired, trades.trades)
-  const roundTrips = pairRoundTrips(mergedFills, paired)
+  // Naked SELLs (no preceding BUY in the stream) are treated as orphan
+  // exits rather than synthesized as shorts. This prevents phantom short
+  // round-trips when SnapTrade misses earlier entry fills (the common
+  // failure mode with a fresh broker connection).
+  const { roundTrips, orphanExitFills, orphanExitShares } = pairRoundTrips(
+    mergedFills,
+    paired
+  )
 
   const payload: FilledTradesPayload = {
     fills: mergedFills,
@@ -530,6 +537,10 @@ export async function POST(request: Request) {
     accounts: totalAccounts,
     fillsFetched: allFills.length,
     fillsTotal: mergedFills.length,
+    roundTripCount: roundTrips.length,
+    openRoundTripCount: roundTrips.filter((t) => t.isOpen).length,
+    orphanExitFills,
+    orphanExitShares,
     lastSyncError,
     accountDiagnostics: allDiags,
   })

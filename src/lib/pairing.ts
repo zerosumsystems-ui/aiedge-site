@@ -107,8 +107,23 @@ export function pairFills(fills: FilledTrade[], reads: TradeRead[]): PairedTrade
  * Handles:
  *   - Multi-leg entries: 50 BUY then 30 BUY → same open lot (aggregated)
  *   - Partial exits: 80 open, 30 SELL → partial close; 50 still open
- *   - Shorts: SELL first then BUY cover → side: "short"
  *   - Open positions: remaining entry fills become open round-trips (isOpen=true)
+ *
+ * Naked SELL handling — IMPORTANT:
+ *   When a SELL arrives with no preceding BUY in the stream, the algorithm
+ *   does NOT synthesize a SHORT entry from it. With broker imports (especially
+ *   a fresh SnapTrade connection), the most common reason for a naked SELL is
+ *   that the closed position was opened BEFORE the sync window, so the
+ *   matching BUY isn't visible. Inventing a short from that fill would
+ *   manufacture phantom trades (e.g. "I sold GOOGL once, now the journal
+ *   thinks I'm short GOOGL"). Naked SELLs are reported as `orphanExits`.
+ *
+ *   The same applies to the over-sold flip case: if a SELL closes all open
+ *   longs and has leftover qty, the excess is treated as an orphan exit
+ *   rather than reseeding a short.
+ *
+ *   To re-enable short inference (for accounts that actually short — Brooks's
+ *   own self-eval bot, prop accounts, etc), pass `allowShortInference: true`.
  *
  * Qty-weighted average prices are computed per closed round-trip.
  *
@@ -116,10 +131,22 @@ export function pairFills(fills: FilledTrade[], reads: TradeRead[]): PairedTrade
  * adjustment concerns — out of scope here. This is for Brooks-style journal
  * pairing (round-trip PnL + entry/exit chart), not tax reporting.
  */
+export interface PairRoundTripsResult {
+  roundTrips: RoundTrip[]
+  /** SELL fills (or share counts thereof) that had no preceding BUY in the
+   *  stream and were not synthesized as short entries. Surfaced in the sync
+   *  diagnostics so a user can see "N orphan-exit fills (probably positions
+   *  opened before the sync window)." */
+  orphanExitFills: number
+  orphanExitShares: number
+}
+
 export function pairRoundTrips(
   fills: FilledTrade[],
-  paired: PairedTrade[]
-): RoundTrip[] {
+  paired: PairedTrade[],
+  options: { allowShortInference?: boolean } = {}
+): PairRoundTripsResult {
+  const allowShortInference = options.allowShortInference ?? false
   // fill.id → pairedReadId for quick lookup when we label round-trips
   const pairedReadByFillId = new Map<string, string | null>()
   for (const p of paired) pairedReadByFillId.set(p.fill.id, p.pairedReadId)
@@ -134,6 +161,8 @@ export function pairRoundTrips(
   }
 
   const roundTrips: RoundTrip[] = []
+  let orphanExitFills = 0
+  let orphanExitShares = 0
 
   for (const [ticker, tickerFills] of byTicker) {
     // Chronological — oldest first. Ties broken by id for determinism.
@@ -153,7 +182,15 @@ export function pairRoundTrips(
       const fillSide: 'long' | 'short' = fill.action === 'BUY' ? 'long' : 'short'
 
       if (openSide === null || openLegs.length === 0) {
-        // Start a new position.
+        // Start a new position — but only if it's a BUY, OR if short
+        // inference is explicitly enabled. A naked SELL with no preceding
+        // BUY is almost always a sale of a pre-sync position, not a short
+        // entry; mark it as an orphan exit and move on.
+        if (fillSide === 'short' && !allowShortInference) {
+          orphanExitFills++
+          orphanExitShares += fill.qty
+          continue
+        }
         openSide = fillSide
         openLegs.push({ fill, remaining: fill.qty })
         continue
@@ -236,14 +273,24 @@ export function pairRoundTrips(
       })
 
       if (openLegs.length === 0 && remainingToClose > 0) {
-        // Over-sold relative to the open position — the remainder flips
-        // us into the opposite direction. Reseed a new open leg with the
-        // unmatched portion of the closing fill.
-        openSide = fillSide
-        openLegs.push({
-          fill,
-          remaining: remainingToClose,
-        })
+        // Over-sold relative to the open position. Two interpretations:
+        //   (a) The unmatched portion flips us into the opposite direction
+        //       (e.g. SELL-to-short more than we held long).
+        //   (b) The unmatched portion is closing a position opened before
+        //       the sync window — orphan exit, no flip.
+        // For broker-imports we default to (b). To enable (a) for accounts
+        // that actually short, set `allowShortInference: true`.
+        if (fillSide === 'short' && !allowShortInference) {
+          orphanExitFills++
+          orphanExitShares += remainingToClose
+          openSide = null
+        } else {
+          openSide = fillSide
+          openLegs.push({
+            fill,
+            remaining: remainingToClose,
+          })
+        }
       } else if (openLegs.length === 0) {
         openSide = null
       }
@@ -276,11 +323,13 @@ export function pairRoundTrips(
   }
 
   // Most-recent first (closed trades by exitTime, open trades by entryTime)
-  return roundTrips.sort((a, b) => {
+  roundTrips.sort((a, b) => {
     const aKey = a.exitTime ?? a.entryTime
     const bKey = b.exitTime ?? b.entryTime
     return bKey.localeCompare(aKey)
   })
+
+  return { roundTrips, orphanExitFills, orphanExitShares }
 }
 
 /**
