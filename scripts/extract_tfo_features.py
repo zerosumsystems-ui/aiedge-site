@@ -87,9 +87,19 @@ def supabase_patch(supabase_url: str, key: str, candidate_id: int, patch: dict) 
             "Prefer": "return=minimal",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        if r.status >= 300:
-            raise RuntimeError(f"supabase PATCH {candidate_id} -> {r.status}")
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                if r.status >= 300:
+                    raise RuntimeError(f"supabase PATCH {candidate_id} -> {r.status}")
+                return
+        except urllib.error.HTTPError:
+            raise
+        except Exception as e:
+            last_exc = e
+            time.sleep(1.0 + attempt)
+    raise RuntimeError(f"supabase PATCH {candidate_id} retried + still failed: {last_exc}")
 
 
 # ----- feature extraction ---------------------------------------------
@@ -225,10 +235,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  [skip] {row['symbol']} {row['session_date']} — fire bar missing", flush=True)
             n_skip += 1
             continue
-        supabase_patch(supabase_url, key, int(row["id"]), {
-            "features": features,
-            "features_extracted_at": datetime.utcnow().isoformat() + "Z",
-        })
+        try:
+            supabase_patch(supabase_url, key, int(row["id"]), {
+                "features": features,
+                "features_extracted_at": datetime.utcnow().isoformat() + "Z",
+            })
+        except Exception as e:
+            print(f"  [err ] {row['symbol']} {row['session_date']}: {e}", flush=True)
+            n_skip += 1
+            continue
         n_ok += 1
         print(
             f"  [ok ] {row['symbol']:5s} {row['session_date']} {row['direction']:<5s}"

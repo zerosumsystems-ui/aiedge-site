@@ -46,8 +46,23 @@ from typing import Iterable
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from tfo_detector import Bar5m, detect_tfo  # noqa: E402
 
-DEFAULT_TICKERS = ["SPY", "QQQ", "NVDA", "AAPL", "MSFT", "TSLA", "META", "AMZN", "GOOGL"]
-DEFAULT_DAYS = 30
+# Highly liquid US equities — index ETFs + megacaps + sector volatility.
+# Picked for: tight spreads (clean Databento data), real intraday range
+# (TFO needs an actual session move to fire), and a mix of microstructure
+# styles (tech-megacap, financial, consumer-volatile) so the model isn't
+# fitting a single style.
+DEFAULT_TICKERS = [
+    # Index ETFs
+    "SPY", "QQQ", "IWM", "DIA",
+    # Mega-cap tech
+    "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA",
+    "AMD", "NFLX", "AVGO", "CRM", "ORCL", "ADBE", "INTC",
+    # Financials / payments
+    "JPM", "BAC", "V", "MA",
+    # Volatile movers
+    "COIN", "PLTR", "UBER",
+]
+DEFAULT_DAYS = 90
 DEFAULT_BASE_URL = "https://www.aiedge.trade"
 
 
@@ -119,7 +134,13 @@ def supabase_upsert(
     """
     if not rows:
         return 200, None
-    endpoint = supabase_url.rstrip("/") + "/rest/v1/setup_candidates"
+    # on_conflict must match the unique constraint exactly for
+    # resolution=merge-duplicates to upsert instead of plain-inserting
+    # (which would 409 against already-present rows).
+    endpoint = (
+        supabase_url.rstrip("/")
+        + "/rest/v1/setup_candidates?on_conflict=symbol,session_date,pattern,direction"
+    )
     data = json.dumps(rows).encode("utf-8")
     req = urllib.request.Request(
         endpoint,
@@ -133,13 +154,20 @@ def supabase_upsert(
             "Prefer": "resolution=merge-duplicates,return=minimal",
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.status, None
-    except urllib.error.HTTPError as e:
-        return e.code, e.read()[:300].decode("utf-8", errors="replace")
-    except Exception as e:
-        return 0, str(e)
+    # Retry transient network/SSL hiccups once before giving up; we don't
+    # want a 1-in-a-thousand TLS handshake glitch to abort a sweep that
+    # already ran 90 days of Databento fetches.
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.status, None
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()[:300].decode("utf-8", errors="replace")
+        except Exception as e:
+            last_exc = e
+            time.sleep(1.0 + attempt)
+    return 0, str(last_exc)
 
 
 def signal_to_row(symbol: str, day: date_t, signal) -> dict:
@@ -238,12 +266,16 @@ def main(argv: list[str] | None = None) -> int:
                       f"score={s.score:.1f} fire_ts={s.fire_ts}", flush=True)
 
         # Flush per-ticker so a crash mid-sweep loses at most one symbol.
+        # On Supabase error, log + continue to the next ticker instead of
+        # aborting — a transient hiccup on ticker N shouldn't lose the
+        # remaining tickers' work. The dropped batch can be re-run since
+        # detect_tfo is deterministic and the upsert is idempotent.
         if rows_batch and not args.dry_run:
             status, err = supabase_upsert(supabase_url, service_role_key, rows_batch)
             if err:
-                print(f"  [supabase] HTTP {status}: {err}", flush=True)
-                return 3
-            print(f"  [supabase] upserted {len(rows_batch)} rows", flush=True)
+                print(f"  [supabase] HTTP {status}: {err[:200]}  (continuing)", flush=True)
+            else:
+                print(f"  [supabase] upserted {len(rows_batch)} rows", flush=True)
             rows_batch = []
 
     print(f"\nDone. Total signals: {total_signals}", flush=True)
