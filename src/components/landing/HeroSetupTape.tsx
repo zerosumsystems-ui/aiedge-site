@@ -18,6 +18,7 @@ import {
 } from "lightweight-charts"
 import { SignalBadge } from "@/components/scanner/SignalBadge"
 import { ScoreBar } from "@/components/scanner/ScoreBar"
+import { HelpLabel } from "@/components/ui/HelpLabel"
 import type { Signal } from "@/lib/types"
 
 /**
@@ -922,14 +923,63 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
           </div>
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <SignalBadge signal={setup.signal} />
-            <ScoreBar label="URG" value={setup.urgency} variant="urgency" />
             <ScoreBar
-              label="UNC"
+              label={
+                <HelpLabel
+                  label="URG"
+                  title="URG — model probability"
+                  body={
+                    <>
+                      The V1 model&apos;s probability that this setup pays
+                      ≥ 1% favorably within 2 hours of the fire bar, scaled
+                      0–10. Higher = the model expects the move to keep
+                      paying. <strong>Not a time-pressure measure</strong>{" "}
+                      — the fire bar already printed; URG tells you what
+                      the model thinks about the trajectory.
+                    </>
+                  }
+                />
+              }
+              value={setup.urgency}
+              variant="urgency"
+            />
+            <ScoreBar
+              label={
+                <HelpLabel
+                  label="UNC"
+                  title="UNC — model decisiveness"
+                  body={
+                    <>
+                      How indecisive the model is. Peaks at a 50/50 read
+                      (UNC 5.0), drops to 0 at the extremes (model 0% or
+                      100%). <strong>Independent of URG</strong> — you can
+                      have low URG &amp; low UNC (confident &quot;won&apos;t
+                      pay&quot;) or high URG &amp; high UNC (leans good
+                      but not sure).
+                    </>
+                  }
+                />
+              }
               value={setup.uncertainty}
               variant="uncertainty"
             />
           </div>
         </div>
+        {/* Plain-language caption that ties the URG/UNC bars to actual
+            trade meaning. Always visible (not behind a popover) — these
+            are the two numbers a reader sees first, so they get a one-
+            sentence explainer in the same place. */}
+        <p className="mt-3 text-[11px] leading-snug text-sub">
+          <span className="font-semibold text-text">URG</span> is the V1
+          model&apos;s probability (× 10) that this setup pays ≥ 1%
+          favorably in the next 2 hours.{" "}
+          <span className="font-semibold text-text">UNC</span> is how close
+          to 50/50 that probability is — high UNC = unclear read, low UNC
+          = confident either way. The model is calibrated against{" "}
+          <em>closed</em> 5-min bars after the fire, so these numbers
+          reflect the setup as it would be acted on at the fire-bar
+          close, not in real time before the bar closes.
+        </p>
       </div>
     </section>
   )

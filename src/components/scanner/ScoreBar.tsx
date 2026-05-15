@@ -1,8 +1,10 @@
 "use client"
 
+import type { ReactNode } from "react"
+
 interface ScoreBarProps {
-  label: string        // "URG" or "UNC"
-  value: number        // 0-10
+  label: ReactNode    // "URG"/"UNC" or a HelpLabel wrapping them
+  value: number       // 0-10
   variant: "urgency" | "uncertainty"
 }
 

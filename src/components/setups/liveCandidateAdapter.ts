@@ -168,8 +168,18 @@ export function liveCandidateToFeatured(
     read: buildRead(candidate),
     direction: dir,
     signal: pickSignal(dir, modelScore),
-    urgency: typeof modelScore === "number" ? modelScore : 0.5,
-    uncertainty: typeof modelScore === "number" ? 1 - modelScore : 0.5,
+    // URG: model's probability the setup pays ≥1% favorably within 2h,
+    //      scaled 0..10. Higher = model expects the move to keep paying.
+    //      NOT a time-pressure metric — the fire bar already printed.
+    // UNC: how indecisive the model is. Peaks near a 50/50 read (5.0),
+    //      drops to 0 at the extremes. Independent of URG: you can
+    //      have low URG + low UNC (confident "won't pay") or high URG
+    //      + high UNC (leans good but not sure).
+    urgency: typeof modelScore === "number" ? modelScore * 10 : 5,
+    uncertainty:
+      typeof modelScore === "number"
+        ? (1 - 2 * Math.abs(0.5 - modelScore)) * 10
+        : 5,
     edge: {
       // We don't have a clean R-multiple for live setups yet. Surface
       // the realized net% (in pct points, not R) so the chip is
