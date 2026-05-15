@@ -65,8 +65,9 @@ FEATURES = [
 ]
 
 
-def build_dataset() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return (X, y, dates) — one row per qualifying session."""
+def build_dataset() -> tuple[np.ndarray, np.ndarray, np.ndarray, list]:
+    """Return (X, y, dates, keys) — one row per qualifying session;
+    keys are (symbol, date) tuples aligned to the rows."""
     files = sorted(BARS_CACHE.glob("*.json"))
     ranges: dict[str, list[float]] = {}
     by_symbol: dict[str, list[tuple[str, list]]] = {}
@@ -86,7 +87,7 @@ def build_dataset() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         by_symbol.setdefault(sym, []).append((date, bars5))
     adr = {s: sum(v) / len(v) for s, v in ranges.items() if v}
 
-    X, y, dates = [], [], []
+    X, y, dates, keys = [], [], [], []
     for sym, sessions in by_symbol.items():
         a = adr.get(sym)
         if not a or a <= 0:
@@ -111,7 +112,8 @@ def build_dataset() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
             X.append([float(feat[k]) for k in FEATURES])
             y.append(1 if close_pos >= TREND_CLOSE else 0)
             dates.append(date)
-    return np.array(X, dtype=float), np.array(y), np.array(dates)
+            keys.append((sym, date))
+    return np.array(X, dtype=float), np.array(y), np.array(dates), keys
 
 
 def _scores(y, proba) -> dict:
@@ -140,7 +142,7 @@ def _lift(y, proba) -> list[dict]:
 
 
 def main() -> int:
-    X, y, dates = build_dataset()
+    X, y, dates, _keys = build_dataset()
     n = len(y)
     base = float(y.mean())
     n_dates = len(np.unique(dates))
