@@ -12,12 +12,15 @@ The trade, faithful to the primary source:
   entry  = a stop 1 tick above the signal bar's high (Brooks, ch. 3:
            "buy at one tick above the high of the prior bar"); the
            High 1 bar is the entry bar
-  stop   = 1 tick beyond the pullback's extreme (Brooks, ch. 1: stop
-           "below the most recent minor pullback")
-  target = scored against BOTH targets Brooks names for a High 1 buy
-           (ch. 4: "lead to at least a new high and probably a measured
-           move up"): a new high (1 tick beyond the spike extreme) and
-           the full measured move (spike height from the extreme)
+
+Each signal is scored across a grid of Brooks-named stops, targets, and
+trade management:
+
+  stops    pullback extreme (tight) | spike start (structural — Brooks:
+           "the risk is to the bottom of the spike")
+  targets  new high | measured move | reward = risk (+1R)
+  mgmt     fixed exit | scale-out (half off at +1R, runner to the
+           measured move, runner stop trailed to breakeven)
 
 EXECUTION MODEL. The detector finds signals on 5-min bars; this engine
 simulates each trade bar-by-bar on 1-MINUTE bars. It is a STOP entry,
@@ -166,6 +169,100 @@ def simulate(sig, bars1: list[dict], stop: float, target: float,
     }
 
 
+def simulate_scaleout(sig, bars1: list[dict], stop: float,
+                      final_target: float, cost_mult: float = 1.0) -> dict | None:
+    """Brooks' actual trade management: take half the position off at a
+    reward equal to the risk (+1R), move the stop on the runner to
+    breakeven, and hold the runner toward the measured move.
+
+    Half-size partial at +1R (resting limit, clean fill); the runner's
+    stop trails to the entry fill once the partial is booked. net_r is
+    the size-weighted blend of the two exits.
+    """
+    direction = sig.direction
+    trigger = sig.entry_trigger
+    risk = (trigger - stop) if direction == "long" else (stop - trigger)
+    if risk <= 0:
+        return None
+    es = ENTRY_SLIPPAGE_BPS * cost_mult / 1e4
+    ss = STOP_SLIPPAGE_BPS * cost_mult / 1e4
+    partial = trigger + risk if direction == "long" else trigger - risk
+
+    path = sorted((b for b in bars1 if int(b["t"]) >= sig.entry_ts),
+                  key=lambda b: int(b["t"]))
+    if not path:
+        return None
+
+    filled = False
+    entry_fill = None
+    cur_stop = stop
+    partial_done = False
+    p1 = p2 = None            # the two exit prices (partial, runner)
+    reason = None
+    for b in path:
+        hi, lo, op = float(b["h"]), float(b["l"]), float(b["o"])
+        if not filled:
+            if direction == "long" and hi >= trigger:
+                entry_fill = max(trigger, op) * (1 + es)
+                filled = True
+            elif direction == "short" and lo <= trigger:
+                entry_fill = min(trigger, op) * (1 - es)
+                filled = True
+            if not filled:
+                continue
+        if not partial_done:
+            if direction == "long":
+                hit_stop, hit_p = lo <= cur_stop, hi >= partial
+            else:
+                hit_stop, hit_p = hi >= cur_stop, lo <= partial
+            if hit_stop:                         # stopped before the partial
+                p1 = p2 = (cur_stop * (1 - ss) if direction == "long"
+                           else cur_stop * (1 + ss))
+                reason = "stopped_full"
+                break
+            if hit_p:
+                p1 = partial                     # resting limit — clean
+                partial_done = True
+                cur_stop = entry_fill            # runner stop -> breakeven
+            continue
+        # runner phase
+        if direction == "long":
+            hit_stop, hit_t = lo <= cur_stop, hi >= final_target
+        else:
+            hit_stop, hit_t = hi >= cur_stop, lo <= final_target
+        if hit_stop:
+            p2 = (cur_stop * (1 - ss) if direction == "long"
+                  else cur_stop * (1 + ss))
+            reason = "partial_then_breakeven"
+            break
+        if hit_t:
+            p2 = final_target
+            reason = "target"                    # runner reached the measured move
+            break
+    if not filled:
+        return None
+    if p1 is None:                               # never reached +1R, never stopped
+        last = float(path[-1]["c"])
+        p1 = p2 = last * (1 - es) if direction == "long" else last * (1 + es)
+        reason = "time_full"
+    elif p2 is None:                             # partial booked, runner timed out
+        last = float(path[-1]["c"])
+        p2 = last * (1 - es) if direction == "long" else last * (1 + es)
+        reason = "partial_then_time"
+
+    if direction == "long":
+        gross = 0.5 * (p1 - entry_fill) + 0.5 * (p2 - entry_fill)
+    else:
+        gross = 0.5 * (entry_fill - p1) + 0.5 * (entry_fill - p2)
+    commission_r = (2 * COMMISSION_PER_SHARE * cost_mult) / risk
+    net_r = gross / risk - commission_r
+    return {
+        "exit_reason": reason,
+        "net_r": round(net_r, 4),
+        "risk_per_share": round(risk, 4),
+    }
+
+
 def _bootstrap_ci(values: np.ndarray, n: int = 5000) -> list[float]:
     if len(values) < 2:
         return [float("nan"), float("nan")]
@@ -304,15 +401,20 @@ def main() -> int:
         ranges.setdefault(sym, []).append(rng)
     adr = {s: sum(v) / len(v) for s, v in ranges.items() if v}
 
-    # Grid: 2 Brooks stops x 2 Brooks targets. Same entry; each signal
-    # is scored against all four combinations.
+    # Each signal scored against several stop/target/management combos.
+    # The first four are the 2x2 stop-x-target grid; the last two are
+    # the actual Brooks trade off the (structural) spike stop: a target
+    # equal to the risk, and a scale-out (half at +1R, runner to the
+    # measured move). (name, stop_attr, mode, param)
     combos = [
-        ("pullback_stop / new_high",      "stop_pullback", "target_new_high"),
-        ("pullback_stop / measured_move", "stop_pullback", "target_measured_move"),
-        ("spike_stop / new_high",         "stop_spike",    "target_new_high"),
-        ("spike_stop / measured_move",    "stop_spike",    "target_measured_move"),
+        ("pullback_stop / new_high",      "stop_pullback", "fixed", "target_new_high"),
+        ("pullback_stop / measured_move", "stop_pullback", "fixed", "target_measured_move"),
+        ("spike_stop / new_high",         "stop_spike",    "fixed", "target_new_high"),
+        ("spike_stop / measured_move",    "stop_spike",    "fixed", "target_measured_move"),
+        ("spike_stop / reward=risk 1R",   "stop_spike",    "rr",    1.0),
+        ("spike_stop / scale-out 1R+MM",  "stop_spike",    "scaleout", None),
     ]
-    buckets: dict[str, list[dict]] = {name: [] for name, _, _ in combos}
+    buckets: dict[str, list[dict]] = {name: [] for name, *_ in combos}
     n_signals = 0
     for cf in cache_files:
         try:
@@ -336,9 +438,20 @@ def main() -> int:
                 "spike_pct": round(sig.spike_height / a, 4)
                              if a and a > 0 else None,
             }
-            for name, stop_attr, tgt_attr in combos:
-                sim = simulate(sig, bars1, getattr(sig, stop_attr),
-                               getattr(sig, tgt_attr))
+            for name, stop_attr, mode, param in combos:
+                stop = getattr(sig, stop_attr)
+                if mode == "fixed":
+                    sim = simulate(sig, bars1, stop, getattr(sig, param))
+                elif mode == "rr":
+                    risk = (sig.entry_trigger - stop) if sig.direction == "long" \
+                        else (stop - sig.entry_trigger)
+                    target = (sig.entry_trigger + param * risk
+                              if sig.direction == "long"
+                              else sig.entry_trigger - param * risk)
+                    sim = simulate(sig, bars1, stop, target)
+                else:  # scaleout
+                    sim = simulate_scaleout(sig, bars1, stop,
+                                            sig.target_measured_move)
                 if sim is None:
                     continue
                 sim.update(meta)
@@ -363,7 +476,7 @@ def main() -> int:
             "adr": "per-symbol average daily range (mean session high-low, "
                    "full sample); spike_pct = spike height / ADR",
         },
-        "results": {name: build_segments(buckets[name]) for name, _, _ in combos},
+        "results": {name: build_segments(buckets[name]) for name, *_ in combos},
     }
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -380,7 +493,7 @@ def main() -> int:
               f"pf={s['profit_factor']}")
 
     print("\n=== BROOKS FIRST-PULLBACK BACKTEST (costed, 2 stops x 2 targets) ===")
-    for name, _, _ in combos:
+    for name, *_ in combos:
         seg = report["results"][name]
         print(f"\n  [{name}]")
         line(seg["all_first_pullbacks"])
