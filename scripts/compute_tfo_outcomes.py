@@ -48,7 +48,7 @@ def supabase_get_candidates(supabase_url: str, service_role: str, recompute: boo
     qs = {
         "select": "id,symbol,session_date,direction,fire_ts,outcome_computed_at",
         "order": "fire_ts.asc",
-        "limit": "1000",
+        "limit": "10000",
     }
     if not recompute:
         qs["outcome_computed_at"] = "is.null"

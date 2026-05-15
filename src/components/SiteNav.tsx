@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: '/chart', label: 'Chart' },
   { href: '/scanner', label: 'Scanner' },
   { href: '/setups', label: 'Setups' },
+  { href: '/spikes', label: 'Spikes' },
   { href: '/cc', label: 'gap up + ft setups' },
   { href: '/bgu', label: 'BGU study' },
   { href: '/history', label: 'History' },

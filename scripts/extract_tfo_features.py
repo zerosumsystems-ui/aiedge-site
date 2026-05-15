@@ -62,7 +62,7 @@ def supabase_get_rows(supabase_url: str, key: str, recompute: bool) -> list[dict
         "select": "id,symbol,session_date,direction,fire_ts,pivot_index,fired_bar_index,"
                   "consecutive_count,strong_count,features_extracted_at",
         "order": "fire_ts.asc",
-        "limit": "1000",
+        "limit": "10000",
         # Only rows where outcome was computed — we need the fire bar to
         # be valid before bothering with features.
         "outcome_computed_at": "not.is.null",
