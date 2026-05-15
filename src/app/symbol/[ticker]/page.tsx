@@ -732,6 +732,52 @@ function SetupBanner({ ticker, fireMarker }: { ticker: string; fireMarker: FireM
           </div>
         </div>
       )}
+
+      {candidate && (
+        <div className="border-t border-border/60 px-4 py-3">
+          <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-sub">
+            Model scope
+          </div>
+          <div className="space-y-2 text-[11px] leading-relaxed text-sub">
+            <p>
+              <span className="font-semibold text-text">What V1 predicts:</span>{' '}
+              a single probability — P(MFE ≥ 1.0% favorably within 24 × 5-min
+              bars after the fire). The number you see in the
+              <span className="font-mono text-text">{' '}model NN%</span> chip
+              above.
+            </p>
+            <p>
+              <span className="font-semibold text-text">What V1 doesn&apos;t do:</span>
+            </p>
+            <ul className="ml-3 space-y-1 list-disc list-inside marker:text-sub/60">
+              <li>
+                <span className="font-semibold text-text">Decide to buy.</span>{' '}
+                The detector fires on the TFO rule (LOD/HOD in first 4 bars +
+                3 confirming closes + 2 Brooks-strong). The model only scores
+                an already-fired setup; it never says &quot;take this trade.&quot;
+              </li>
+              <li>
+                <span className="font-semibold text-text">Set a stop loss.</span>{' '}
+                If STOP/TGT lines show on the chart, they&apos;re rough heuristics
+                (fire close ± half the pre-fire session range), not model output.
+              </li>
+              <li>
+                <span className="font-semibold text-text">Decide when to sell.</span>{' '}
+                The 2-hour window is for measuring Maximum Favorable Excursion
+                (MFE) to train the model — not an exit signal.
+              </li>
+            </ul>
+            <p>
+              <span className="font-semibold text-text">About the 1% threshold:</span>{' '}
+              hardcoded for V1, <em>not</em> ATR-adjusted. A 1% move in SPY is
+              a much bigger event than 1% in TSLA. V2 should switch to a
+              volatility-normalized target (ATR multiple, R-multiple, or
+              session-range multiple) so the threshold means the same thing
+              across tickers.
+            </p>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

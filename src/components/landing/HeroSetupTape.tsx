@@ -966,20 +966,29 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
           </div>
         </div>
         {/* Plain-language caption that ties the URG/UNC bars to actual
-            trade meaning. Always visible (not behind a popover) — these
-            are the two numbers a reader sees first, so they get a one-
-            sentence explainer in the same place. */}
-        <p className="mt-3 text-[11px] leading-snug text-sub">
-          <span className="font-semibold text-text">URG</span> is the V1
-          model&apos;s probability (× 10) that this setup pays ≥ 1%
-          favorably in the next 2 hours.{" "}
-          <span className="font-semibold text-text">UNC</span> is how close
-          to 50/50 that probability is — high UNC = unclear read, low UNC
-          = confident either way. The model is calibrated against{" "}
-          <em>closed</em> 5-min bars after the fire, so these numbers
-          reflect the setup as it would be acted on at the fire-bar
-          close, not in real time before the bar closes.
-        </p>
+            trade meaning + makes the V1 scope explicit. Will needs to
+            see the boundary between "what the model decides" and "what
+            it doesn't" without clicking through. Full detail lives on
+            the deep-dive view (SetupBanner → Model scope block). */}
+        <div className="mt-3 space-y-1.5 text-[11px] leading-snug text-sub">
+          <p>
+            <span className="font-semibold text-text">URG</span> is the V1
+            model&apos;s probability (× 10) that this setup pays ≥ 1%
+            favorably within 2 hours of the fire.{" "}
+            <span className="font-semibold text-text">UNC</span> is how
+            close to 50/50 that probability is — high UNC = unclear read,
+            low UNC = confident either way.
+          </p>
+          <p>
+            <span className="font-semibold text-text">V1 doesn&apos;t decide
+            buy / stop / sell.</span>{" "}
+            The detector fires on the TFO rule; the model only scores the
+            already-fired setup. Any STOP/TGT lines are rough heuristics,
+            not model output. The 1% threshold is hardcoded, not
+            ATR-adjusted yet — V2 will normalize across tickers. Open the
+            deep-dive view for the full model-scope breakdown.
+          </p>
+        </div>
       </div>
     </section>
   )
