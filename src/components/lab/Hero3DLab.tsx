@@ -113,11 +113,13 @@ function makeStage(el: HTMLElement, bloomStrength: number) {
 
   const composer = new EffectComposer(renderer)
   composer.addPass(new RenderPass(scene, camera))
+  // Higher threshold so only genuine highlights bloom — keeps the
+  // geometry crisp instead of smearing the whole object into light.
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(w, h),
     bloomStrength,
-    0.55,
-    0.04,
+    0.4,
+    0.2,
   )
   composer.addPass(bloom)
 
@@ -141,14 +143,14 @@ function makeStage(el: HTMLElement, bloomStrength: number) {
  * ================================================================= */
 
 const sceneCandleSculpture: SceneFactory = (el, rm) => {
-  const { scene, camera, renderer, composer, ro } = makeStage(el, 0.85)
+  const { scene, camera, renderer, composer, ro } = makeStage(el, 0.42)
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.4))
-  const key = new THREE.PointLight(0x6affd6, 55, 60)
-  key.position.set(5, 8, 7)
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55))
+  const key = new THREE.PointLight(0xffffff, 90, 70)
+  key.position.set(5, 9, 8)
   scene.add(key)
-  const rim = new THREE.PointLight(0xffffff, 22, 60)
-  rim.position.set(-8, 3, -6)
+  const rim = new THREE.PointLight(0x6affd6, 45, 60)
+  rim.position.set(-8, 4, -6)
   scene.add(rim)
 
   const L = layout(CANDLES)
@@ -156,18 +158,18 @@ const sceneCandleSculpture: SceneFactory = (el, rm) => {
   scene.add(group)
 
   const upMat = new THREE.MeshStandardMaterial({
-    color: 0x033b2c,
+    color: 0x0c8f6e,
     emissive: 0x00c896,
-    emissiveIntensity: 0.9,
-    metalness: 0.5,
-    roughness: 0.3,
+    emissiveIntensity: 0.32,
+    metalness: 0.6,
+    roughness: 0.28,
   })
   const downMat = new THREE.MeshStandardMaterial({
-    color: 0x3b1414,
+    color: 0x8f3030,
     emissive: 0xe05555,
-    emissiveIntensity: 0.9,
-    metalness: 0.5,
-    roughness: 0.3,
+    emissiveIntensity: 0.32,
+    metalness: 0.6,
+    roughness: 0.28,
   })
   const wickGeo = new THREE.BoxGeometry(0.055, 1, 0.055)
   const bodyGeos: THREE.BoxGeometry[] = []
@@ -281,7 +283,7 @@ const sceneCandleSculpture: SceneFactory = (el, rm) => {
  * ================================================================= */
 
 const sceneParticleAssembly: SceneFactory = (el, rm) => {
-  const { scene, camera, renderer, composer, ro } = makeStage(el, 1.05)
+  const { scene, camera, renderer, composer, ro } = makeStage(el, 0.62)
 
   const L = layout(CANDLES)
   const N = 6500
@@ -406,7 +408,7 @@ const sceneParticleAssembly: SceneFactory = (el, rm) => {
  * ================================================================= */
 
 const scenePriceTerrain: SceneFactory = (el, rm) => {
-  const { scene, camera, renderer, composer, ro } = makeStage(el, 0.8)
+  const { scene, camera, renderer, composer, ro } = makeStage(el, 0.5)
   scene.fog = new THREE.Fog(0x0b0b0b, 8, 22)
 
   const TW = 20
