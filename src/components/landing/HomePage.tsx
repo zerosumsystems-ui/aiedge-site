@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { HeroSetupTape, type FeaturedSetup } from "@/components/landing/HeroSetupTape"
+import { type FeaturedSetup } from "@/components/landing/HeroSetupTape"
+import { ParticleHero } from "@/components/landing/ParticleHero"
 import { fetchTopSetupsOfWeek } from "@/components/setups/liveCandidateAdapter"
 
 interface Candidate {
@@ -23,9 +24,9 @@ interface Candidate {
 /**
  * Home page for aiedge.trade. Three sections:
  *
- *   1. HeroSetupTape — the animated demo reel that already exists.
- *      Sets the visual vibe and shows what a setup walk-through looks
- *      like for a first-time visitor.
+ *   1. ParticleHero — a GPU-simulated particle reel that plays the
+ *      top model-scored setups of the week, bar by bar. Falls back to
+ *      HeroSetupTape without WebGL2 or with reduced-motion.
  *
  *   2. Recent high-conviction picks — pulled live from
  *      /api/scanner/candidates. Shows the top model-scored setups from
@@ -60,7 +61,7 @@ export function HomePage() {
 
   return (
     <main className="bg-bg">
-      <HeroSetupTape setups={topSetups && topSetups.length > 0 ? topSetups : undefined} />
+      <ParticleHero setups={topSetups ?? undefined} />
       <RecentPicks />
       <HowItWorks />
     </main>
