@@ -178,6 +178,7 @@ def main() -> int:
     print(f"Scanning {len(cache_files)} cached sessions for opening spikes...")
 
     trades: list[dict] = []
+    examples: list[dict] = []   # full detail (incl. bars) for the /spikes page
     n_spikes = 0
     for cf in cache_files:
         try:
@@ -188,7 +189,7 @@ def main() -> int:
             continue
         # session date from filename SYMBOL_YYYY-MM-DD.json
         stem = cf.stem
-        session_date = stem.rsplit("_", 1)[-1]
+        symbol, session_date = stem.rsplit("_", 1)
         bars5 = aggregate_5m(bars1)
         for sig in detect_spikes(bars5):
             n_spikes += 1
@@ -202,6 +203,26 @@ def main() -> int:
                 "spike_bar_count": sig.spike_bar_count,
             })
             trades.append(sim)
+            # Keep full chart detail for opening spikes — that's the
+            # cohort the /spikes page showcases.
+            if sig.is_opening:
+                spike_ts = [bars5[i].t for i in range(
+                    sig.spike_start_index, sig.spike_start_index + sig.spike_bar_count)]
+                examples.append({
+                    "symbol": symbol,
+                    "session_date": session_date,
+                    "direction": sig.direction,
+                    "bars": [{"t": b.t, "o": b.o, "h": b.h, "l": b.l, "c": b.c}
+                             for b in bars5],
+                    "spike_bar_ts": spike_ts,
+                    "entry_ts": sig.entry_ts,
+                    "entry_price": sig.entry_price,
+                    "stop_price": sig.stop_price,
+                    "target_price": sig.target_price,
+                    "spike_bar_count": sig.spike_bar_count,
+                    "exit_reason": sim["exit_reason"],
+                    "net_r": sim["net_r"],
+                })
     print(f"  {n_spikes} spikes detected, {len(trades)} simulated")
 
     opening = [t for t in trades if t["is_opening"]]
@@ -246,6 +267,40 @@ def main() -> int:
     (OUT_DIR).mkdir(parents=True, exist_ok=True)
     report_path = OUT_DIR / "spike_backtest_report.json"
     report_path.write_text(json.dumps(report, indent=2) + "\n")
+
+    # --- curated examples for the /spikes page -----------------------
+    # Balanced + honest: an even spread of target-hits and stop-hits,
+    # longs and shorts. NOT cherry-picked to flatter the setup — the
+    # backtest verdict is a null and the gallery should look like one.
+    def _pick(pred, k):
+        return [e for e in examples if pred(e)][:k]
+
+    curated = []
+    curated += _pick(lambda e: e["direction"] == "long" and e["exit_reason"] == "target", 4)
+    curated += _pick(lambda e: e["direction"] == "long" and e["exit_reason"] == "stop", 4)
+    curated += _pick(lambda e: e["direction"] == "short" and e["exit_reason"] == "target", 4)
+    curated += _pick(lambda e: e["direction"] == "short" and e["exit_reason"] == "stop", 4)
+    curated += _pick(lambda e: e["exit_reason"] == "time", 4)
+    # de-dupe (a trade can match only one bucket, but be safe) + cap
+    seen = set()
+    deduped = []
+    for e in curated:
+        key = (e["symbol"], e["session_date"], e["direction"])
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(e)
+
+    examples_dir = ROOT / "public" / "spikes"
+    examples_dir.mkdir(parents=True, exist_ok=True)
+    examples_path = examples_dir / "examples.json"
+    examples_path.write_text(json.dumps({
+        "generated_from": "scripts/backtest_spike.py",
+        "verdict": report["all_spikes"],
+        "opening_verdict": report["opening_spikes"],
+        "examples": deduped,
+    }, indent=2) + "\n")
+    print(f"  wrote {len(deduped)} curated examples -> {examples_path.relative_to(ROOT)}")
 
     def line(s: dict):
         if s["n"] == 0:
