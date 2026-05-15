@@ -57,6 +57,38 @@ logging.basicConfig(
 )
 
 
+# ---------- error reporting ------------------------------------------------
+
+# Set to the sentry_sdk module once init succeeds; stays None otherwise so
+# every capture site is a guarded no-op. Mirrors the Next.js side
+# (instrumentation.ts): no DSN -> Sentry is completely silent.
+_sentry: Any = None
+
+
+def init_sentry() -> None:
+    """Wire Sentry crash reporting for the aggregator.
+
+    No-op when SENTRY_DSN_AGGREGATOR is unset, so local runs stay silent.
+    Call after load_env() so the DSN can come from .env.local as well as
+    the process environment (Fly secrets)."""
+    global _sentry
+    dsn = os.environ.get("SENTRY_DSN_AGGREGATOR")
+    if not dsn:
+        return
+    try:
+        import sentry_sdk  # type: ignore[import-not-found]
+    except ImportError:
+        log.warning("SENTRY_DSN_AGGREGATOR is set but sentry-sdk is not installed; error reporting disabled")
+        return
+    sentry_sdk.init(
+        dsn=dsn,
+        environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+        traces_sample_rate=0.0,
+    )
+    _sentry = sentry_sdk
+    log.info("Sentry error reporting enabled")
+
+
 # ---------- env loading (mirrors probe_databento_entitlements.py) ----------
 
 def _load_env_file(path: Path) -> None:
@@ -767,6 +799,9 @@ def main() -> None:
     On a fatal/unrecoverable error we sys.exit(1) so Fly's restart
     policy actually fires (a clean exit 0 doesn't always respawn).
     """
+    load_env()
+    init_sentry()
+
     backoff_s = 2.0
     max_backoff_s = 60.0
     consecutive_failures = 0
@@ -780,7 +815,14 @@ def main() -> None:
             consecutive_failures += 1
         except SystemExit:
             # require_env() / config errors — propagate so the operator
-            # sees the failure clearly in Fly logs.
+            # sees the failure clearly in Fly logs. Report it too: a
+            # missing Fly secret causing a crashloop is a 2am incident.
+            if _sentry is not None:
+                _sentry.capture_message(
+                    "Aggregator exited during startup (missing or invalid config)",
+                    level="fatal",
+                )
+                _sentry.flush(timeout=5.0)
             raise
         except KeyboardInterrupt:
             log.info("Interrupted — exiting cleanly")
@@ -788,12 +830,21 @@ def main() -> None:
         except Exception:
             log.exception("Live loop crashed; reconnecting in %.1fs", backoff_s)
             consecutive_failures += 1
+            if _sentry is not None:
+                _sentry.capture_exception()
 
         if consecutive_failures >= max_consecutive_failures:
             log.error(
                 "Aggregator failed %d times in a row; exiting non-zero so Fly respawns the machine",
                 consecutive_failures,
             )
+            if _sentry is not None:
+                _sentry.capture_message(
+                    f"Aggregator gave up after {consecutive_failures} consecutive "
+                    "failures; exiting non-zero for Fly respawn",
+                    level="fatal",
+                )
+                _sentry.flush(timeout=5.0)
             sys.exit(1)
         _health_mark("live_connected", False)
         time.sleep(backoff_s)
