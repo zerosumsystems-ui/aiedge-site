@@ -8,8 +8,17 @@
     "min_pullback_bars": 1,
     "max_pullback_bars": 5,
     "commission_per_share": 0.005,
-    "entry_slippage_bps": 2.0,
-    "stop_slippage_bps": 4.0,
+    "slippage_models": {
+      "bps": {
+        "entry": 2.0,
+        "stop": 4.0
+      },
+      "tick": {
+        "entry": 1.0,
+        "stop": 1.0
+      }
+    },
+    "primary_slippage_model": "bps",
     "adr": "per-symbol average daily range (mean session high-low, full sample); spike_pct = spike height / ADR"
   },
   "results": {
@@ -2710,7 +2719,7 @@
           ],
           "win_rate": 0.5156,
           "avg_win_r": 0.7937,
-          "avg_loss_r": -1.0458,
+          "avg_loss_r": -1.0459,
           "profit_factor": 0.808,
           "total_r": -6.23,
           "max_drawdown_r": -11.97
@@ -3280,7 +3289,7 @@
         ],
         "win_rate": 0.5472,
         "avg_win_r": 0.7863,
-        "avg_loss_r": -0.8778,
+        "avg_loss_r": -0.8779,
         "profit_factor": 1.082,
         "total_r": 5.2,
         "max_drawdown_r": -9.99
@@ -3822,6 +3831,212 @@
         "max_drawdown_r": -8.17
       },
       "walk_forward_split_date": "2025-08-18"
+    }
+  },
+  "cost_sensitivity": {
+    "pullback_stop / new_high": {
+      "bps": {
+        "label": "pullback_stop / new_high [bps]",
+        "n": 377,
+        "target_hit_rate": 0.6631,
+        "expectancy_r": -0.2596,
+        "expectancy_ci95": [
+          -0.3829,
+          -0.1432
+        ],
+        "win_rate": 0.4748,
+        "avg_win_r": 0.6383,
+        "avg_loss_r": -1.0713,
+        "profit_factor": 0.539,
+        "total_r": -97.86,
+        "max_drawdown_r": -97.73
+      },
+      "tick": {
+        "label": "pullback_stop / new_high [tick]",
+        "n": 377,
+        "target_hit_rate": 0.6631,
+        "expectancy_r": -0.071,
+        "expectancy_ci95": [
+          -0.1707,
+          0.03
+        ],
+        "win_rate": 0.5146,
+        "avg_win_r": 0.6699,
+        "avg_loss_r": -0.8564,
+        "profit_factor": 0.829,
+        "total_r": -26.76,
+        "max_drawdown_r": -27.27
+      }
+    },
+    "pullback_stop / measured_move": {
+      "bps": {
+        "label": "pullback_stop / measured_move [bps]",
+        "n": 377,
+        "target_hit_rate": 0.1538,
+        "expectancy_r": -0.3581,
+        "expectancy_ci95": [
+          -0.5839,
+          -0.1313
+        ],
+        "win_rate": 0.2653,
+        "avg_win_r": 2.9014,
+        "avg_loss_r": -1.5349,
+        "profit_factor": 0.682,
+        "total_r": -135.02,
+        "max_drawdown_r": -145.36
+      },
+      "tick": {
+        "label": "pullback_stop / measured_move [tick]",
+        "n": 377,
+        "target_hit_rate": 0.1538,
+        "expectancy_r": -0.0651,
+        "expectancy_ci95": [
+          -0.2775,
+          0.1501
+        ],
+        "win_rate": 0.2679,
+        "avg_win_r": 2.988,
+        "avg_loss_r": -1.1824,
+        "profit_factor": 0.925,
+        "total_r": -24.55,
+        "max_drawdown_r": -57.63
+      }
+    },
+    "spike_stop / new_high": {
+      "bps": {
+        "label": "spike_stop / new_high [bps]",
+        "n": 377,
+        "target_hit_rate": 0.7878,
+        "expectancy_r": -0.0676,
+        "expectancy_ci95": [
+          -0.1326,
+          -0.0056
+        ],
+        "win_rate": 0.5942,
+        "avg_win_r": 0.2753,
+        "avg_loss_r": -0.5696,
+        "profit_factor": 0.708,
+        "total_r": -25.48,
+        "max_drawdown_r": -27.08
+      },
+      "tick": {
+        "label": "spike_stop / new_high [tick]",
+        "n": 377,
+        "target_hit_rate": 0.7878,
+        "expectancy_r": -0.0153,
+        "expectancy_ci95": [
+          -0.0743,
+          0.042
+        ],
+        "win_rate": 0.6393,
+        "avg_win_r": 0.2834,
+        "avg_loss_r": -0.5445,
+        "profit_factor": 0.922,
+        "total_r": -5.77,
+        "max_drawdown_r": -11.82
+      }
+    },
+    "spike_stop / measured_move": {
+      "bps": {
+        "label": "spike_stop / measured_move [bps]",
+        "n": 377,
+        "target_hit_rate": 0.2281,
+        "expectancy_r": -0.0761,
+        "expectancy_ci95": [
+          -0.1882,
+          0.0351
+        ],
+        "win_rate": 0.4536,
+        "avg_win_r": 0.9288,
+        "avg_loss_r": -0.9103,
+        "profit_factor": 0.847,
+        "total_r": -28.7,
+        "max_drawdown_r": -33.19
+      },
+      "tick": {
+        "label": "spike_stop / measured_move [tick]",
+        "n": 377,
+        "target_hit_rate": 0.2281,
+        "expectancy_r": 0.0014,
+        "expectancy_ci95": [
+          -0.1043,
+          0.1075
+        ],
+        "win_rate": 0.4615,
+        "avg_win_r": 0.9516,
+        "avg_loss_r": -0.813,
+        "profit_factor": 1.003,
+        "total_r": 0.53,
+        "max_drawdown_r": -20.02
+      }
+    },
+    "spike_stop / reward=risk 1R": {
+      "bps": {
+        "label": "spike_stop / reward=risk 1R [bps]",
+        "n": 377,
+        "target_hit_rate": 0.3793,
+        "expectancy_r": -0.0398,
+        "expectancy_ci95": [
+          -0.1275,
+          0.0503
+        ],
+        "win_rate": 0.5066,
+        "avg_win_r": 0.7464,
+        "avg_loss_r": -0.8471,
+        "profit_factor": 0.905,
+        "total_r": -14.99,
+        "max_drawdown_r": -21.86
+      },
+      "tick": {
+        "label": "spike_stop / reward=risk 1R [tick]",
+        "n": 377,
+        "target_hit_rate": 0.3793,
+        "expectancy_r": 0.0218,
+        "expectancy_ci95": [
+          -0.0624,
+          0.1074
+        ],
+        "win_rate": 0.5172,
+        "avg_win_r": 0.767,
+        "avg_loss_r": -0.7765,
+        "profit_factor": 1.058,
+        "total_r": 8.23,
+        "max_drawdown_r": -16.51
+      }
+    },
+    "spike_stop / scale-out 1R+MM": {
+      "bps": {
+        "label": "spike_stop / scale-out 1R+MM [bps]",
+        "n": 377,
+        "target_hit_rate": 0.2122,
+        "expectancy_r": -0.0475,
+        "expectancy_ci95": [
+          -0.1383,
+          0.044
+        ],
+        "win_rate": 0.504,
+        "avg_win_r": 0.7387,
+        "avg_loss_r": -0.8463,
+        "profit_factor": 0.887,
+        "total_r": -17.9,
+        "max_drawdown_r": -22.46
+      },
+      "tick": {
+        "label": "spike_stop / scale-out 1R+MM [tick]",
+        "n": 377,
+        "target_hit_rate": 0.2122,
+        "expectancy_r": 0.0209,
+        "expectancy_ci95": [
+          -0.0658,
+          0.1088
+        ],
+        "win_rate": 0.5146,
+        "avg_win_r": 0.7691,
+        "avg_loss_r": -0.7723,
+        "profit_factor": 1.056,
+        "total_r": 7.86,
+        "max_drawdown_r": -15.89
+      }
     }
   }
 }

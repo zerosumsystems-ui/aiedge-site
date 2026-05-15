@@ -59,12 +59,26 @@ ROOT = Path(__file__).resolve().parents[1]
 BARS_CACHE = ROOT / "artifacts" / "backtest" / "bars_1m"
 OUT_DIR = ROOT / "artifacts" / "backtest"
 
-# ----- pre-registered execution config (matches backtest_spike.py) ----
+# ----- pre-registered execution config -------------------------------
 COMMISSION_PER_SHARE = 0.005
-ENTRY_SLIPPAGE_BPS = 2.0
-STOP_SLIPPAGE_BPS = 4.0
+TICK = 0.01
+# Slippage sensitivity. "bps" is the basis-points-of-price model shared
+# with the spike / TFO backtests. "tick" charges a fixed tick count —
+# realistic for a resting stop on a liquid large-cap, where slippage is
+# a tick or two regardless of share price. entry/stop given per model.
+SLIPPAGE = {
+    "bps":  {"entry": 2.0, "stop": 4.0},   # basis points of price
+    "tick": {"entry": 1.0, "stop": 1.0},   # ticks
+}
 BAR_5M = 300
 RANDOM_STATE = 17
+
+
+def _slip(price: float, kind: str, model: str) -> float:
+    """Adverse slippage amount (in price) for one fill of `kind`
+    ('entry' or 'stop') under the chosen slippage `model`."""
+    spec = SLIPPAGE[model][kind]
+    return price * spec / 1e4 if model == "bps" else spec * TICK
 
 
 def aggregate_5m(bars1: list[dict]) -> list[Bar5m]:
@@ -88,7 +102,7 @@ def aggregate_5m(bars1: list[dict]) -> list[Bar5m]:
 
 
 def simulate(sig, bars1: list[dict], stop: float, target: float,
-             cost_mult: float = 1.0) -> dict | None:
+             model: str = "bps") -> dict | None:
     """Walk 1-min bars from the High 1 / Low 1 entry bar forward.
 
     Phase 1 — fill: the entry is a stop order, so we wait for price to
@@ -98,18 +112,15 @@ def simulate(sig, bars1: list[dict], stop: float, target: float,
     scored stopped. Unfilled-by-session-end -> no trade; filled but
     never exited -> time stop at the last close.
 
-    `stop` and `target` are passed explicitly so the same signal can be
-    scored against either Brooks stop (pullback vs spike) and either
-    Brooks target (new high vs measured move).
+    `stop`/`target` are explicit so the same signal can be scored
+    against any Brooks stop and target; `model` selects the slippage
+    model (see SLIPPAGE).
     """
     direction = sig.direction
     trigger = sig.entry_trigger
     risk = (trigger - stop) if direction == "long" else (stop - trigger)
     if risk <= 0:
         return None
-
-    es = ENTRY_SLIPPAGE_BPS * cost_mult / 1e4
-    ss = STOP_SLIPPAGE_BPS * cost_mult / 1e4
 
     path = sorted((b for b in bars1 if int(b["t"]) >= sig.entry_ts),
                   key=lambda b: int(b["t"]))
@@ -126,12 +137,12 @@ def simulate(sig, bars1: list[dict], stop: float, target: float,
             if direction == "long":
                 if hi >= trigger:
                     raw = max(trigger, op)        # gap-through fills worse
-                    entry_fill = raw * (1 + es)
+                    entry_fill = raw + _slip(raw, "entry", model)
                     filled = True
             else:
                 if lo <= trigger:
                     raw = min(trigger, op)
-                    entry_fill = raw * (1 - es)
+                    entry_fill = raw - _slip(raw, "entry", model)
                     filled = True
             if not filled:
                 continue
@@ -140,13 +151,10 @@ def simulate(sig, bars1: list[dict], stop: float, target: float,
             hit_stop, hit_tgt = lo <= stop, hi >= target
         else:
             hit_stop, hit_tgt = hi >= stop, lo <= target
-        if hit_stop and hit_tgt:
-            exit_price = stop * (1 - ss) if direction == "long" else stop * (1 + ss)
-            exit_reason = "stop_straddle"
-            break
-        if hit_stop:
-            exit_price = stop * (1 - ss) if direction == "long" else stop * (1 + ss)
-            exit_reason = "stop"
+        if hit_stop:                             # straddle -> stopped (conservative)
+            exit_price = (stop - _slip(stop, "stop", model) if direction == "long"
+                          else stop + _slip(stop, "stop", model))
+            exit_reason = "stop_straddle" if hit_tgt else "stop"
             break
         if hit_tgt:
             exit_price = target              # resting limit — clean fill
@@ -155,13 +163,13 @@ def simulate(sig, bars1: list[dict], stop: float, target: float,
     if not filled:
         return None                          # entry never triggered
     if exit_price is None:
-        last_close = float(path[-1]["c"])
-        exit_price = last_close * (1 - es) if direction == "long" else last_close * (1 + es)
+        last = float(path[-1]["c"])
+        exit_price = (last - _slip(last, "entry", model) if direction == "long"
+                      else last + _slip(last, "entry", model))
         exit_reason = "time"
 
     gross = (exit_price - entry_fill) if direction == "long" else (entry_fill - exit_price)
-    commission_r = (2 * COMMISSION_PER_SHARE * cost_mult) / risk
-    net_r = gross / risk - commission_r
+    net_r = gross / risk - (2 * COMMISSION_PER_SHARE) / risk
     return {
         "exit_reason": exit_reason,
         "net_r": round(net_r, 4),
@@ -170,22 +178,20 @@ def simulate(sig, bars1: list[dict], stop: float, target: float,
 
 
 def simulate_scaleout(sig, bars1: list[dict], stop: float,
-                      final_target: float, cost_mult: float = 1.0) -> dict | None:
+                      final_target: float, model: str = "bps") -> dict | None:
     """Brooks' actual trade management: take half the position off at a
     reward equal to the risk (+1R), move the stop on the runner to
     breakeven, and hold the runner toward the measured move.
 
     Half-size partial at +1R (resting limit, clean fill); the runner's
     stop trails to the entry fill once the partial is booked. net_r is
-    the size-weighted blend of the two exits.
+    the size-weighted blend of the two exits. `model` selects slippage.
     """
     direction = sig.direction
     trigger = sig.entry_trigger
     risk = (trigger - stop) if direction == "long" else (stop - trigger)
     if risk <= 0:
         return None
-    es = ENTRY_SLIPPAGE_BPS * cost_mult / 1e4
-    ss = STOP_SLIPPAGE_BPS * cost_mult / 1e4
     partial = trigger + risk if direction == "long" else trigger - risk
 
     path = sorted((b for b in bars1 if int(b["t"]) >= sig.entry_ts),
@@ -203,10 +209,12 @@ def simulate_scaleout(sig, bars1: list[dict], stop: float,
         hi, lo, op = float(b["h"]), float(b["l"]), float(b["o"])
         if not filled:
             if direction == "long" and hi >= trigger:
-                entry_fill = max(trigger, op) * (1 + es)
+                raw = max(trigger, op)
+                entry_fill = raw + _slip(raw, "entry", model)
                 filled = True
             elif direction == "short" and lo <= trigger:
-                entry_fill = min(trigger, op) * (1 - es)
+                raw = min(trigger, op)
+                entry_fill = raw - _slip(raw, "entry", model)
                 filled = True
             if not filled:
                 continue
@@ -216,8 +224,9 @@ def simulate_scaleout(sig, bars1: list[dict], stop: float,
             else:
                 hit_stop, hit_p = hi >= cur_stop, lo <= partial
             if hit_stop:                         # stopped before the partial
-                p1 = p2 = (cur_stop * (1 - ss) if direction == "long"
-                           else cur_stop * (1 + ss))
+                p1 = p2 = (cur_stop - _slip(cur_stop, "stop", model)
+                           if direction == "long"
+                           else cur_stop + _slip(cur_stop, "stop", model))
                 reason = "stopped_full"
                 break
             if hit_p:
@@ -231,8 +240,9 @@ def simulate_scaleout(sig, bars1: list[dict], stop: float,
         else:
             hit_stop, hit_t = hi >= cur_stop, lo <= final_target
         if hit_stop:
-            p2 = (cur_stop * (1 - ss) if direction == "long"
-                  else cur_stop * (1 + ss))
+            p2 = (cur_stop - _slip(cur_stop, "stop", model)
+                  if direction == "long"
+                  else cur_stop + _slip(cur_stop, "stop", model))
             reason = "partial_then_breakeven"
             break
         if hit_t:
@@ -243,19 +253,20 @@ def simulate_scaleout(sig, bars1: list[dict], stop: float,
         return None
     if p1 is None:                               # never reached +1R, never stopped
         last = float(path[-1]["c"])
-        p1 = p2 = last * (1 - es) if direction == "long" else last * (1 + es)
+        p1 = p2 = (last - _slip(last, "entry", model) if direction == "long"
+                   else last + _slip(last, "entry", model))
         reason = "time_full"
     elif p2 is None:                             # partial booked, runner timed out
         last = float(path[-1]["c"])
-        p2 = last * (1 - es) if direction == "long" else last * (1 + es)
+        p2 = (last - _slip(last, "entry", model) if direction == "long"
+              else last + _slip(last, "entry", model))
         reason = "partial_then_time"
 
     if direction == "long":
         gross = 0.5 * (p1 - entry_fill) + 0.5 * (p2 - entry_fill)
     else:
         gross = 0.5 * (entry_fill - p1) + 0.5 * (entry_fill - p2)
-    commission_r = (2 * COMMISSION_PER_SHARE * cost_mult) / risk
-    net_r = gross / risk - commission_r
+    net_r = gross / risk - (2 * COMMISSION_PER_SHARE) / risk
     return {
         "exit_reason": reason,
         "net_r": round(net_r, 4),
@@ -414,7 +425,9 @@ def main() -> int:
         ("spike_stop / reward=risk 1R",   "stop_spike",    "rr",    1.0),
         ("spike_stop / scale-out 1R+MM",  "stop_spike",    "scaleout", None),
     ]
-    buckets: dict[str, list[dict]] = {name: [] for name, *_ in combos}
+    # Each combo is scored under both slippage models for sensitivity.
+    models = ["bps", "tick"]
+    buckets: dict = {(name, m): [] for name, *_ in combos for m in models}
     n_signals = 0
     for cf in cache_files:
         try:
@@ -440,22 +453,25 @@ def main() -> int:
             }
             for name, stop_attr, mode, param in combos:
                 stop = getattr(sig, stop_attr)
+                target = None
                 if mode == "fixed":
-                    sim = simulate(sig, bars1, stop, getattr(sig, param))
+                    target = getattr(sig, param)
                 elif mode == "rr":
                     risk = (sig.entry_trigger - stop) if sig.direction == "long" \
                         else (stop - sig.entry_trigger)
                     target = (sig.entry_trigger + param * risk
                               if sig.direction == "long"
                               else sig.entry_trigger - param * risk)
-                    sim = simulate(sig, bars1, stop, target)
-                else:  # scaleout
-                    sim = simulate_scaleout(sig, bars1, stop,
-                                            sig.target_measured_move)
-                if sim is None:
-                    continue
-                sim.update(meta)
-                buckets[name].append(sim)
+                for m in models:
+                    if mode == "scaleout":
+                        sim = simulate_scaleout(sig, bars1, stop,
+                                                sig.target_measured_move, m)
+                    else:
+                        sim = simulate(sig, bars1, stop, target, m)
+                    if sim is None:
+                        continue
+                    sim.update(meta)
+                    buckets[(name, m)].append(sim)
     print(f"  {n_signals} first-pullback signals detected")
 
     report = {
@@ -471,12 +487,20 @@ def main() -> int:
             "min_pullback_bars": 1,
             "max_pullback_bars": 5,
             "commission_per_share": COMMISSION_PER_SHARE,
-            "entry_slippage_bps": ENTRY_SLIPPAGE_BPS,
-            "stop_slippage_bps": STOP_SLIPPAGE_BPS,
+            "slippage_models": SLIPPAGE,
+            "primary_slippage_model": "bps",
             "adr": "per-symbol average daily range (mean session high-low, "
                    "full sample); spike_pct = spike height / ADR",
         },
-        "results": {name: build_segments(buckets[name]) for name, *_ in combos},
+        # full segment trees under the primary (bps) model
+        "results": {name: build_segments(buckets[(name, "bps")])
+                    for name, *_ in combos},
+        # cost sensitivity: all-trades summary under each slippage model
+        "cost_sensitivity": {
+            name: {m: summarize(buckets[(name, m)], f"{name} [{m}]")
+                   for m in models}
+            for name, *_ in combos
+        },
     }
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -492,7 +516,7 @@ def main() -> int:
               f"exp={s['expectancy_r']:+.3f}R  CI{s['expectancy_ci95']}  "
               f"pf={s['profit_factor']}")
 
-    print("\n=== BROOKS FIRST-PULLBACK BACKTEST (costed, 2 stops x 2 targets) ===")
+    print("\n=== BROOKS FIRST-PULLBACK BACKTEST (costed, bps slippage) ===")
     for name, *_ in combos:
         seg = report["results"][name]
         print(f"\n  [{name}]")
@@ -508,6 +532,14 @@ def main() -> int:
             line(seg["room_second_half"])
         print(f"    months positive (all): "
               f"{seg['months_positive']}/{seg['months_total']}")
+
+    print("\n=== COST SENSITIVITY: bps vs tick slippage (all trades) ===")
+    print(f"  {'combo':32s} {'bps exp':>9s} {'tick exp':>10s}  {'tick CI':>20s}")
+    for name, *_ in combos:
+        cs = report["cost_sensitivity"][name]
+        b, t = cs["bps"], cs["tick"]
+        print(f"  {name:32s} {b['expectancy_r']:+8.3f}R {t['expectancy_r']:+9.3f}R"
+              f"  {str(t['expectancy_ci95']):>20s}")
     print(f"\nReport: {report_path}")
     return 0
 
