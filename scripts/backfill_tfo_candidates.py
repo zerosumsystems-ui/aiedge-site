@@ -54,15 +54,24 @@ from tfo_detector import Bar5m, detect_tfo  # noqa: E402
 DEFAULT_TICKERS = [
     # Index ETFs
     "SPY", "QQQ", "IWM", "DIA",
+    # Sector ETFs (added in 50-ticker expansion)
+    "XLF", "XLE", "XLK", "XLV", "XLY", "XLI", "XLP", "XLU",
     # Mega-cap tech
     "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA",
     "AMD", "NFLX", "AVGO", "CRM", "ORCL", "ADBE", "INTC",
     # Financials / payments
-    "JPM", "BAC", "V", "MA",
+    "JPM", "BAC", "V", "MA", "GS",
+    # Consumer / staples (added in 50-ticker expansion)
+    "KO", "PG", "WMT", "COST", "HD", "DIS",
+    # Healthcare (added in 50-ticker expansion)
+    "UNH", "JNJ", "LLY", "ABBV", "MRK",
+    # Industrials / defense (added in 50-ticker expansion). BRK.B
+    # excluded — Databento symbol format varies for class-B shares.
+    "BA",
     # Volatile movers
-    "COIN", "PLTR", "UBER",
+    "COIN", "PLTR", "UBER", "SHOP", "SMCI", "GME",
 ]
-DEFAULT_DAYS = 90
+DEFAULT_DAYS = 365
 DEFAULT_BASE_URL = "https://www.aiedge.trade"
 
 
