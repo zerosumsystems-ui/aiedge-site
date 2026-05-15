@@ -29,7 +29,7 @@ def walk(sig, bars1, target):
     """Return (filled, exit_reason, net_R_gross, mfe_R) — no costs, so
     the geometry is clean. mfe_R is peak favorable move / risk."""
     d = sig.direction
-    trig, stop = sig.entry_trigger, sig.stop_price
+    trig, stop = sig.entry_trigger, sig.stop_pullback
     risk = (trig - stop) if d == "long" else (stop - trig)
     if risk <= 0:
         return None
@@ -77,9 +77,9 @@ def main() -> int:
         symbol, date = cf.stem.rsplit("_", 1)
         bars5 = aggregate_5m(bars1)
         for sig in detect_first_pullbacks(bars5):
-            risk = ((sig.entry_trigger - sig.stop_price)
+            risk = ((sig.entry_trigger - sig.stop_pullback)
                     if sig.direction == "long"
-                    else (sig.stop_price - sig.entry_trigger))
+                    else (sig.stop_pullback - sig.entry_trigger))
             if risk <= 0:
                 continue
             mm_R = abs(sig.target_measured_move - sig.entry_trigger) / risk

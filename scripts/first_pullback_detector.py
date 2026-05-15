@@ -41,13 +41,19 @@ ENTRY. Brooks, ch. 3:
   one tick below its low for a short). The High 1 bar IS the entry bar:
   by definition it trades through that level.
 
-PROTECTIVE STOP. Brooks, ch. 1 (the bar-20 High 1 example):
+PROTECTIVE STOP. Brooks names two, and the detector carries both:
 
-  "Their initial protective stop would have been below the most recent
-   minor pullback."
+  - stop_pullback — Brooks, ch. 1 (the bar-20 High 1 example): "Their
+    initial protective stop would have been below the most recent minor
+    pullback." One tick beyond the pullback's own extreme. Tight.
+  - stop_spike — Brooks, ch. 1, for a spike-phase entry: "the risk is
+    to the bottom of the spike ... they put their protective stop at
+    one tick below the low of the lowest bar in the bull spike." The
+    breakout point — if price falls back through where the spike began,
+    the premise is dead. Wider, and the same stop the /spikes setup uses.
 
-  So the stop is one tick beyond the extreme of the pullback (its
-  lowest low for a long, its highest high for a short).
+  The first pullback is a spike-phase entry, so stop_spike is the
+  faithful structural stop; the backtest scores both.
 
 BREAKOUT INTACT. Brooks, ch. 3:
 
@@ -108,7 +114,9 @@ class FirstPullbackSignal:
     entry_index: int             # the High 1 / Low 1 bar (entry bar)
     entry_ts: int                # epoch of the High 1 / Low 1 bar
     entry_trigger: float         # 1 tick beyond the signal bar's extreme
-    stop_price: float            # 1 tick beyond the pullback's extreme
+    stop_pullback: float         # 1 tick beyond the pullback's extreme (tight)
+    stop_spike: float            # 1 tick beyond the spike's start extreme
+                                 # (the breakout point — wider, structural)
     target_new_high: float       # 1 tick beyond the spike extreme — Brooks'
                                  # "at least a new high"
     target_measured_move: float  # spike height projected from the spike
@@ -170,10 +178,11 @@ def _first_pullback_after(bars: Sequence[Bar5m], sp) -> FirstPullbackSignal | No
         if pullback_extreme < spike_low:
             return None   # breakout failed — pullback fell below the spike
         entry_trigger = round(signal_bar.h + TICK, 4)
-        stop = round(pullback_extreme - TICK, 4)
+        stop_pullback = round(pullback_extreme - TICK, 4)
+        stop_spike = round(spike_low - TICK, 4)
         target_new_high = round(spike_high + TICK, 4)
         target_measured_move = round(spike_high + spike_height, 4)
-        if not (target_new_high > entry_trigger > stop):
+        if not (target_new_high > entry_trigger > stop_pullback):
             return None
         if entry_bar.h < entry_trigger:
             return None   # High 1 bar never reached the entry — not tradable
@@ -183,10 +192,11 @@ def _first_pullback_after(bars: Sequence[Bar5m], sp) -> FirstPullbackSignal | No
         if pullback_extreme > spike_high:
             return None   # breakout failed — pullback rose above the spike
         entry_trigger = round(signal_bar.l - TICK, 4)
-        stop = round(pullback_extreme + TICK, 4)
+        stop_pullback = round(pullback_extreme + TICK, 4)
+        stop_spike = round(spike_high + TICK, 4)
         target_new_high = round(spike_low - TICK, 4)
         target_measured_move = round(spike_low - spike_height, 4)
-        if not (target_new_high < entry_trigger < stop):
+        if not (target_new_high < entry_trigger < stop_pullback):
             return None
         if entry_bar.l > entry_trigger:
             return None
@@ -201,7 +211,8 @@ def _first_pullback_after(bars: Sequence[Bar5m], sp) -> FirstPullbackSignal | No
         entry_index=h1_index,
         entry_ts=entry_bar.t,
         entry_trigger=entry_trigger,
-        stop_price=stop,
+        stop_pullback=stop_pullback,
+        stop_spike=stop_spike,
         target_new_high=target_new_high,
         target_measured_move=target_measured_move,
         spike_height=round(spike_height, 4),

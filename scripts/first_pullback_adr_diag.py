@@ -86,9 +86,9 @@ def main() -> int:
                 "reach": reach,
                 "hit": reason == "target",
                 "net": net,
-                "mfe_pct": mfe * (sig.entry_trigger - sig.stop_price
+                "mfe_pct": mfe * (sig.entry_trigger - sig.stop_pullback
                                   if sig.direction == "long"
-                                  else sig.stop_price - sig.entry_trigger) / a,
+                                  else sig.stop_pullback - sig.entry_trigger) / a,
             })
 
     n = len(rows)

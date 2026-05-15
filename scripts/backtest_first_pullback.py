@@ -84,7 +84,7 @@ def aggregate_5m(bars1: list[dict]) -> list[Bar5m]:
     return out
 
 
-def simulate(sig, bars1: list[dict], target: float,
+def simulate(sig, bars1: list[dict], stop: float, target: float,
              cost_mult: float = 1.0) -> dict | None:
     """Walk 1-min bars from the High 1 / Low 1 entry bar forward.
 
@@ -95,12 +95,12 @@ def simulate(sig, bars1: list[dict], target: float,
     scored stopped. Unfilled-by-session-end -> no trade; filled but
     never exited -> time stop at the last close.
 
-    `target` is passed explicitly so the same signal can be scored
-    against either Brooks target (new high vs measured move).
+    `stop` and `target` are passed explicitly so the same signal can be
+    scored against either Brooks stop (pullback vs spike) and either
+    Brooks target (new high vs measured move).
     """
     direction = sig.direction
     trigger = sig.entry_trigger
-    stop = sig.stop_price
     risk = (trigger - stop) if direction == "long" else (stop - trigger)
     if risk <= 0:
         return None
@@ -304,10 +304,15 @@ def main() -> int:
         ranges.setdefault(sym, []).append(rng)
     adr = {s: sum(v) / len(v) for s, v in ranges.items() if v}
 
-    # One trade set per Brooks target. The entry and stop are identical;
-    # only the profit target differs, so each signal is scored twice.
-    trades_nh: list[dict] = []   # "at least a new high"
-    trades_mm: list[dict] = []   # "probably a measured move"
+    # Grid: 2 Brooks stops x 2 Brooks targets. Same entry; each signal
+    # is scored against all four combinations.
+    combos = [
+        ("pullback_stop / new_high",      "stop_pullback", "target_new_high"),
+        ("pullback_stop / measured_move", "stop_pullback", "target_measured_move"),
+        ("spike_stop / new_high",         "stop_spike",    "target_new_high"),
+        ("spike_stop / measured_move",    "stop_spike",    "target_measured_move"),
+    ]
+    buckets: dict[str, list[dict]] = {name: [] for name, _, _ in combos}
     n_signals = 0
     for cf in cache_files:
         try:
@@ -331,20 +336,21 @@ def main() -> int:
                 "spike_pct": round(sig.spike_height / a, 4)
                              if a and a > 0 else None,
             }
-            for target, bucket in ((sig.target_new_high, trades_nh),
-                                   (sig.target_measured_move, trades_mm)):
-                sim = simulate(sig, bars1, target)
+            for name, stop_attr, tgt_attr in combos:
+                sim = simulate(sig, bars1, getattr(sig, stop_attr),
+                               getattr(sig, tgt_attr))
                 if sim is None:
                     continue
                 sim.update(meta)
-                bucket.append(sim)
-    print(f"  {n_signals} first-pullback signals detected "
-          f"({len(trades_nh)} simulated)")
+                buckets[name].append(sim)
+    print(f"  {n_signals} first-pullback signals detected")
 
     report = {
         "config": {
-            "entry": "stop 1 tick above signal bar high (High 1 / Low 1)",
-            "stop": "1 tick beyond the pullback extreme",
+            "entry": "stop 1 tick beyond signal bar extreme (High 1 / Low 1)",
+            "stop_pullback": "1 tick beyond the pullback extreme (tight)",
+            "stop_spike": "1 tick beyond the spike's start extreme "
+                          "(Brooks: 'the risk is to the bottom of the spike')",
             "target_new_high": "1 tick beyond the spike extreme "
                                "(Brooks: 'at least a new high')",
             "target_measured_move": "spike height projected from the spike "
@@ -357,8 +363,7 @@ def main() -> int:
             "adr": "per-symbol average daily range (mean session high-low, "
                    "full sample); spike_pct = spike height / ADR",
         },
-        "target_new_high": build_segments(trades_nh),
-        "target_measured_move": build_segments(trades_mm),
+        "results": {name: build_segments(buckets[name]) for name, _, _ in combos},
     }
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -374,11 +379,10 @@ def main() -> int:
               f"exp={s['expectancy_r']:+.3f}R  CI{s['expectancy_ci95']}  "
               f"pf={s['profit_factor']}")
 
-    print("\n=== BROOKS FIRST-PULLBACK BACKTEST (costed) ===")
-    for key, title in (("target_new_high", "TARGET = at least a new high"),
-                       ("target_measured_move", "TARGET = measured move")):
-        seg = report[key]
-        print(f"\n  [{title}]")
+    print("\n=== BROOKS FIRST-PULLBACK BACKTEST (costed, 2 stops x 2 targets) ===")
+    for name, _, _ in combos:
+        seg = report["results"][name]
+        print(f"\n  [{name}]")
         line(seg["all_first_pullbacks"])
         print("    -- by spike size vs average daily range --")
         for s in seg["by_spike_adr"]:
