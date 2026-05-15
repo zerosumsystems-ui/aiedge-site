@@ -35,10 +35,14 @@ Bar5m shape as tfo_detector. Callers fetch + persist + backtest.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Sequence
 
-from tfo_detector import Bar5m  # noqa: F401 — shared bar shape
+# tfo_detector lives in scripts/live/ — add it to the path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "live"))
+from tfo_detector import Bar5m  # noqa: E402,F401 — shared bar shape
 
 
 # ----- pre-registered thresholds (fixed before any results seen) ------

@@ -1,11 +1,14 @@
-"""Tests for spike_detector. Run: python3 scripts/spike_detector_test.py"""
+"""Tests for spike_detector. Run: python3 scripts/ml/spike_detector_test.py"""
 
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
-from tfo_detector import Bar5m
-from spike_detector import detect_spikes, _is_strong_bull, _little_overlap
+# tfo_detector lives in scripts/live/ — add it to the path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "live"))
+from tfo_detector import Bar5m  # noqa: E402
+from spike_detector import detect_spikes, _is_strong_bull, _little_overlap  # noqa: E402
 
 
 def assert_eq(actual, expected, label: str):

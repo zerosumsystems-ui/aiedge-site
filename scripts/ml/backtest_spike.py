@@ -35,14 +35,17 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 from pathlib import Path
 
 import numpy as np
 
-from tfo_detector import Bar5m
-from spike_detector import detect_spikes
+# tfo_detector lives in scripts/live/ — add it to the path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "live"))
+from tfo_detector import Bar5m  # noqa: E402
+from spike_detector import detect_spikes  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 BARS_CACHE = ROOT / "artifacts" / "backtest" / "bars_1m"
 OUT_DIR = ROOT / "artifacts" / "backtest"
 

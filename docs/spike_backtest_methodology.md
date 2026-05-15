@@ -6,7 +6,7 @@ Trends/Reversals/Trading Ranges*, chapters mined verbatim). Tests
 Brooks' explicit claim that a strong spike reaches a measured move
 ≈ its own height "at least 60 percent" of the time.
 
-Engine: `scripts/backtest_spike.py`. Detector: `scripts/spike_detector.py`.
+Engine: `scripts/ml/backtest_spike.py`. Detector: `scripts/ml/spike_detector.py`.
 
 ## The setup — verbatim Brooks
 
@@ -66,8 +66,8 @@ spike-phase research).
 ## Reproduce
 
 ```
-python3 scripts/spike_detector_test.py     # detector unit tests
-python3 scripts/backtest_spike.py          # full backtest (uses 1m cache)
+python3 scripts/ml/spike_detector_test.py     # detector unit tests
+python3 scripts/ml/backtest_spike.py          # full backtest (uses 1m cache)
 ```
 
 Outputs: `artifacts/backtest/spike_backtest_report.json`.
