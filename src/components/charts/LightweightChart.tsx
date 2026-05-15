@@ -165,7 +165,7 @@ export function LightweightChart({
         background: { type: ColorType.Solid, color: BG },
         textColor: TEXT,
         fontSize: 11,
-        fontFamily: 'var(--font-geist-sans), system-ui, sans-serif',
+        fontFamily: 'var(--font-sans), system-ui, sans-serif',
         attributionLogo: false,
       },
       localization: {

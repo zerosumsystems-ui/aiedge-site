@@ -1,17 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { SiteNav } from "@/components/SiteNav";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Inter — SF-Pro-alike, the de-facto web typeface for Apple-feel UI.
+// Variable font: we load the full weight range so the hero can pull
+// 800 for display sizes while body stays at 400/500.
+const interSans = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// JetBrains Mono — tighter than Geist Mono, reads cleaner for tickers
+// and tabular numbers in the trading UI.
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -53,7 +60,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${geistSans.variable} ${geistMono.variable}`}
+      className={`dark ${interSans.variable} ${jetbrainsMono.variable}`}
     >
       <body className="min-h-[100dvh] bg-bg text-text flex flex-col">
         <SiteNav userEmail={userEmail} />

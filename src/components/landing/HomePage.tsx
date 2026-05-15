@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { HeroSetupTape } from "@/components/landing/HeroSetupTape"
+import { HeroSetupTape, type FeaturedSetup } from "@/components/landing/HeroSetupTape"
+import { fetchTopSetupsOfWeek } from "@/components/setups/liveCandidateAdapter"
 
 interface Candidate {
   id: number
@@ -35,9 +36,31 @@ interface Candidate {
  *      level. Functional links into /scanner, /chart, /setups.
  */
 export function HomePage() {
+  // Hero now cycles the top model-scored setups of the last 7 days
+  // (bar-by-bar). Falls back to the hand-crafted SETUPS reel inside
+  // HeroSetupTape if the fetch returns nothing — first-paint never
+  // shows an empty hero.
+  const [topSetups, setTopSetups] = useState<FeaturedSetup[] | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchTopSetupsOfWeek({ limit: 6, daysBack: 7, minModelScore: 0.5 })
+      .then((s) => {
+        if (cancelled) return
+        setTopSetups(s)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setTopSetups([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <main className="bg-bg">
-      <HeroSetupTape />
+      <HeroSetupTape setups={topSetups && topSetups.length > 0 ? topSetups : undefined} />
       <RecentPicks />
       <HowItWorks />
     </main>

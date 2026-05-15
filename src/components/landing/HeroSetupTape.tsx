@@ -19,6 +19,7 @@ import {
 import { SignalBadge } from "@/components/scanner/SignalBadge"
 import { ScoreBar } from "@/components/scanner/ScoreBar"
 import { HelpLabel } from "@/components/ui/HelpLabel"
+import { HeroBackdrop } from "@/components/landing/HeroBackdrop"
 import type { Signal } from "@/lib/types"
 
 /**
@@ -558,7 +559,7 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
         textColor: PALETTE.text,
         fontSize: 11,
         fontFamily:
-          'var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace',
+          'var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace',
         attributionLogo: false,
       },
       grid: {
@@ -784,9 +785,10 @@ export function HeroSetupTape({ setups: setupsProp }: { setups?: FeaturedSetup[]
   return (
     <section
       aria-label="Featured Brooks Price Action setup"
-      className="relative w-full bg-bg border-b border-border"
+      className="relative w-full border-b border-border overflow-hidden"
     >
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10">
+      <HeroBackdrop />
+      <div className="relative mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10">
         {/* Top strip */}
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
           <div className="font-mono text-[12px] sm:text-[13px] tabular-nums tracking-tight flex items-baseline gap-2">

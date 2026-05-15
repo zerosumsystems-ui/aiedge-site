@@ -201,6 +201,72 @@ export function liveCandidateToFeatured(
 }
 
 /**
+ * Fetch the top-N high-conviction setups from the last `daysBack` trading
+ * days, ordered by model_score desc. For each, fetch the session bars in
+ * parallel and adapt via liveCandidateToFeatured. Drops any candidate
+ * whose bars don't align (e.g. fire_ts not in the returned bar range).
+ *
+ * Used by the home page hero reel to cycle through actual recent picks
+ * instead of the hand-crafted SETUPS array.
+ */
+export async function fetchTopSetupsOfWeek(opts?: {
+  limit?: number
+  daysBack?: number
+  minModelScore?: number
+}): Promise<FeaturedSetup[]> {
+  const limit = opts?.limit ?? 6
+  const daysBack = opts?.daysBack ?? 7
+  const minModelScore = opts?.minModelScore ?? 0.5
+
+  const since = (() => {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() - daysBack)
+    return d.toISOString().slice(0, 10)
+  })()
+  const candQs = new URLSearchParams({
+    since,
+    limit: "100",
+    pattern: "tfo",
+  })
+  const candRes = await fetch(`/api/scanner/candidates?${candQs}`, {
+    cache: "no-store",
+  })
+  if (!candRes.ok) return []
+  const candJson = (await candRes.json()) as { candidates?: CandidateLike[] }
+  const top = (candJson.candidates ?? [])
+    .filter((c) => c.model_score != null && c.model_score >= minModelScore)
+    .sort((a, b) => (b.model_score ?? 0) - (a.model_score ?? 0))
+    .slice(0, limit)
+
+  if (!top.length) return []
+
+  // Fetch every candidate's session bars in parallel. Each candidate's
+  // session_date is the ET date the rule fired, so /api/bars from=to=date.
+  const settled = await Promise.allSettled(
+    top.map(async (cand) => {
+      const barsQs = new URLSearchParams({
+        ticker: cand.symbol,
+        from: cand.session_date,
+        to: cand.session_date,
+        tf: "5min",
+        session: "rth",
+        limit: "200",
+      })
+      const r = await fetch(`/api/bars?${barsQs}`)
+      if (!r.ok) return null
+      const j = (await r.json()) as { bars?: ApiBar[] }
+      const bars = j.bars ?? []
+      if (!bars.length) return null
+      return liveCandidateToFeatured(cand, bars)
+    }),
+  )
+
+  return settled
+    .map((r) => (r.status === "fulfilled" ? r.value : null))
+    .filter((s): s is FeaturedSetup => s !== null)
+}
+
+/**
  * Fetch a single live candidate (by URL params) + its session bars,
  * and adapt into a FeaturedSetup. Returns null if any fetch fails or
  * the bars can't be aligned to the candidate.
