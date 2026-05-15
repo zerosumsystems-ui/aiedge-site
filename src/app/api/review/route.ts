@@ -198,7 +198,7 @@ function buildSymbols(dirPath: string): AuditSymbolRow[] {
   const readsDir = join(dirPath, 'audit', 'reads')
   const readFiles = existsSync(readsDir) ? readdirSync(readsDir) : []
 
-  // Note: interactive chart bars come from `python3 scripts/sync_audit.py`
+  // Note: interactive chart bars come from `python3 scripts/sync/sync_audit.py`
   // which fetches OHLC via Databento and POSTs the full payload. The dev
   // filesystem fallback only attaches the narrative markdown.
   return rows.map((row) => {

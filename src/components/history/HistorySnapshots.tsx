@@ -45,7 +45,7 @@ export function HistorySnapshots() {
             End-of-day scan results live here. Capture today&apos;s with:
           </p>
           <pre className="text-[11px] bg-bg border border-border rounded p-3 mt-3 overflow-x-auto text-left">
-            python3 scripts/capture_eod.py https://www.aiedge.trade
+            python3 scripts/sync/capture_eod.py https://www.aiedge.trade
           </pre>
           <p className="text-xs text-sub mt-3">
             Or schedule it as a cron job for automatic nightly capture.

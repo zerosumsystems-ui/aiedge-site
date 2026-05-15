@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
  * GET /api/bars/live?ticker=SPY&minutes=60
  *
  * Reads the trailing live bar window from Upstash Redis. The
- * scripts/live_bars_aggregator.py process writes each closed 1-minute
+ * scripts/live/live_bars_aggregator.py process writes each closed 1-minute
  * bar to a sorted set keyed by ticker (`bars:1m:SPY`, score = ts).
  *
  * Companion to /api/bars (historical). The chart component fetches both

@@ -31,7 +31,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from tfo_features import extract_features_for_fire  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DATASET = ROOT / "artifacts" / "tfo-baseline" / "raw_dataset.json"
 DEFAULT_BASE_URL = "https://www.aiedge.trade"
 

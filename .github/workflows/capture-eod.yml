@@ -12,7 +12,7 @@ name: Capture EOD Scan Snapshot
 #   Either way, we run after the scanner's last RTH post.
 #
 # On market holidays the scanner produces no fresh results and
-# scripts/capture_eod.py exits 0 without POSTing.
+# scripts/sync/capture_eod.py exits 0 without POSTing.
 
 on:
   schedule:
@@ -43,13 +43,13 @@ jobs:
       - name: Capture EOD snapshot
         env:
           SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
-        run: python3 scripts/capture_eod.py https://www.aiedge.trade
+        run: python3 scripts/sync/capture_eod.py https://www.aiedge.trade
 
       # Each captured day adds one analog entry per ticker that finished
       # a full RTH session. Idempotent — re-runs are no-ops if no new
       # snapshot landed in ~/aiedge-history.
       - name: Extend analog corpus from new capture
-        run: python3 scripts/extend_corpus_from_history.py
+        run: python3 scripts/backfill/extend_corpus_from_history.py
 
       - name: Commit corpus + session files if changed
         run: |

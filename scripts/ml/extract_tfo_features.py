@@ -26,9 +26,8 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 
-# tfo_features is a sibling script. Same import pattern the backfill
-# detector uses.
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# tfo_features lives in scripts/live/ — add it to the path.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "live"))
 from tfo_features import extract_features_for_fire  # noqa: E402
 
 DEFAULT_BASE_URL = "https://www.aiedge.trade"

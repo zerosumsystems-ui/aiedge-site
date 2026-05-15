@@ -30,8 +30,8 @@ from pathlib import Path
 
 import pandas as pd
 
-CORPUS_PATH = Path(__file__).resolve().parent.parent / "public" / "analogs" / "corpus.json"
-OUT_ROOT = Path(__file__).resolve().parent.parent / "public" / "analogs"
+CORPUS_PATH = Path(__file__).resolve().parent.parent.parent / "public" / "analogs" / "corpus.json"
+OUT_ROOT = Path(__file__).resolve().parent.parent.parent / "public" / "analogs"
 DATA_ROOT = Path.home() / "data" / "databento"
 
 ET = "America/New_York"

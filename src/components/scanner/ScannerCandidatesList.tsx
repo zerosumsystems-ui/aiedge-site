@@ -148,7 +148,7 @@ export function ScannerCandidatesList() {
         <div className="rounded-md border border-border bg-surface px-3 py-6 text-center text-xs text-sub">
           No candidates yet. Run{" "}
           <code className="rounded bg-bg px-1.5 py-0.5 text-text">
-            scripts/backfill_tfo_candidates.py
+            scripts/backfill/backfill_tfo_candidates.py
           </code>{" "}
           to populate.
         </div>

@@ -25,7 +25,7 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # Databento for the live stream. scikit-learn + joblib + numpy for the
-# live TFO scorer (scripts/live_tfo_runner.py). sentry-sdk for crash +
+# live TFO scorer (scripts/live/live_tfo_runner.py). sentry-sdk for crash +
 # reconnect-storm reporting to the aiedge-aggregator Sentry project.
 # Pinned so unrelated SDK changes don't break the aggregator silently —
 # bump intentionally after testing.
@@ -49,10 +49,10 @@ RUN --mount=type=secret,id=ca,target=/tmp/ca-extra.crt \
 # Aggregator + shared TFO modules. The aggregator imports tfo_detector
 # and tfo_features as sibling modules; live_tfo_runner imports both too.
 # Keeping everything flat under /app matches the on-disk sibling layout.
-COPY scripts/live_bars_aggregator.py /app/live_bars_aggregator.py
-COPY scripts/live_tfo_runner.py /app/live_tfo_runner.py
-COPY scripts/tfo_detector.py /app/tfo_detector.py
-COPY scripts/tfo_features.py /app/tfo_features.py
+COPY scripts/live/live_bars_aggregator.py /app/live_bars_aggregator.py
+COPY scripts/live/live_tfo_runner.py /app/live_tfo_runner.py
+COPY scripts/live/tfo_detector.py /app/tfo_detector.py
+COPY scripts/live/tfo_features.py /app/tfo_features.py
 
 # Production joblib model. Baked into the image so a deploy is a single
 # atomic unit (code + model versioned together). The runner reads

@@ -32,8 +32,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-CORPUS_PATH = Path(__file__).resolve().parent.parent / "public" / "analogs" / "corpus.json"
-MATCHES_PATH = Path(__file__).resolve().parent.parent / "public" / "analogs" / "matches.json"
+CORPUS_PATH = Path(__file__).resolve().parent.parent.parent / "public" / "analogs" / "corpus.json"
+MATCHES_PATH = Path(__file__).resolve().parent.parent.parent / "public" / "analogs" / "matches.json"
 ANALOGS_ROOT = CORPUS_PATH.parent
 OUT_PATH = ANALOGS_ROOT / "corpus_validation.json"
 

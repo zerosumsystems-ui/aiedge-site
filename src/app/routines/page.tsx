@@ -101,7 +101,7 @@ export default function RoutinesPage() {
         <p className="text-sub text-sm">
           No status yet. Run{' '}
           <code className="text-teal/80 font-mono text-xs">
-            python3 scripts/sync_routines.py https://aiedge.trade
+            python3 scripts/sync/sync_routines.py https://aiedge.trade
           </code>
           .
         </p>

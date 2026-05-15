@@ -29,8 +29,8 @@ from pathlib import Path
 
 import pandas as pd
 
-CORPUS_PATH = Path(__file__).resolve().parent.parent / "public" / "analogs" / "corpus.json"
-ANALOGS_ROOT = Path(__file__).resolve().parent.parent / "public" / "analogs"
+CORPUS_PATH = Path(__file__).resolve().parent.parent.parent / "public" / "analogs" / "corpus.json"
+ANALOGS_ROOT = Path(__file__).resolve().parent.parent.parent / "public" / "analogs"
 DATA_ROOT = Path.home() / "data" / "databento"
 
 # Picked for liquidity + diversity of intraday behavior. Not exhaustive —

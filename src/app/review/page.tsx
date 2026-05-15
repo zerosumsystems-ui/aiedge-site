@@ -70,7 +70,7 @@ export default function ReviewPage() {
               </code>{' '}
               or sync via{' '}
               <code className="text-teal/80 font-mono text-[11px]">
-                python3 scripts/sync_audit.py
+                python3 scripts/sync/sync_audit.py
               </code>
               .
             </p>

@@ -7,7 +7,7 @@
  *  question every quant-fund reviewer asks: "does this thing actually
  *  predict, or is it just shape-similar noise?"
  *
- *  Stats are computed offline by scripts/validate_corpus_predictions.py
+ *  Stats are computed offline by scripts/ml/validate_corpus_predictions.py
  *  and shipped as public/analogs/corpus_validation.json. */
 
 import { useEffect, useState } from 'react'
@@ -283,7 +283,7 @@ export function CorpusValidation() {
 
       <p className="text-[10px] text-sub mt-3">
         Generated {new Date(data.generatedAt).toLocaleString()} ·
-        run <code className="text-sub/80">scripts/validate_corpus_predictions.py</code> to refresh.
+        run <code className="text-sub/80">scripts/ml/validate_corpus_predictions.py</code> to refresh.
       </p>
     </div>
   )

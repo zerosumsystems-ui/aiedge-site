@@ -42,8 +42,8 @@ from dataclasses import asdict
 from datetime import date as date_t, datetime, timedelta
 from typing import Iterable
 
-# Detector is a sibling script.
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Detector lives in scripts/live/.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "live"))
 from tfo_detector import Bar5m, detect_tfo  # noqa: E402
 
 # Highly liquid US equities — index ETFs + megacaps + sector volatility.
