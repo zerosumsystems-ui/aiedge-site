@@ -79,9 +79,11 @@ def load_api_key() -> str:
                 if line.startswith("DATABENTO_API_KEY="):
                     return line.split("=", 1)[1].strip().strip('"').strip("'")
 
-    # Fall back to the scanner's credentials path (mirrors _chart_data.py).
-    vp_env = Path("/Users/williamkosloski/video-pipeline/credentials/.env")
-    if vp_env.exists():
+    # Fall back to the scanner's credentials .env when VIDEO_PIPELINE_DIR
+    # points at a local scanner checkout (mirrors _chart_data.py).
+    _vp = os.environ.get("VIDEO_PIPELINE_DIR")
+    vp_env = Path(_vp) / "credentials" / ".env" if _vp else None
+    if vp_env and vp_env.exists():
         for raw in vp_env.read_text().splitlines():
             line = raw.strip()
             if line.startswith("DATABENTO_API_KEY="):

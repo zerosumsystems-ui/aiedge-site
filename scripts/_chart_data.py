@@ -17,13 +17,16 @@ from pathlib import Path
 import pandas as pd
 
 # Make the scanner's shared modules importable (databento client lives there).
-VP = Path("/Users/williamkosloski/video-pipeline")
-if VP.is_dir() and str(VP) not in sys.path:
+# Point VIDEO_PIPELINE_DIR at the local scanner checkout when running these
+# sync scripts on a workstation; it stays unset everywhere else.
+_vp = os.environ.get("VIDEO_PIPELINE_DIR")
+VP = Path(_vp) if _vp else None
+if VP and VP.is_dir() and str(VP) not in sys.path:
     sys.path.insert(0, str(VP))
 
-# Load the .env so DATABENTO_API_KEY is set. Same pattern used by _annotate_all.py.
-ENV_PATH = VP / "credentials" / ".env"
-if ENV_PATH.exists():
+# Load the .env so DATABENTO_API_KEY is set.
+ENV_PATH = (VP / "credentials" / ".env") if VP else None
+if ENV_PATH and ENV_PATH.exists():
     for _line in ENV_PATH.read_text().splitlines():
         _line = _line.strip()
         if "=" in _line and not _line.startswith("#"):

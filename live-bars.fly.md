@@ -1,7 +1,7 @@
 # Fly.io deployment — live-bar aggregator
 
-Runs `scripts/live_bars_aggregator.py` 24/7 in the cloud so the chart's
-real-time feed doesn't depend on the Mac mini. The aggregator
+Runs `scripts/live_bars_aggregator.py` 24/7 in the cloud as the sole
+host of the chart's real-time feed. The aggregator
 subscribes to Databento's live stream, buckets ticks into 1-minute OHLCV
 bars per symbol, and writes each closed bar to Upstash Redis. The
 Next.js `/api/bars/live` route reads from the same key.
@@ -40,8 +40,8 @@ matters because the script `sys.exit(2)`s on missing required env vars.
 
 ## Set secrets
 
-Same values that the Mac mini uses. Rotate the Upstash token first (it
-was leaked in chat) and use the new value here.
+Rotate the Upstash token first (it was leaked in chat) and use the new
+value here.
 
 ```
 fly secrets set --config fly.live-bars.toml \
@@ -141,12 +141,6 @@ caught and logged so reconnects don't spam errors.
   - `LIVE_DATASET` / `LIVE_SCHEMA` mismatch your Databento
     entitlements. Re-run `scripts/probe_databento_entitlements.py` on
     a workstation to confirm what your key is allowed to subscribe to.
-
-- **Mac-mini setup still running** — that's fine, it acts as a hot
-  spare. Both can write to the same Upstash sorted set; ZADD is
-  idempotent on identical scores. You can disable the launchd job with
-  `launchctl bootout gui/$UID ~/Library/LaunchAgents/com.aiedge.live-bars.plist`
-  whenever you want.
 
 ## Cost
 

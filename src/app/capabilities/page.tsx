@@ -84,7 +84,7 @@ const SECTIONS: Section[] = [
       {
         title: 'Aggregator pipeline',
         detail:
-          'Fly-hosted live-bars aggregator (Dockerfile.live-bars, fly.live-bars.toml) with deploy via GitHub Actions on push to main, plus the Mac mini fallback path.',
+          'Fly-hosted live-bars aggregator (Dockerfile.live-bars, fly.live-bars.toml) with deploy via GitHub Actions on push to main.',
       },
       {
         title: 'Subscribe / reconnect discipline',
