@@ -79,8 +79,16 @@ FEATURE_COLUMNS = [
 ]
 
 TARGETS = {
-    "net_positive": ("outcome_net_pct", lambda s: (s > 0).astype(int)),
+    # Production target: predicts the V1 model's column on Supabase
+    # (model_target='mfe_ge_1pct'). The Fly image ships this joblib.
     "mfe_ge_1pct": ("outcome_mfe_pct", lambda s: (s >= 1.0).astype(int)),
+    # Experimental volatility-aware target. "Good" = MFE >= 1.5*MAE AND
+    # MFE >= 0.5%. The row-level value is a Postgres generated column
+    # (migration 0008). On the corrected-detector dataset this trains
+    # to a weak AUC (~0.53) — the V1 14-feature set predicts MFE
+    # magnitude better than MFE/MAE ratio. Keeping it built so we can
+    # compare side-by-side as the dataset grows or features evolve.
+    "is_good": ("is_good", lambda s: s.astype(int)),
 }
 
 RANDOM_STATE = 17
@@ -101,7 +109,7 @@ def load_from_supabase() -> list[dict]:
         {
             "select": "id,symbol,session_date,direction,fire_ts,"
                       "outcome_net_pct,outcome_mfe_pct,outcome_mae_pct,"
-                      "outcome_bars_seen,outcome_window_bars,features",
+                      "outcome_bars_seen,outcome_window_bars,is_good,features",
             "pattern": "eq.tfo",
             "outcome_computed_at": "not.is.null",
             "features_extracted_at": "not.is.null",
@@ -136,6 +144,7 @@ def build_frame(rows: list[dict]) -> pd.DataFrame:
             "outcome_mfe_pct": r.get("outcome_mfe_pct"),
             "outcome_mae_pct": r.get("outcome_mae_pct"),
             "outcome_bars_seen": r.get("outcome_bars_seen"),
+            "is_good": r.get("is_good"),
         }
         for col in FEATURE_COLUMNS:
             rec[col] = feats.get(col)
@@ -146,7 +155,7 @@ def build_frame(rows: list[dict]) -> pd.DataFrame:
     df["dir_long"] = (df["direction"] == "long").astype(int)
 
     # Defensive: drop rows missing any feature or the outcome.
-    must_have = FEATURE_COLUMNS + ["outcome_net_pct", "outcome_mfe_pct"]
+    must_have = FEATURE_COLUMNS + ["outcome_net_pct", "outcome_mfe_pct", "is_good"]
     before = len(df)
     df = df.dropna(subset=must_have).copy()
     if len(df) != before:
