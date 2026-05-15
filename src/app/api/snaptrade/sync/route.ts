@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createSnaptradeClient } from '@/lib/snaptrade/client'
 import { pairFills, pairRoundTrips, perSetupStats } from '@/lib/pairing'
-import { getSnapshot, setSnapshot } from '@/lib/snapshots'
+import { getSnapshot, getUserSnapshot, setUserSnapshot } from '@/lib/snapshots'
 
 export const dynamic = 'force-dynamic'
 
@@ -438,7 +438,17 @@ export async function GET(request: Request) {
   const unauth = await requireSession(request)
   if (unauth) return unauth
 
-  const payload = await getSnapshot<FilledTradesPayload>('filled_trades', EMPTY_PAYLOAD)
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'no user session' }, { status: 401 })
+
+  const payload = await getUserSnapshot<FilledTradesPayload>(
+    'filled_trades',
+    user.id,
+    EMPTY_PAYLOAD
+  )
   return Response.json(payload)
 }
 
@@ -465,17 +475,74 @@ export async function POST(request: Request) {
   const endDate = body.endDate ?? new Date().toISOString().split('T')[0]
 
   const admin = createAdminClient()
-  const allFills: FilledTrade[] = []
+
+  // Brooks Trade Catalog is firm-wide (not per-user). Fetch once and reuse
+  // across all per-user pairings.
+  const trades = await getSnapshot<TradesPayload>('trades', {
+    trades: [],
+    syncedAt: '',
+    tradeCount: 0,
+  })
+
   let totalAccounts = 0
+  let totalFillsFetched = 0
+  let totalRoundTrips = 0
+  let totalOpenRoundTrips = 0
+  let totalOrphanExitFills = 0
+  let totalOrphanExitShares = 0
   let lastSyncError: string | null = null
   const allDiags: AccountDiag[] = []
 
+  // Per-user pipeline. Each connection writes its OWN filled_trades snapshot
+  // keyed by user id, so user A's data never leaks into user B's journal.
   for (const conn of connections) {
     try {
-      const { fills, accountCount, accountDiags } = await syncConnection(conn, startDate, endDate)
-      allFills.push(...fills)
+      const { fills, accountCount, accountDiags } = await syncConnection(
+        conn,
+        startDate,
+        endDate
+      )
       totalAccounts += accountCount
+      totalFillsFetched += fills.length
       allDiags.push(...accountDiags)
+
+      // Merge with this user's existing snapshot only — dedupe by id.
+      const existing = await getUserSnapshot<FilledTradesPayload>(
+        'filled_trades',
+        conn.user_id,
+        EMPTY_PAYLOAD
+      )
+      const byId = new Map<string, FilledTrade>()
+      for (const fill of existing.fills) if (isRealFill(fill)) byId.set(fill.id, fill)
+      for (const fill of fills) if (isRealFill(fill)) byId.set(fill.id, fill)
+      const mergedFills = Array.from(byId.values()).sort((a, b) =>
+        b.fillTime.localeCompare(a.fillTime)
+      )
+
+      const paired = pairFills(mergedFills, trades.trades)
+      const stats = perSetupStats(paired, trades.trades)
+      // pairRoundTrips groups by accountId+ticker, so a Fidelity SELL can't
+      // close a Robinhood BUY. Naked SELLs become orphan exits, not shorts.
+      const { roundTrips, orphanExitFills, orphanExitShares } = pairRoundTrips(
+        mergedFills,
+        paired
+      )
+      totalRoundTrips += roundTrips.length
+      totalOpenRoundTrips += roundTrips.filter((t) => t.isOpen).length
+      totalOrphanExitFills += orphanExitFills
+      totalOrphanExitShares += orphanExitShares
+
+      const payload: FilledTradesPayload = {
+        fills: mergedFills,
+        paired,
+        stats,
+        roundTrips,
+        syncedAt: new Date().toISOString(),
+        lastSyncError: null,
+        accountCount,
+      }
+      await setUserSnapshot('filled_trades', conn.user_id, payload)
+
       await admin
         .from('broker_connections')
         .update({
@@ -491,56 +558,14 @@ export async function POST(request: Request) {
     }
   }
 
-  // Merge with existing snapshot fills — dedupe by id (idempotent re-syncs).
-  // Apply the cash-sweep + min-qty filter to merged fills too, so old records
-  // that landed before the filter existed get cleaned up on this sync.
-  const existing = await getSnapshot<FilledTradesPayload>('filled_trades', EMPTY_PAYLOAD)
-  const byId = new Map<string, FilledTrade>()
-  for (const fill of existing.fills) if (isRealFill(fill)) byId.set(fill.id, fill)
-  for (const fill of allFills) if (isRealFill(fill)) byId.set(fill.id, fill)
-  const mergedFills = Array.from(byId.values()).sort((a, b) =>
-    b.fillTime.localeCompare(a.fillTime)
-  )
-
-  // Pair against the Brooks Trade Catalog (pre-trade reads from /trades).
-  // Pairing is a pure function — cache the result in the snapshot so the
-  // journal page just renders.
-  const trades = await getSnapshot<TradesPayload>('trades', {
-    trades: [],
-    syncedAt: '',
-    tradeCount: 0,
-  })
-  const paired = pairFills(mergedFills, trades.trades)
-  const stats = perSetupStats(paired, trades.trades)
-  // Naked SELLs (no preceding BUY in the stream) are treated as orphan
-  // exits rather than synthesized as shorts. This prevents phantom short
-  // round-trips when SnapTrade misses earlier entry fills (the common
-  // failure mode with a fresh broker connection).
-  const { roundTrips, orphanExitFills, orphanExitShares } = pairRoundTrips(
-    mergedFills,
-    paired
-  )
-
-  const payload: FilledTradesPayload = {
-    fills: mergedFills,
-    paired,
-    stats,
-    roundTrips,
-    syncedAt: new Date().toISOString(),
-    lastSyncError,
-    accountCount: totalAccounts,
-  }
-  await setSnapshot('filled_trades', payload)
-
   return Response.json({
     scope,
     accounts: totalAccounts,
-    fillsFetched: allFills.length,
-    fillsTotal: mergedFills.length,
-    roundTripCount: roundTrips.length,
-    openRoundTripCount: roundTrips.filter((t) => t.isOpen).length,
-    orphanExitFills,
-    orphanExitShares,
+    fillsFetched: totalFillsFetched,
+    roundTripCount: totalRoundTrips,
+    openRoundTripCount: totalOpenRoundTrips,
+    orphanExitFills: totalOrphanExitFills,
+    orphanExitShares: totalOrphanExitShares,
     lastSyncError,
     accountDiagnostics: allDiags,
   })

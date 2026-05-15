@@ -151,20 +151,23 @@ export function pairRoundTrips(
   const pairedReadByFillId = new Map<string, string | null>()
   for (const p of paired) pairedReadByFillId.set(p.fill.id, p.pairedReadId)
 
-  // Bucket fills by ticker
-  const byTicker = new Map<string, FilledTrade[]>()
+  // Bucket fills by accountId + ticker. We MUST NOT pair a SELL in account A
+  // against a BUY in account B — those are different brokerage accounts (e.g.
+  // Fidelity vs Robinhood) and crossing them invents phantom round-trips.
+  const byAccountTicker = new Map<string, FilledTrade[]>()
   for (const fill of fills) {
-    const key = fill.ticker.toUpperCase()
-    const bucket = byTicker.get(key)
+    const key = `${fill.accountId || 'unknown'}\n${fill.ticker.toUpperCase()}`
+    const bucket = byAccountTicker.get(key)
     if (bucket) bucket.push(fill)
-    else byTicker.set(key, [fill])
+    else byAccountTicker.set(key, [fill])
   }
 
   const roundTrips: RoundTrip[] = []
   let orphanExitFills = 0
   let orphanExitShares = 0
 
-  for (const [ticker, tickerFills] of byTicker) {
+  for (const [bucketKey, tickerFills] of byAccountTicker) {
+    const ticker = bucketKey.split('\n')[1]
     // Chronological — oldest first. Ties broken by id for determinism.
     const ordered = [...tickerFills].sort((a, b) => {
       const c = a.fillTime.localeCompare(b.fillTime)
@@ -270,6 +273,8 @@ export function pairRoundTrips(
           pairedReadByFillId.get(lastEntry.id) ??
           null,
         isOpen: false,
+        accountId: fill.accountId,
+        accountName: fill.accountName,
       })
 
       if (openLegs.length === 0 && remainingToClose > 0) {
@@ -318,6 +323,8 @@ export function pairRoundTrips(
         exitFillIds: [],
         pairedReadId: pairedReadByFillId.get(leg.fill.id) ?? null,
         isOpen: true,
+        accountId: leg.fill.accountId,
+        accountName: leg.fill.accountName,
       })
     }
   }

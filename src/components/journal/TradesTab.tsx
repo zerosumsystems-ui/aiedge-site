@@ -74,10 +74,15 @@ function formatWinRate(n: number): string {
   return `${(n * 100).toFixed(0)}%`
 }
 
+const ACCOUNT_ALL = '__all__'
+
 export function TradesTab() {
   const [payload, setPayload] = useState<FilledTradesPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'closed' | 'open' | 'paired' | 'orphan'>('closed')
+  // null = "user hasn't picked yet, fall back to most-recent account".
+  // ACCOUNT_ALL = explicit choice to show every account.
+  const [accountFilter, setAccountFilter] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/snaptrade/sync')
@@ -89,8 +94,44 @@ export function TradesTab() {
       .catch(() => setLoading(false))
   }, [])
 
-  const filtered = useMemo(() => {
+  // Distinct accounts available in this user's snapshot — used for the
+  // per-account picker. Prefer accountName for display; fall back to id.
+  const accounts = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const t of payload?.roundTrips ?? []) {
+      if (!t.accountId) continue
+      m.set(t.accountId, t.accountName ?? t.accountId)
+    }
+    return Array.from(m.entries()).map(([id, name]) => ({ id, name }))
+  }, [payload?.roundTrips])
+
+  // When the user hasn't explicitly picked, default to the most-recently
+  // active account so they land on a single-account view instead of the
+  // cross-account blob. ACCOUNT_ALL is the explicit "show me everything".
+  const defaultAccountId = useMemo(() => {
+    if (accounts.length <= 1) return ACCOUNT_ALL
+    let bestId: string | null = null
+    let bestKey = ''
+    for (const t of payload?.roundTrips ?? []) {
+      const key = t.exitTime ?? t.entryTime
+      if (key > bestKey && t.accountId) {
+        bestKey = key
+        bestId = t.accountId
+      }
+    }
+    return bestId ?? ACCOUNT_ALL
+  }, [accounts.length, payload?.roundTrips])
+
+  const effectiveAccountFilter = accountFilter ?? defaultAccountId
+
+  const accountScoped = useMemo(() => {
     const trips = payload?.roundTrips ?? []
+    if (effectiveAccountFilter === ACCOUNT_ALL) return trips
+    return trips.filter((t) => t.accountId === effectiveAccountFilter)
+  }, [payload?.roundTrips, effectiveAccountFilter])
+
+  const filtered = useMemo(() => {
+    const trips = accountScoped
     switch (filter) {
       case 'closed':
         return trips.filter((t) => !t.isOpen)
@@ -103,7 +144,7 @@ export function TradesTab() {
       default:
         return trips
     }
-  }, [payload?.roundTrips, filter])
+  }, [accountScoped, filter])
 
   if (loading) {
     return (
@@ -115,10 +156,14 @@ export function TradesTab() {
     )
   }
 
-  const trips = payload?.roundTrips ?? []
-  const fills = payload?.fills ?? []
+  const trips = accountScoped
+  const allFills = payload?.fills ?? []
+  const fills =
+    effectiveAccountFilter === ACCOUNT_ALL
+      ? allFills
+      : allFills.filter((f) => f.accountId === effectiveAccountFilter)
 
-  if (trips.length === 0 && fills.length === 0) {
+  if (trips.length === 0 && fills.length === 0 && (payload?.roundTrips ?? []).length === 0) {
     return (
       <div className="text-center py-16 text-sub text-sm">
         No trades yet. Fills get paired into round-trips (BUY → SELL) on sync.
@@ -158,6 +203,40 @@ export function TradesTab() {
 
   return (
     <div className="space-y-4">
+      {/* Per-broker-account picker. Only renders when more than one account
+          has fills in this user's snapshot. Defaults to the most-recently
+          active account (set in an effect above). */}
+      {accounts.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] uppercase tracking-wider text-sub">Account</span>
+          <div className="flex gap-1 flex-wrap">
+            <button
+              onClick={() => setAccountFilter(ACCOUNT_ALL)}
+              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                effectiveAccountFilter === ACCOUNT_ALL
+                  ? 'bg-teal/10 text-teal'
+                  : 'text-sub hover:text-text hover:bg-bg border border-border'
+              }`}
+            >
+              All accounts
+            </button>
+            {accounts.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => setAccountFilter(a.id)}
+                className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                  effectiveAccountFilter === a.id
+                    ? 'bg-teal/10 text-teal'
+                    : 'text-sub hover:text-text hover:bg-bg border border-border'
+                }`}
+              >
+                {a.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Headline stats — Van Tharp style: win-rate, expectancy, profit factor */}
       <div className="bg-surface border border-border rounded-lg p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatBox label="Closed" value={String(closed.length)} />
@@ -231,9 +310,13 @@ export function TradesTab() {
         ))}
       </div>
 
-      {/* Raw fills tape — collapsed footer */}
-      {fills.length > 0 && (
-        <RawFillsFooter payload={payload!} />
+      {/* Raw fills tape — collapsed footer. Scoped to the selected account
+          so a Robinhood view doesn't show Fidelity fills underneath. */}
+      {fills.length > 0 && payload && (
+        <RawFillsFooter
+          payload={payload}
+          fillsOverride={effectiveAccountFilter === ACCOUNT_ALL ? null : fills}
+        />
       )}
     </div>
   )
@@ -312,9 +395,15 @@ function SetupStatsPanel({ stats }: { stats: Record<string, EquityStats> }) {
   )
 }
 
-function RawFillsFooter({ payload }: { payload: FilledTradesPayload }) {
+function RawFillsFooter({
+  payload,
+  fillsOverride,
+}: {
+  payload: FilledTradesPayload
+  fillsOverride: FilledTrade[] | null
+}) {
   const [open, setOpen] = useState(false)
-  const fills = payload.fills
+  const fills = fillsOverride ?? payload.fills
   const pairedById = useMemo(() => {
     const m = new Map<string, PairedTrade>()
     for (const p of payload.paired ?? []) m.set(p.fill.id, p)

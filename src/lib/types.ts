@@ -502,6 +502,10 @@ export interface RoundTrip {
   exitFillIds: string[]
   pairedReadId: string | null // inherits from entry fill's paired read
   isOpen: boolean
+  /** Broker account this round-trip belongs to. Pairing is grouped by
+   *  (accountId, ticker) so a round-trip is always within a single account. */
+  accountId: string
+  accountName: string | null
 }
 
 export interface FilledTradesPayload {

@@ -57,3 +57,61 @@ export async function setSnapshot<T>(key: SnapshotKey, payload: T): Promise<void
     throw new Error(`setSnapshot(${key}) failed: ${error.message}`)
   }
 }
+
+/**
+ * Per-user variants — store one snapshot per (auth user, base key) so user A
+ * never sees user B's data. Used for broker fills (`filled_trades:<user_id>`)
+ * where every user's connected accounts are private. The base key remains
+ * one of the typed SnapshotKey values; the row's actual `key` is
+ * `${baseKey}:${userId}`.
+ */
+type UserSnapshotKey = 'filled_trades'
+
+function userKey(baseKey: UserSnapshotKey, userId: string): string {
+  return `${baseKey}:${userId}`
+}
+
+export async function getUserSnapshot<T>(
+  baseKey: UserSnapshotKey,
+  userId: string,
+  empty: T
+): Promise<T> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('api_snapshots')
+    .select('payload')
+    .eq('key', userKey(baseKey, userId))
+    .maybeSingle()
+
+  if (error) {
+    console.error(
+      `[snapshots] getUserSnapshot(${baseKey}, ${userId}) failed:`,
+      error.message
+    )
+    return empty
+  }
+
+  return (data?.payload as T | undefined) ?? empty
+}
+
+export async function setUserSnapshot<T>(
+  baseKey: UserSnapshotKey,
+  userId: string,
+  payload: T
+): Promise<void> {
+  const supabase = createAdminClient()
+  const { error } = await supabase.from('api_snapshots').upsert(
+    {
+      key: userKey(baseKey, userId),
+      payload: payload as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'key' }
+  )
+
+  if (error) {
+    throw new Error(
+      `setUserSnapshot(${baseKey}, ${userId}) failed: ${error.message}`
+    )
+  }
+}
