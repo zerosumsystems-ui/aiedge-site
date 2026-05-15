@@ -46,6 +46,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -363,20 +364,25 @@ def main(argv: list[str] | None = None) -> int:
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     rows = load_candidates()
-    print(f"Loaded {len(rows)} candidates")
+    print(f"Loaded {len(rows)} candidates", flush=True)
 
-    # --- gather 1-min bars (cached) ---
+    # --- gather 1-min bars (cached, parallel) ---
     sessions = sorted({(r["symbol"], r["session_date"]) for r in rows})
-    print(f"Need 1-min bars for {len(sessions)} sessions...")
+    print(f"Need 1-min bars for {len(sessions)} sessions...", flush=True)
     n_ok = 0
-    for i, (sym, day) in enumerate(sessions, 1):
-        bars = fetch_1m_session(args.base_url, sym, day)
-        if bars:
-            n_ok += 1
-        if i % 200 == 0:
-            print(f"  fetched {i}/{len(sessions)} ({n_ok} ok)", flush=True)
-        time.sleep(args.throttle)
-    print(f"1-min bar cache ready: {n_ok}/{len(sessions)} sessions")
+    done = 0
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {
+            pool.submit(fetch_1m_session, args.base_url, sym, day): (sym, day)
+            for sym, day in sessions
+        }
+        for fut in as_completed(futures):
+            done += 1
+            if fut.result():
+                n_ok += 1
+            if done % 200 == 0:
+                print(f"  fetched {done}/{len(sessions)} ({n_ok} ok)", flush=True)
+    print(f"1-min bar cache ready: {n_ok}/{len(sessions)} sessions", flush=True)
     if args.fetch_only:
         return 0
 
