@@ -16,7 +16,7 @@
  * or before live data arrives, it renders the existing HeroSetupTape.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import * as THREE from "three"
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js"
@@ -487,10 +487,14 @@ function createParticleReel(
     mat.uniforms.texturePosition.value =
       gpu.getCurrentRenderTarget(posVar).texture
     points.rotation.y = Math.sin(t * 0.14) * 0.3
+    // Pull the camera back on narrow/portrait viewports so the full
+    // chart width stays in frame on mobile.
+    const vFov = (camera.fov * Math.PI) / 180
+    const fitZ = 5.4 / (Math.tan(vFov / 2) * Math.max(camera.aspect, 0.55))
     camera.position.set(
       Math.sin(t * 0.09) * 1.7 + pointer.x * 0.9,
       1.0 - pointer.y * 0.7,
-      11.2,
+      Math.max(11.2, fitZ),
     )
     camera.lookAt(0, -0.4, 0)
     composer.render()
@@ -540,17 +544,30 @@ export function ParticleHero({ setups }: { setups?: FeaturedSetup[] }) {
     cardVisible: false,
   })
 
+  // setups === undefined while the live fetch is still in flight.
+  const isLoading = setups === undefined
   const liveSetups = setups && setups.length > 0 ? setups : null
 
-  const enabled = useMemo(() => {
-    if (typeof window === "undefined") return false
-    const reduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches
-    return !reduced && webgl2Supported()
+  // Client capabilities resolve after mount — null on the server and
+  // on the first client render, so both render the same dark shell and
+  // hydration matches. The fallback tape never flashes for the common
+  // (WebGL2-capable) case.
+  const [client, setClient] = useState<{
+    reduced: boolean
+    webgl: boolean
+  } | null>(null)
+  useEffect(() => {
+    // Intentionally sets state after mount — this triggers the one
+    // re-render that lets SSR and the first client render agree.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setClient({
+      reduced: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      webgl: webgl2Supported(),
+    })
   }, [])
 
-  const useParticles = !!liveSetups && enabled
+  const enabled = !!client && !client.reduced && client.webgl
+  const useParticles = enabled && !!liveSetups
 
   useEffect(() => {
     if (!useParticles || !liveSetups) return
@@ -565,13 +582,23 @@ export function ParticleHero({ setups }: { setups?: FeaturedSetup[] }) {
     return () => handle?.dispose()
   }, [useParticles, liveSetups])
 
-  // Fallback: existing animated tape (handles its own reduced-motion).
-  if (!useParticles) {
+  // Once we know the client lacks WebGL2 / wants reduced motion, fall
+  // back to the existing tape. A resolved-empty live fetch also uses
+  // the hand-crafted reel. Until then the dark shell renders.
+  if (client && (client.reduced || !client.webgl)) {
     return <HeroSetupTape setups={liveSetups ?? undefined} />
   }
+  if (!isLoading && !liveSetups) {
+    return <HeroSetupTape />
+  }
 
-  const setup = liveSetups![Math.min(update.setupIndex, liveSetups!.length - 1)]
-  const scorePct = Math.round(setup.urgency * 10)
+  // Otherwise render the dark particle-hero shell. While the live
+  // setups are still loading the canvas + chrome are absent and a
+  // quiet caption shows — the old tape never flashes in first.
+  const setup = liveSetups
+    ? liveSetups[Math.min(update.setupIndex, liveSetups.length - 1)]
+    : null
+  const scorePct = setup ? Math.round(setup.urgency * 10) : 0
   const isFire = update.caption.startsWith("FIRE")
 
   return (
@@ -595,88 +622,101 @@ export function ParticleHero({ setups }: { setups?: FeaturedSetup[] }) {
       />
 
       <div className="relative mx-auto flex h-[480px] max-w-[1400px] flex-col justify-between px-4 py-5 sm:h-[68svh] sm:px-6 sm:py-7 lg:h-[calc(100svh-var(--nav-h))] lg:px-10 lg:py-9">
-        {/* top strip */}
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div className="font-mono text-[12px] sm:text-[13px] tabular-nums tracking-tight flex items-baseline gap-2">
-            <span className="font-semibold text-text">{setup.symbol}</span>
-            <span className="text-sub">·</span>
-            <span className="text-sub">{setup.timeframe}</span>
-            <span className="text-sub">·</span>
-            <span className="text-sub">{setup.sessionLabel}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            {liveSetups!.length > 1 && (
-              <div className="flex items-center gap-[5px]" aria-hidden>
-                {liveSetups!.map((_, i) => (
-                  <span
-                    key={i}
-                    className={[
-                      "h-[5px] w-[5px] rounded-full transition-all duration-300",
-                      i === update.setupIndex
-                        ? "scale-[1.15] bg-teal"
-                        : "scale-100 bg-border",
-                    ].join(" ")}
-                  />
-                ))}
+        {setup ? (
+          <>
+            {/* top strip */}
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div className="font-mono text-[12px] sm:text-[13px] tabular-nums tracking-tight flex items-baseline gap-2">
+                <span className="font-semibold text-text">{setup.symbol}</span>
+                <span className="text-sub">·</span>
+                <span className="text-sub">{setup.timeframe}</span>
+                <span className="text-sub">·</span>
+                <span className="text-sub">{setup.sessionLabel}</span>
               </div>
-            )}
-            <SignalBadge signal={setup.signal} />
-          </div>
-        </div>
-
-        {/* bottom strip */}
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div
-            className={[
-              "rounded px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.13em] tabular-nums transition-colors duration-200",
-              isFire ? "bg-yellow/20 text-yellow" : "bg-black/55 text-text",
-            ].join(" ")}
-            aria-live="polite"
-          >
-            {update.caption}
-          </div>
-          <span className="font-mono text-[11px] uppercase tracking-[0.13em] text-sub">
-            model <span className="font-semibold text-teal">{scorePct}%</span>
-          </span>
-        </div>
-
-        {/* setup card — pops up once the chart has formed and held */}
-        <div
-          className={[
-            "pointer-events-none absolute left-1/2 bottom-[19%] z-10 w-[min(440px,86vw)] -translate-x-1/2",
-            "transition-all duration-[600ms] ease-out",
-            update.cardVisible
-              ? "translate-y-0 scale-100 opacity-100"
-              : "translate-y-8 scale-95 opacity-0",
-          ].join(" ")}
-        >
-          <div className="glass-panel pointer-events-auto rounded-lg p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-mono text-[14px] font-semibold tracking-tight text-text">
-                {setup.symbol}
-                <span className="ml-2 text-[11px] uppercase tracking-[0.14em] text-sub">
-                  {setup.direction === "long" ? "long" : "short"}
-                </span>
+              <div className="flex items-center gap-3">
+                {liveSetups!.length > 1 && (
+                  <div className="flex items-center gap-[5px]" aria-hidden>
+                    {liveSetups!.map((_, i) => (
+                      <span
+                        key={i}
+                        className={[
+                          "h-[5px] w-[5px] rounded-full transition-all duration-300",
+                          i === update.setupIndex
+                            ? "scale-[1.15] bg-teal"
+                            : "scale-100 bg-border",
+                        ].join(" ")}
+                      />
+                    ))}
+                  </div>
+                )}
+                <SignalBadge signal={setup.signal} />
               </div>
-              <SignalBadge signal={setup.signal} />
             </div>
-            <p className="mt-2.5 text-[13px] leading-relaxed text-text/85">
-              {setup.read}
-            </p>
-            <div className="mt-3.5 flex items-center justify-between gap-3">
-              <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-sub">
+
+            {/* bottom strip */}
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div
+                className={[
+                  "rounded px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.13em] tabular-nums transition-colors duration-200",
+                  isFire ? "bg-yellow/20 text-yellow" : "bg-black/55 text-text",
+                ].join(" ")}
+                aria-live="polite"
+              >
+                {update.caption}
+              </div>
+              <span className="font-mono text-[11px] uppercase tracking-[0.13em] text-sub">
                 model{" "}
                 <span className="font-semibold text-teal">{scorePct}%</span>
               </span>
-              <Link
-                href={setup.deepDiveHref ?? `/symbol/${setup.symbol}`}
-                className="rounded-md border border-teal/40 bg-teal/10 px-3 py-1.5 font-mono text-[11px] font-semibold text-teal transition-colors hover:bg-teal/20"
-              >
-                deep dive on {setup.symbol} →
-              </Link>
             </div>
+
+            {/* setup card — pops up once the chart has formed and held */}
+            <div
+              className={[
+                "pointer-events-none absolute left-1/2 bottom-[10%] z-10 w-[min(440px,88vw)] -translate-x-1/2 sm:bottom-[20%]",
+                "transition-all duration-[600ms] ease-out",
+                update.cardVisible
+                  ? "translate-y-0 scale-100 opacity-100"
+                  : "translate-y-8 scale-95 opacity-0",
+              ].join(" ")}
+            >
+              <div className="glass-panel pointer-events-auto rounded-lg p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-mono text-[14px] font-semibold tracking-tight text-text">
+                    {setup.symbol}
+                    <span className="ml-2 text-[11px] uppercase tracking-[0.14em] text-sub">
+                      {setup.direction === "long" ? "long" : "short"}
+                    </span>
+                  </div>
+                  <SignalBadge signal={setup.signal} />
+                </div>
+                <p className="mt-2.5 text-[13px] leading-relaxed text-text/85">
+                  {setup.read}
+                </p>
+                <div className="mt-3.5 flex items-center justify-between gap-3">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-sub">
+                    model{" "}
+                    <span className="font-semibold text-teal">
+                      {scorePct}%
+                    </span>
+                  </span>
+                  <Link
+                    href={setup.deepDiveHref ?? `/symbol/${setup.symbol}`}
+                    className="rounded-md border border-teal/40 bg-teal/10 px-3 py-1.5 font-mono text-[11px] font-semibold text-teal transition-colors hover:bg-teal/20"
+                  >
+                    deep dive on {setup.symbol} →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center">
+            <span className="animate-pulse font-mono text-[12px] uppercase tracking-[0.2em] text-sub">
+              scanning the week&apos;s setups…
+            </span>
           </div>
-        </div>
+        )}
       </div>
     </section>
   )
