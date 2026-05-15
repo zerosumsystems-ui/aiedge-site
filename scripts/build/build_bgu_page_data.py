@@ -24,7 +24,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-SITE = Path(__file__).resolve().parents[1]
+SITE = Path(__file__).resolve().parents[2]
 SCANNER = SITE.parent / "scanner"
 EXTENDED = SCANNER / "data" / "xnas_daily_2018_2023.csv"
 CURRENT = SCANNER / "data" / "leadership_daily_all_above_1_universe.csv"

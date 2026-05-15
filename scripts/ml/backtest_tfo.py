@@ -54,7 +54,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = ROOT / "artifacts" / "backtest"
 BARS_CACHE = OUT_DIR / "bars_1m"
 DATASET = ROOT / "artifacts" / "tfo-baseline" / "raw_dataset.json"

@@ -36,8 +36,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-CORPUS_PATH = Path(__file__).resolve().parent.parent / "public" / "analogs" / "corpus.json"
-ANALOGS_ROOT = Path(__file__).resolve().parent.parent / "public" / "analogs"
+CORPUS_PATH = Path(__file__).resolve().parent.parent.parent / "public" / "analogs" / "corpus.json"
+ANALOGS_ROOT = Path(__file__).resolve().parent.parent.parent / "public" / "analogs"
 DEFAULT_LOCAL_DIR = Path.home() / "aiedge-history"
 
 N_OPEN_BARS = 6

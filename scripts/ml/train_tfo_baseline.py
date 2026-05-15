@@ -56,7 +56,7 @@ from sklearn.model_selection import GroupKFold, cross_val_predict
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = ROOT / "artifacts" / "tfo-baseline"
 DEFAULT_DATASET = OUT_DIR / "raw_dataset.json"
 

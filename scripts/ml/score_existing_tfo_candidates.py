@@ -36,7 +36,7 @@ from pathlib import Path
 import numpy as np
 from joblib import load
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL = ROOT / "artifacts" / "tfo-baseline" / "tfo_baseline_mfe_ge_1pct.joblib"
 
 

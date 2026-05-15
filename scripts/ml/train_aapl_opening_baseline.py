@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from opening_features import FEATURE_COLUMNS, LABEL_ORDER, extract_opening_features  # noqa: E402
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = ROOT / "public" / "training" / "aapl-opening" / "examples.json"
 OUT_DIR = ROOT / "artifacts" / "aapl-opening"
 DEFAULT_BASE_URL = "https://www.aiedge.trade"

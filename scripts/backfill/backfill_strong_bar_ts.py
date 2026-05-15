@@ -31,7 +31,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# tfo_detector lives in scripts/live/ — add it to the path.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "live"))
 from tfo_detector import Bar5m, detect_tfo  # noqa: E402
 
 DEFAULT_BASE_URL = "https://www.aiedge.trade"

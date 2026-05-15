@@ -1,6 +1,6 @@
 # Fly.io deployment — live-bar aggregator
 
-Runs `scripts/live_bars_aggregator.py` 24/7 in the cloud as the sole
+Runs `scripts/live/live_bars_aggregator.py` 24/7 in the cloud as the sole
 host of the chart's real-time feed. The aggregator
 subscribes to Databento's live stream, buckets ticks into 1-minute OHLCV
 bars per symbol, and writes each closed bar to Upstash Redis. The

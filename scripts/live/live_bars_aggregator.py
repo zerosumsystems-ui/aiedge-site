@@ -103,7 +103,7 @@ def _load_env_file(path: Path) -> None:
 
 
 def load_env() -> None:
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parent.parent.parent
     _load_env_file(repo_root / ".env.local")
     _load_env_file(repo_root / ".env")
     extra = os.environ.get("EXTRA_ENV_FILE")

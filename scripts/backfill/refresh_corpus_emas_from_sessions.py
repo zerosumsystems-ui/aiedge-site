@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-CORPUS_PATH = Path(__file__).resolve().parent.parent / "public" / "analogs" / "corpus.json"
+CORPUS_PATH = Path(__file__).resolve().parent.parent.parent / "public" / "analogs" / "corpus.json"
 ANALOGS_ROOT = CORPUS_PATH.parent
 
 N_OPEN_BARS = 6

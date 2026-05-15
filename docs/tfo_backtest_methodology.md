@@ -6,7 +6,7 @@ document is the methodology of record. Every choice below was fixed
 *before* results were examined; nothing here is tuned to the equity
 curve.
 
-Engine: `scripts/backtest_tfo.py`. Outputs: `artifacts/backtest/`.
+Engine: `scripts/ml/backtest_tfo.py`. Outputs: `artifacts/backtest/`.
 
 ---
 
@@ -22,7 +22,7 @@ A TFO fires when:
   shorts).
 
 The fire bar is the 3rd confirming bar. Detection is implemented in
-`scripts/tfo_detector.py` and runs identically in backfill and in the
+`scripts/live/tfo_detector.py` and runs identically in backfill and in the
 live Fly aggregator.
 
 ## 2. Data
@@ -182,9 +182,9 @@ equity curve is reported as a secondary view.
 # 1. dataset (candidates + features + outcomes + pivot_ts) is in
 #    artifacts/tfo-baseline/raw_dataset.json
 # 2. gather + cache 1-minute bars
-python3 scripts/backtest_tfo.py --fetch-only
+python3 scripts/ml/backtest_tfo.py --fetch-only
 # 3. full backtest
-python3 scripts/backtest_tfo.py
+python3 scripts/ml/backtest_tfo.py
 ```
 
 Outputs: `artifacts/backtest/backtest_report.json` (aggregate) and

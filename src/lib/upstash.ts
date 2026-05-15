@@ -1,7 +1,7 @@
 /**
  * Tiny Upstash Redis REST client. No SDK dependency — just `fetch`.
  * Used by /api/bars/live to read the live bar cache that the
- * scripts/live_bars_aggregator.py process writes to.
+ * scripts/live/live_bars_aggregator.py process writes to.
  *
  * Requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to be
  * set in the runtime env (Vercel project settings + .env.local).
