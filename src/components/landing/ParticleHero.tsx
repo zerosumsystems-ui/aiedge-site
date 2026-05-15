@@ -34,19 +34,21 @@ const { Timer } = THREE
 
 /* ---------- cycle timing -------------------------------------------- */
 
-const REVEAL_LEAD = 0.5
-const REVEAL_SPAN = 6.0
-const FIRE_PAUSE = 0.7
+const REVEAL_LEAD = 0.4
+const REVEAL_SPAN = 5.2
+const FIRE_PAUSE = 0.6
 // Ease-out exponent for the reveal: >1 makes the morning bars open
-// slowly and the session accelerate into the close.
-const REVEAL_EASE = 2.3
-const DISSOLVE_START = 11.8
-const DISSOLVE_END = 14.6
-const CYCLE = 15.0
+// slowly and the session accelerate hard into the close.
+const REVEAL_EASE = 3.0
+// Once the chart is formed it holds a beat, then the setup card pops.
+const CARD_AT = 8.6
+const DISSOLVE_START = 13.4
+const DISSOLVE_END = 15.8
+const CYCLE = 16.4
 
 const CHART_W = 8.6
 const PRICE_H = 3.8
-const TEX = 360 // 129,600 simulated particles
+const TEX = 420 // 176,400 simulated particles
 
 /* ---------- candle geometry from real OHLC -------------------------- */
 
@@ -200,6 +202,7 @@ vec3 curlNoise(vec3 p){
 interface ReelUpdate {
   setupIndex: number
   caption: string
+  cardVisible: boolean
 }
 
 interface ReelHandle {
@@ -273,6 +276,11 @@ function createParticleReel(
       vec3 ff = pos - uFirePos;
       float fd = length(ff) + 0.001;
       force += (ff / fd) * uShock * exp(-fd * 0.4);
+      // dissolve — relax the swarm out toward a loose cloud shell
+      // (bounded spring, so particles disperse to ~r11 rather than
+      // escaping) and the next setup forms from scattered dust
+      float plen = length(pos) + 0.001;
+      force += (pos / plen) * dp * (11.0 - plen) * 1.4;
       vel += force * 0.022;
       vel *= 0.84;
       gl_FragColor = vec4(vel, 1.0);
@@ -404,11 +412,12 @@ function createParticleReel(
 
   let setupIdx = 0
   loadSetup(0)
-  onUpdate({ setupIndex: 0, caption: "scanning the tape…" })
+  onUpdate({ setupIndex: 0, caption: "scanning the tape…", cardVisible: false })
 
   const timer = new Timer()
   let cycleStart = 0
   let lastCaption = ""
+  let lastCardVisible = false
   const pointer = { x: 0, y: 0 }
   const onPointer = (e: PointerEvent) => {
     const r = el.getBoundingClientRect()
@@ -480,16 +489,18 @@ function createParticleReel(
     points.rotation.y = Math.sin(t * 0.14) * 0.3
     camera.position.set(
       Math.sin(t * 0.09) * 1.7 + pointer.x * 0.9,
-      1.2 - pointer.y * 0.7,
-      12.8,
+      1.0 - pointer.y * 0.7,
+      11.2,
     )
-    camera.lookAt(0, 0.1, 0)
+    camera.lookAt(0, -0.4, 0)
     composer.render()
 
     const caption = captionFor(ct, setup)
-    if (caption !== lastCaption) {
+    const cardVisible = ct >= CARD_AT && ct < DISSOLVE_START
+    if (caption !== lastCaption || cardVisible !== lastCardVisible) {
       lastCaption = caption
-      onUpdate({ setupIndex: setupIdx, caption })
+      lastCardVisible = cardVisible
+      onUpdate({ setupIndex: setupIdx, caption, cardVisible })
     }
   }
   loop()
@@ -526,6 +537,7 @@ export function ParticleHero({ setups }: { setups?: FeaturedSetup[] }) {
   const [update, setUpdate] = useState<ReelUpdate>({
     setupIndex: 0,
     caption: "scanning the tape…",
+    cardVisible: false,
   })
 
   const liveSetups = setups && setups.length > 0 ? setups : null
@@ -582,7 +594,7 @@ export function ParticleHero({ setups }: { setups?: FeaturedSetup[] }) {
         aria-hidden
       />
 
-      <div className="relative mx-auto flex h-[380px] max-w-[1400px] flex-col justify-between px-4 py-5 sm:h-[470px] sm:px-6 sm:py-6 lg:h-[560px] lg:px-10 lg:py-8">
+      <div className="relative mx-auto flex h-[480px] max-w-[1400px] flex-col justify-between px-4 py-5 sm:h-[68svh] sm:px-6 sm:py-7 lg:h-[calc(100svh-var(--nav-h))] lg:px-10 lg:py-9">
         {/* top strip */}
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className="font-mono text-[12px] sm:text-[13px] tabular-nums tracking-tight flex items-baseline gap-2">
@@ -617,25 +629,52 @@ export function ParticleHero({ setups }: { setups?: FeaturedSetup[] }) {
           <div
             className={[
               "rounded px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.13em] tabular-nums transition-colors duration-200",
-              isFire
-                ? "bg-yellow/20 text-yellow"
-                : "bg-black/55 text-text",
+              isFire ? "bg-yellow/20 text-yellow" : "bg-black/55 text-text",
             ].join(" ")}
             aria-live="polite"
           >
             {update.caption}
           </div>
-          <div className="flex items-center gap-3 font-mono text-[11px]">
-            <span className="text-sub uppercase tracking-[0.13em]">
-              model{" "}
-              <span className="font-semibold text-teal">{scorePct}%</span>
-            </span>
-            <Link
-              href={setup.deepDiveHref ?? `/symbol/${setup.symbol}`}
-              className="rounded border border-border bg-black/55 px-2.5 py-1 text-text transition-colors hover:border-teal hover:text-teal"
-            >
-              deep dive on {setup.symbol} →
-            </Link>
+          <span className="font-mono text-[11px] uppercase tracking-[0.13em] text-sub">
+            model <span className="font-semibold text-teal">{scorePct}%</span>
+          </span>
+        </div>
+
+        {/* setup card — pops up once the chart has formed and held */}
+        <div
+          className={[
+            "pointer-events-none absolute left-1/2 bottom-[19%] z-10 w-[min(440px,86vw)] -translate-x-1/2",
+            "transition-all duration-[600ms] ease-out",
+            update.cardVisible
+              ? "translate-y-0 scale-100 opacity-100"
+              : "translate-y-8 scale-95 opacity-0",
+          ].join(" ")}
+        >
+          <div className="glass-panel pointer-events-auto rounded-lg p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-mono text-[14px] font-semibold tracking-tight text-text">
+                {setup.symbol}
+                <span className="ml-2 text-[11px] uppercase tracking-[0.14em] text-sub">
+                  {setup.direction === "long" ? "long" : "short"}
+                </span>
+              </div>
+              <SignalBadge signal={setup.signal} />
+            </div>
+            <p className="mt-2.5 text-[13px] leading-relaxed text-text/85">
+              {setup.read}
+            </p>
+            <div className="mt-3.5 flex items-center justify-between gap-3">
+              <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-sub">
+                model{" "}
+                <span className="font-semibold text-teal">{scorePct}%</span>
+              </span>
+              <Link
+                href={setup.deepDiveHref ?? `/symbol/${setup.symbol}`}
+                className="rounded-md border border-teal/40 bg-teal/10 px-3 py-1.5 font-mono text-[11px] font-semibold text-teal transition-colors hover:bg-teal/20"
+              >
+                deep dive on {setup.symbol} →
+              </Link>
+            </div>
           </div>
         </div>
       </div>
