@@ -37,6 +37,9 @@ const { Timer } = THREE
 const REVEAL_LEAD = 0.5
 const REVEAL_SPAN = 6.0
 const FIRE_PAUSE = 0.7
+// Ease-out exponent for the reveal: >1 makes the morning bars open
+// slowly and the session accelerate into the close.
+const REVEAL_EASE = 2.3
 const DISSOLVE_START = 11.8
 const DISSOLVE_END = 14.6
 const CYCLE = 15.0
@@ -105,9 +108,16 @@ function scatterPoint(): [number, number, number] {
   return [Math.cos(th) * s * r, u * r * 0.6, Math.sin(th) * s * r]
 }
 
-/** When candle i begins resolving — bars after the fire bar wait a beat. */
+/**
+ * When candle i begins resolving. The session eases out — morning bars
+ * are spaced apart and each later bar follows faster, so the reveal
+ * exponentially speeds up toward the close. Bars after the fire bar
+ * still wait one extra beat.
+ */
 function revealTimeFor(i: number, n: number, fireIdx: number): number {
-  const t = REVEAL_LEAD + (i / Math.max(n - 1, 1)) * REVEAL_SPAN
+  const f = i / Math.max(n - 1, 1)
+  const eased = 1 - Math.pow(1 - f, REVEAL_EASE)
+  const t = REVEAL_LEAD + eased * REVEAL_SPAN
   return i > fireIdx ? t + FIRE_PAUSE : t
 }
 
