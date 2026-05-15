@@ -4,11 +4,11 @@ Subscribes to Databento live data, writes 1-minute OHLCV bars to Upstash Redis
 (sorted set, keyed by ticker, scored by bar timestamp). The Next.js
 /api/bars/live route reads from the same key.
 
-Designed to run as a long-lived process on the Mac mini next to
-live_scanner.py.
+Runs as a long-lived process on Fly (Dockerfile.live-bars +
+fly.live-bars.toml).
 
-Required env vars (load from your existing scanner .env or the repo
-.env.local — same loading order as probe_databento_entitlements.py):
+Required env vars (set as Fly secrets in production, or in the repo
+.env.local for local runs):
 
     DATABENTO_API_KEY       — your live API key
     LIVE_DATASET            — e.g. "DBEQ.BASIC" or "EQUS.MINI" (depends
@@ -23,8 +23,8 @@ Required env vars (load from your existing scanner .env or the repo
 Usage:
     python3 scripts/live_bars_aggregator.py
 
-Install once (on the Mac mini):
-    pip install databento
+Dependencies are installed by Dockerfile.live-bars; for a local run:
+    pip install databento sentry-sdk
 
 The Databento Python SDK handles the WebSocket reconnection logic and
 gives us decoded record objects. With LIVE_SCHEMA=trades we bucket trade
@@ -106,7 +106,9 @@ def load_env() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     _load_env_file(repo_root / ".env.local")
     _load_env_file(repo_root / ".env")
-    _load_env_file(Path("/Users/williamkosloski/video-pipeline/credentials/.env"))
+    extra = os.environ.get("EXTRA_ENV_FILE")
+    if extra:
+        _load_env_file(Path(extra))
 
 
 def require_env(name: str) -> str:
