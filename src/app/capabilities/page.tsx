@@ -186,7 +186,7 @@ const SECTIONS: Section[] = [
       {
         title: 'Product boundary hook',
         detail:
-          '.claude/hooks/check-boundary.sh blocks pushes carrying prop-firm / funded-account / firm-rotation / payout-eval content. Surfaces, never bypasses.',
+          '.claude/hooks/check-boundary.sh scans every push for the categories of content that don’t belong on aiedge.trade and blocks the deploy when it finds them. Surfaces, never bypasses.',
       },
       {
         title: 'Smoke / Logs / Rollback',
