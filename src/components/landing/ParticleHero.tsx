@@ -34,17 +34,17 @@ const { Timer } = THREE
 
 /* ---------- cycle timing -------------------------------------------- */
 
-const REVEAL_LEAD = 0.4
-const REVEAL_SPAN = 5.2
-const FIRE_PAUSE = 0.6
+const REVEAL_LEAD = 0.3
+const REVEAL_SPAN = 3.8
+const FIRE_PAUSE = 0.5
 // Ease-out exponent for the reveal: >1 makes the morning bars open
 // slowly and the session accelerate hard into the close.
-const REVEAL_EASE = 3.0
+const REVEAL_EASE = 3.6
 // Once the chart is formed it holds a beat, then the setup card pops.
-const CARD_AT = 8.6
-const DISSOLVE_START = 13.4
-const DISSOLVE_END = 15.8
-const CYCLE = 16.4
+const CARD_AT = 7.0
+const DISSOLVE_START = 11.5
+const DISSOLVE_END = 14.1
+const CYCLE = 14.6
 
 const CHART_W = 8.6
 const PRICE_H = 3.8
@@ -496,7 +496,9 @@ function createParticleReel(
       1.0 - pointer.y * 0.7,
       Math.max(11.2, fitZ),
     )
-    camera.lookAt(0, -0.4, 0)
+    // On portrait/mobile, look further down so the chart rides high
+    // and the setup card gets a clear zone beneath it.
+    camera.lookAt(0, camera.aspect < 1 ? -1.4 : -0.4, 0)
     composer.render()
 
     const caption = captionFor(ct, setup)
@@ -621,7 +623,7 @@ export function ParticleHero({ setups }: { setups?: FeaturedSetup[] }) {
         aria-hidden
       />
 
-      <div className="relative mx-auto flex h-[480px] max-w-[1400px] flex-col justify-between px-4 py-5 sm:h-[68svh] sm:px-6 sm:py-7 lg:h-[calc(100svh-var(--nav-h))] lg:px-10 lg:py-9">
+      <div className="relative mx-auto flex h-[78svh] max-w-[1400px] flex-col justify-between px-4 py-5 sm:h-[72svh] sm:px-6 sm:py-7 lg:h-[calc(100svh-var(--nav-h))] lg:px-10 lg:py-9">
         {setup ? (
           <>
             {/* top strip */}
@@ -673,7 +675,7 @@ export function ParticleHero({ setups }: { setups?: FeaturedSetup[] }) {
             {/* setup card — pops up once the chart has formed and held */}
             <div
               className={[
-                "pointer-events-none absolute left-1/2 bottom-[10%] z-10 w-[min(440px,88vw)] -translate-x-1/2 sm:bottom-[20%]",
+                "pointer-events-none absolute left-1/2 bottom-[7%] z-10 w-[min(440px,88vw)] -translate-x-1/2 sm:bottom-[20%]",
                 "transition-all duration-[600ms] ease-out",
                 update.cardVisible
                   ? "translate-y-0 scale-100 opacity-100"
