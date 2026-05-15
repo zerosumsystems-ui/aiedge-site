@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { MobileNavDrawer } from './MobileNavDrawer'
 
 const NAV_ITEMS = [
+  { href: '/home', label: 'Home' },
   { href: '/', label: '5 min TFO' },
   { href: '/chart', label: 'Chart' },
   { href: '/scanner', label: 'Scanner' },
