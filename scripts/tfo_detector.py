@@ -104,17 +104,27 @@ def _confirming_run(
     bars: Sequence[Bar5m],
     start: int,
     direction: str,
+    *,
+    max_count: int = MIN_CONSECUTIVE,
 ) -> tuple[int, int, list[int]]:
-    """Count consecutive in-direction closes starting at `start`, and
-    how many of those are strong Brooks bars. Stops at the first bar
-    that breaks the direction. Returns (consecutive_count, strong_count,
-    strong_indices) where strong_indices are the absolute bar indices
-    (into `bars`) of every Brooks-strong bar in the run — in order.
+    """Count consecutive in-direction closes starting at `start`, capped
+    at `max_count` (default = MIN_CONSECUTIVE = 3). Stops at the first
+    bar that breaks the direction, OR at `max_count`, whichever comes
+    first. Returns (consecutive_count, strong_count, strong_indices).
+
+    The cap is what eliminates the train/serve skew on consec/strong:
+    backfill used to walk the FULL post-pivot run (which often extended
+    past the fire bar to bars unknown at fire time); live could only
+    see bars up to the fire bar. Capping at MIN_CONSECUTIVE means both
+    modes see the same window — the first 3 confirming bars, which is
+    exactly what the rule fires on.
     """
     consec = 0
     strong = 0
     strong_indices: list[int] = []
     for i in range(start, len(bars)):
+        if consec >= max_count:
+            break
         b = bars[i]
         if direction == "long":
             if b.c <= b.o:
@@ -139,6 +149,14 @@ def detect_tfo(bars: Sequence[Bar5m]) -> list[TfoSignal]:
     Returns 0, 1, or 2 signals (in theory both long and short can fire
     in the same session if price reversed dramatically; in practice
     rare). Caller decides how to rank if both.
+
+    Live-replay semantics: every check uses ONLY data that would be
+    available at fire-bar close (bars[:fire_bar_idx + 1]). The detector
+    therefore emits exactly the same set of signals whether called on
+    a streaming bars-so-far buffer (Fly aggregator) or on a historical
+    full-session bars array (backfill). No hindsight on session low,
+    no hindsight on run length. See the run-length cap in
+    `_confirming_run` for the second half of this guarantee.
     """
     if len(bars) < MIN_CONSECUTIVE + 1:
         return []
@@ -148,45 +166,50 @@ def detect_tfo(bars: Sequence[Bar5m]) -> list[TfoSignal]:
 
     # Long: low of day in first 4 bars
     low_idx = min(range(len(pivot_window)), key=lambda i: pivot_window[i].l)
-    # Verify the LOD-so-far stays the LOD for the rest of the session
-    # (otherwise the "low of day" never actually settled within the
-    # first 4 bars).
-    session_low = min(b.l for b in bars)
-    if abs(pivot_window[low_idx].l - session_low) < 1e-9:
-        consec, strong, strong_indices = _confirming_run(bars, low_idx + 1, "long")
-        if consec >= MIN_CONSECUTIVE and strong >= MIN_STRONG:
-            fire_bar_idx = low_idx + MIN_CONSECUTIVE
-            score = consec * 1.0 + strong * 0.5
-            signals.append(TfoSignal(
-                direction="long",
-                fire_ts=bars[fire_bar_idx].t,
-                pivot_index=low_idx,
-                fired_bar_index=fire_bar_idx,
-                consecutive_count=consec,
-                strong_count=strong,
-                score=score,
-                pivot_ts=bars[low_idx].t,
-                strong_bar_timestamps=tuple(bars[i].t for i in strong_indices),
-            ))
+    fire_bar_idx = low_idx + MIN_CONSECUTIVE
+    if fire_bar_idx < len(bars):
+        # Live-replay: "session low" is min over bars-so-far at the
+        # moment the fire bar closes — NOT min over the full session.
+        # The original "min over full session" check was hindsight that
+        # silently dropped any TFO whose LOD got broken later in the
+        # day; live emitted those candidates and the model never saw
+        # them in training. Now both modes emit the same set.
+        session_low_so_far = min(b.l for b in bars[: fire_bar_idx + 1])
+        if abs(pivot_window[low_idx].l - session_low_so_far) < 1e-9:
+            consec, strong, strong_indices = _confirming_run(bars, low_idx + 1, "long")
+            if consec >= MIN_CONSECUTIVE and strong >= MIN_STRONG:
+                score = consec * 1.0 + strong * 0.5
+                signals.append(TfoSignal(
+                    direction="long",
+                    fire_ts=bars[fire_bar_idx].t,
+                    pivot_index=low_idx,
+                    fired_bar_index=fire_bar_idx,
+                    consecutive_count=consec,
+                    strong_count=strong,
+                    score=score,
+                    pivot_ts=bars[low_idx].t,
+                    strong_bar_timestamps=tuple(bars[i].t for i in strong_indices),
+                ))
 
-    # Short: high of day in first 4 bars
+    # Short: high of day in first 4 bars (mirror of long)
     high_idx = max(range(len(pivot_window)), key=lambda i: pivot_window[i].h)
-    session_high = max(b.h for b in bars)
-    if abs(pivot_window[high_idx].h - session_high) < 1e-9:
-        consec, strong, strong_indices = _confirming_run(bars, high_idx + 1, "short")
-        if consec >= MIN_CONSECUTIVE and strong >= MIN_STRONG:
-            fire_bar_idx = high_idx + MIN_CONSECUTIVE
-            score = consec * 1.0 + strong * 0.5
-            signals.append(TfoSignal(
-                direction="short",
-                fire_ts=bars[fire_bar_idx].t,
-                pivot_index=high_idx,
-                fired_bar_index=fire_bar_idx,
-                consecutive_count=consec,
-                strong_count=strong,
-                score=score,
-                pivot_ts=bars[high_idx].t,
-                strong_bar_timestamps=tuple(bars[i].t for i in strong_indices),
-            ))
+    fire_bar_idx = high_idx + MIN_CONSECUTIVE
+    if fire_bar_idx < len(bars):
+        session_high_so_far = max(b.h for b in bars[: fire_bar_idx + 1])
+        if abs(pivot_window[high_idx].h - session_high_so_far) < 1e-9:
+            consec, strong, strong_indices = _confirming_run(bars, high_idx + 1, "short")
+            if consec >= MIN_CONSECUTIVE and strong >= MIN_STRONG:
+                score = consec * 1.0 + strong * 0.5
+                signals.append(TfoSignal(
+                    direction="short",
+                    fire_ts=bars[fire_bar_idx].t,
+                    pivot_index=high_idx,
+                    fired_bar_index=fire_bar_idx,
+                    consecutive_count=consec,
+                    strong_count=strong,
+                    score=score,
+                    pivot_ts=bars[high_idx].t,
+                    strong_bar_timestamps=tuple(bars[i].t for i in strong_indices),
+                ))
 
     return signals

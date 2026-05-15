@@ -152,32 +152,76 @@ def test_no_fire_when_run_breaks():
     assert_eq(len(signals), 0, "no signal when bull run breaks at 2")
 
 
-def test_no_fire_when_session_low_breaks_later():
-    """LOD-so-far at bar 0 but a later bar undercuts it -> not the LOD."""
-    bars = [
-        Bar5m(t=1000, o=100.0, h=100.2, l=99.5, c=99.6),
-        make_bull(1300, 99.6, 100.0),
-        make_bull(1600, 100.0, 100.3),
-        make_bull(1900, 100.3, 100.7),
-        # later bar undercuts the supposed LOD
-        Bar5m(t=2200, o=100.7, h=100.8, l=99.0, c=99.1),
-    ]
-    signals = detect_tfo(bars)
-    assert_eq(len(signals), 0, "no signal when later bar undercuts LOD")
-
-
-def test_long_score_scales_with_strength():
-    """A 4-bar all-strong run scores higher than a 3-bar minimum."""
-    short_run = [
+def test_score_scales_with_strong_fraction_only():
+    """With consec capped at MIN_CONSECUTIVE, score now only varies on
+    strong_count within the first 3 confirming bars. A 3-of-3 strong
+    run scores higher than 2-of-3. Longer runs don't get a bonus
+    anymore (they're invisible to the detector by design)."""
+    three_of_three = [
         Bar5m(t=1000, o=100.0, h=100.2, l=99.0, c=99.1),
         make_bull(1300, 99.1, 99.5),
         make_bull(1600, 99.5, 99.9),
         make_bull(1900, 99.9, 100.3),
     ]
-    long_run = short_run + [make_bull(2200, 100.3, 100.7)]
-    s_short = detect_tfo(short_run)[0]
-    s_long = detect_tfo(long_run)[0]
-    assert_true(s_long.score > s_short.score, "longer run scores higher")
+    # Same setup but bar 2 closes mid-range -> NOT strong
+    two_of_three = [
+        Bar5m(t=1000, o=100.0, h=100.2, l=99.0, c=99.1),
+        make_bull(1300, 99.1, 99.5),
+        Bar5m(t=1600, o=99.5, h=99.95, l=99.5, c=99.6),     # in-direction but not strong
+        make_bull(1900, 99.6, 100.0),
+    ]
+    s_three = detect_tfo(three_of_three)[0]
+    s_two = detect_tfo(two_of_three)[0]
+    assert_true(s_three.score > s_two.score, "3-of-3 strong scores higher than 2-of-3")
+
+
+def test_run_length_capped_at_min_consecutive():
+    """The detector emits consec ≤ MIN_CONSECUTIVE regardless of how
+    long the actual run continues. This is the train/serve guarantee:
+    backfill (running on the full session) gets the same consec as
+    live (running at the 3rd-confirming-bar close).
+    """
+    # 5 consecutive strong bull bars after a clean LOD.
+    bars = [
+        Bar5m(t=1000, o=100.0, h=100.2, l=99.0, c=99.1),
+        make_bull(1300, 99.1, 99.5),
+        make_bull(1600, 99.5, 99.9),
+        make_bull(1900, 99.9, 100.3),
+        make_bull(2200, 100.3, 100.7),
+        make_bull(2500, 100.7, 101.1),
+    ]
+    s = detect_tfo(bars)[0]
+    assert_eq(s.consecutive_count, 3, "consec capped at 3 even though 5 confirming bars existed")
+    assert_eq(s.strong_count, 3, "strong capped at 3 in the same window")
+    assert_eq(s.fire_ts, 1900, "fire is still bar pivot+3")
+    assert_eq(
+        s.strong_bar_timestamps,
+        (1300, 1600, 1900),
+        "strong_bar_timestamps cover the first 3 confirming bars only",
+    )
+
+
+def test_invalidated_lod_still_fires():
+    """The detector emits at fire-bar close using session-low-so-far,
+    not the absolute session low. A TFO that fires at 9:45 and then
+    gets invalidated by a new low at 11am still gets emitted — that's
+    what live sees, so backfill needs to match. Previous (hindsight)
+    behavior silently dropped these candidates.
+    """
+    bars = [
+        Bar5m(t=1000, o=100.0, h=100.2, l=99.0, c=99.1),   # LOD-so-far at bar 0
+        make_bull(1300, 99.1, 99.5),
+        make_bull(1600, 99.5, 99.9),
+        make_bull(1900, 99.9, 100.3),                       # fire bar
+        # Later in the session, a new low prints (LOD invalidates).
+        # Under the old detector, this dropped the signal. Under the
+        # new live-replay semantics, the signal is already emitted at
+        # bar 3's close.
+        Bar5m(t=2200, o=100.3, h=100.4, l=98.0, c=98.5),
+    ]
+    signals = detect_tfo(bars)
+    assert_eq(len(signals), 1, "invalidated TFO still emitted (no hindsight)")
+    assert_eq(signals[0].fire_ts, 1900, "fire still at bar pivot+3 close")
 
 
 def test_zero_bars_no_crash():
@@ -191,7 +235,8 @@ if __name__ == "__main__":
     test_no_fire_when_lod_outside_first_4()
     test_no_fire_when_only_one_strong()
     test_no_fire_when_run_breaks()
-    test_no_fire_when_session_low_breaks_later()
-    test_long_score_scales_with_strength()
+    test_run_length_capped_at_min_consecutive()
+    test_invalidated_lod_still_fires()
+    test_score_scales_with_strong_fraction_only()
     test_zero_bars_no_crash()
     print("\nall tfo_detector tests passed")

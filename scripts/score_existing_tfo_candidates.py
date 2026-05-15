@@ -72,9 +72,23 @@ def supabase_patch(supabase_url: str, key: str, candidate_id: int, patch: dict) 
             "Prefer": "return=minimal",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        if r.status >= 300:
-            raise RuntimeError(f"supabase PATCH {candidate_id} -> {r.status}")
+    # Retry transient TLS/network errors once — sandbox clock skew
+    # has hit us before with "certificate is not yet valid" on a
+    # single row; that shouldn't crash the whole sweep.
+    import time as _time
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                if r.status >= 300:
+                    raise RuntimeError(f"supabase PATCH {candidate_id} -> {r.status}")
+                return
+        except urllib.error.HTTPError:
+            raise
+        except Exception as e:
+            last_exc = e
+            _time.sleep(1.0 + attempt)
+    raise RuntimeError(f"supabase PATCH {candidate_id} retried + still failed: {last_exc}")
 
 
 def main(argv: list[str] | None = None) -> int:
