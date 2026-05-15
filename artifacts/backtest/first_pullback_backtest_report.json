@@ -8,7 +8,8 @@
     "max_pullback_bars": 5,
     "commission_per_share": 0.005,
     "entry_slippage_bps": 2.0,
-    "stop_slippage_bps": 4.0
+    "stop_slippage_bps": 4.0,
+    "adr": "per-symbol average daily range (mean session high-low, full sample); spike_pct = spike height / ADR"
   },
   "target_new_high": {
     "all_first_pullbacks": {
@@ -496,7 +497,154 @@
       }
     ],
     "months_positive": 2,
-    "months_total": 18
+    "months_total": 18,
+    "by_spike_adr": [
+      {
+        "label": "spike 00-20% of ADR",
+        "n": 126,
+        "target_hit_rate": 0.7302,
+        "expectancy_r": -0.3569,
+        "expectancy_ci95": [
+          -0.5411,
+          -0.1795
+        ],
+        "win_rate": 0.3968,
+        "avg_win_r": 0.5299,
+        "avg_loss_r": -0.9403,
+        "profit_factor": 0.371,
+        "total_r": -44.97,
+        "max_drawdown_r": -44.84
+      },
+      {
+        "label": "spike 20-35% of ADR",
+        "n": 116,
+        "target_hit_rate": 0.7069,
+        "expectancy_r": -0.2269,
+        "expectancy_ci95": [
+          -0.4859,
+          -0.0029
+        ],
+        "win_rate": 0.5431,
+        "avg_win_r": 0.5559,
+        "avg_loss_r": -1.1574,
+        "profit_factor": 0.571,
+        "total_r": -26.32,
+        "max_drawdown_r": -30.4
+      },
+      {
+        "label": "spike 35-50% of ADR",
+        "n": 62,
+        "target_hit_rate": 0.5806,
+        "expectancy_r": -0.1896,
+        "expectancy_ci95": [
+          -0.4847,
+          0.136
+        ],
+        "win_rate": 0.5161,
+        "avg_win_r": 0.7591,
+        "avg_loss_r": -1.2015,
+        "profit_factor": 0.674,
+        "total_r": -11.76,
+        "max_drawdown_r": -16.08
+      },
+      {
+        "label": "spike 50-75% of ADR",
+        "n": 44,
+        "target_hit_rate": 0.5227,
+        "expectancy_r": -0.4257,
+        "expectancy_ci95": [
+          -0.7617,
+          -0.0894
+        ],
+        "win_rate": 0.3636,
+        "avg_win_r": 0.6842,
+        "avg_loss_r": -1.0599,
+        "profit_factor": 0.369,
+        "total_r": -18.73,
+        "max_drawdown_r": -18.55
+      },
+      {
+        "label": "spike 75%+ of ADR",
+        "n": 29,
+        "target_hit_rate": 0.5862,
+        "expectancy_r": 0.1353,
+        "expectancy_ci95": [
+          -0.3159,
+          0.5911
+        ],
+        "win_rate": 0.6207,
+        "avg_win_r": 0.9727,
+        "avg_loss_r": -1.2351,
+        "profit_factor": 1.289,
+        "total_r": 3.92,
+        "max_drawdown_r": -4.89
+      }
+    ],
+    "spike_under_half_adr": {
+      "label": "spike < 50% ADR (room)",
+      "n": 304,
+      "target_hit_rate": 0.6908,
+      "expectancy_r": -0.2732,
+      "expectancy_ci95": [
+        -0.4113,
+        -0.145
+      ],
+      "win_rate": 0.477,
+      "avg_win_r": 0.5917,
+      "avg_loss_r": -1.062,
+      "profit_factor": 0.508,
+      "total_r": -83.05,
+      "max_drawdown_r": -82.92
+    },
+    "spike_over_half_adr": {
+      "label": "spike >= 50% ADR (spent)",
+      "n": 73,
+      "target_hit_rate": 0.5479,
+      "expectancy_r": -0.2028,
+      "expectancy_ci95": [
+        -0.4777,
+        0.0742
+      ],
+      "win_rate": 0.4658,
+      "avg_win_r": 0.8369,
+      "avg_loss_r": -1.1093,
+      "profit_factor": 0.658,
+      "total_r": -14.81,
+      "max_drawdown_r": -17.43
+    },
+    "room_first_half": {
+      "label": "room  < 2025-08-18",
+      "n": 164,
+      "target_hit_rate": 0.6829,
+      "expectancy_r": -0.2684,
+      "expectancy_ci95": [
+        -0.4785,
+        -0.0718
+      ],
+      "win_rate": 0.5061,
+      "avg_win_r": 0.6477,
+      "avg_loss_r": -1.2071,
+      "profit_factor": 0.55,
+      "total_r": -44.02,
+      "max_drawdown_r": -45.08
+    },
+    "room_second_half": {
+      "label": "room >= 2025-08-18",
+      "n": 140,
+      "target_hit_rate": 0.7,
+      "expectancy_r": -0.2788,
+      "expectancy_ci95": [
+        -0.4426,
+        -0.1188
+      ],
+      "win_rate": 0.4429,
+      "avg_win_r": 0.5168,
+      "avg_loss_r": -0.9112,
+      "profit_factor": 0.451,
+      "total_r": -39.03,
+      "max_drawdown_r": -38.91
+    },
+    "walk_forward_split_date": "2025-08-18"
   },
   "target_measured_move": {
     "all_first_pullbacks": {
@@ -984,6 +1132,153 @@
       }
     ],
     "months_positive": 3,
-    "months_total": 18
+    "months_total": 18,
+    "by_spike_adr": [
+      {
+        "label": "spike 00-20% of ADR",
+        "n": 126,
+        "target_hit_rate": 0.2143,
+        "expectancy_r": -0.3096,
+        "expectancy_ci95": [
+          -0.7184,
+          0.1351
+        ],
+        "win_rate": 0.2937,
+        "avg_win_r": 2.9882,
+        "avg_loss_r": -1.6807,
+        "profit_factor": 0.739,
+        "total_r": -39.02,
+        "max_drawdown_r": -47.24
+      },
+      {
+        "label": "spike 20-35% of ADR",
+        "n": 116,
+        "target_hit_rate": 0.1638,
+        "expectancy_r": -0.4808,
+        "expectancy_ci95": [
+          -0.8928,
+          -0.0644
+        ],
+        "win_rate": 0.25,
+        "avg_win_r": 2.8353,
+        "avg_loss_r": -1.5862,
+        "profit_factor": 0.596,
+        "total_r": -55.78,
+        "max_drawdown_r": -59.82
+      },
+      {
+        "label": "spike 35-50% of ADR",
+        "n": 62,
+        "target_hit_rate": 0.1613,
+        "expectancy_r": 0.1237,
+        "expectancy_ci95": [
+          -0.5057,
+          0.8587
+        ],
+        "win_rate": 0.3065,
+        "avg_win_r": 3.7016,
+        "avg_loss_r": -1.4572,
+        "profit_factor": 1.122,
+        "total_r": 7.67,
+        "max_drawdown_r": -15.32
+      },
+      {
+        "label": "spike 50-75% of ADR",
+        "n": 44,
+        "target_hit_rate": 0.0455,
+        "expectancy_r": -0.8799,
+        "expectancy_ci95": [
+          -1.235,
+          -0.4751
+        ],
+        "win_rate": 0.1364,
+        "avg_win_r": 1.935,
+        "avg_loss_r": -1.3244,
+        "profit_factor": 0.231,
+        "total_r": -38.72,
+        "max_drawdown_r": -37.63
+      },
+      {
+        "label": "spike 75%+ of ADR",
+        "n": 29,
+        "target_hit_rate": 0.0,
+        "expectancy_r": -0.3165,
+        "expectancy_ci95": [
+          -0.8387,
+          0.2364
+        ],
+        "win_rate": 0.3103,
+        "avg_win_r": 1.7118,
+        "avg_loss_r": -1.2293,
+        "profit_factor": 0.627,
+        "total_r": -9.18,
+        "max_drawdown_r": -14.26
+      }
+    ],
+    "spike_under_half_adr": {
+      "label": "spike < 50% ADR (room)",
+      "n": 304,
+      "target_hit_rate": 0.1842,
+      "expectancy_r": -0.2866,
+      "expectancy_ci95": [
+        -0.5555,
+        -0.0102
+      ],
+      "win_rate": 0.2796,
+      "avg_win_r": 3.0955,
+      "avg_loss_r": -1.5993,
+      "profit_factor": 0.751,
+      "total_r": -87.12,
+      "max_drawdown_r": -96.74
+    },
+    "spike_over_half_adr": {
+      "label": "spike >= 50% ADR (spent)",
+      "n": 73,
+      "target_hit_rate": 0.0274,
+      "expectancy_r": -0.6561,
+      "expectancy_ci95": [
+        -0.9583,
+        -0.3237
+      ],
+      "win_rate": 0.2055,
+      "avg_win_r": 1.8011,
+      "avg_loss_r": -1.2916,
+      "profit_factor": 0.361,
+      "total_r": -47.9,
+      "max_drawdown_r": -50.05
+    },
+    "room_first_half": {
+      "label": "room  < 2025-08-18",
+      "n": 164,
+      "target_hit_rate": 0.1646,
+      "expectancy_r": -0.4043,
+      "expectancy_ci95": [
+        -0.7591,
+        -0.028
+      ],
+      "win_rate": 0.2561,
+      "avg_win_r": 3.2056,
+      "avg_loss_r": -1.647,
+      "profit_factor": 0.67,
+      "total_r": -66.3,
+      "max_drawdown_r": -75.81
+    },
+    "room_second_half": {
+      "label": "room >= 2025-08-18",
+      "n": 140,
+      "target_hit_rate": 0.2071,
+      "expectancy_r": -0.1487,
+      "expectancy_ci95": [
+        -0.5206,
+        0.256
+      ],
+      "win_rate": 0.3071,
+      "avg_win_r": 2.988,
+      "avg_loss_r": -1.5393,
+      "profit_factor": 0.861,
+      "total_r": -20.82,
+      "max_drawdown_r": -40.49
+    },
+    "walk_forward_split_date": "2025-08-18"
   }
 }

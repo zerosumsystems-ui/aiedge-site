@@ -235,6 +235,48 @@ def build_segments(trades: list[dict]) -> dict:
     seg["months_positive"] = sum(
         1 for m in months if m["n"] and m["expectancy_r"] > 0)
     seg["months_total"] = len(months)
+
+    # --- spike size as a fraction of ADR ------------------------------
+    # Brooks scales moves to the average daily range: an opening range
+    # under ~30% of ADR is "breakout mode" (room to run); a move that is
+    # a large fraction of ADR is climactic / exhausted. Bucket on it.
+    def adr_tag(pct: float) -> str:
+        for lo, hi, tag in ((0.0, 0.20, "00-20%"), (0.20, 0.35, "20-35%"),
+                            (0.35, 0.50, "35-50%"), (0.50, 0.75, "50-75%")):
+            if lo <= pct < hi:
+                return tag
+        return "75%+"
+
+    by_adr: dict[str, list[dict]] = {}
+    for t in trades:
+        if t.get("spike_pct") is None:
+            continue
+        by_adr.setdefault(adr_tag(t["spike_pct"]), []).append(t)
+    seg["by_spike_adr"] = [
+        summarize(by_adr[k], f"spike {k} of ADR")
+        for k in ("00-20%", "20-35%", "35-50%", "50-75%", "75%+")
+        if k in by_adr
+    ]
+
+    # Cohort split at half an ADR — Brooks' measuring-gap band tops out
+    # near 1/2 ADR; beyond that the day's range is largely spent.
+    room = [t for t in trades
+            if t.get("spike_pct") is not None and t["spike_pct"] < 0.50]
+    spent = [t for t in trades
+             if t.get("spike_pct") is not None and t["spike_pct"] >= 0.50]
+    seg["spike_under_half_adr"] = summarize(room, "spike < 50% ADR (room)")
+    seg["spike_over_half_adr"] = summarize(spent, "spike >= 50% ADR (spent)")
+
+    # Walk-forward: does the "room" cohort hold in the later half of the
+    # sample? Split at the median session date.
+    dates = sorted({t["session_date"] for t in trades})
+    if dates and room:
+        mid = dates[len(dates) // 2]
+        seg["room_first_half"] = summarize(
+            [t for t in room if t["session_date"] < mid], f"room  < {mid}")
+        seg["room_second_half"] = summarize(
+            [t for t in room if t["session_date"] >= mid], f"room >= {mid}")
+        seg["walk_forward_split_date"] = mid
     return seg
 
 
@@ -245,6 +287,22 @@ def main() -> int:
         print("Run the TFO backtest's --fetch-only first.", file=sys.stderr)
         return 2
     print(f"Scanning {len(cache_files)} cached sessions for first pullbacks...")
+
+    # Pre-pass: average daily range per symbol (mean session high-low).
+    # ADR is a slow-moving scale, so a full-sample estimate carries only
+    # negligible look-ahead — noted as a caveat in the report.
+    ranges: dict[str, list[float]] = {}
+    for cf in cache_files:
+        try:
+            bars1 = json.loads(cf.read_text())
+        except Exception:
+            continue
+        if not bars1:
+            continue
+        sym = cf.stem.rsplit("_", 1)[0]
+        rng = max(float(b["h"]) for b in bars1) - min(float(b["l"]) for b in bars1)
+        ranges.setdefault(sym, []).append(rng)
+    adr = {s: sum(v) / len(v) for s, v in ranges.items() if v}
 
     # One trade set per Brooks target. The entry and stop are identical;
     # only the profit target differs, so each signal is scored twice.
@@ -260,6 +318,7 @@ def main() -> int:
             continue
         symbol, session_date = cf.stem.rsplit("_", 1)
         bars5 = aggregate_5m(bars1)
+        a = adr.get(symbol)
         for sig in detect_first_pullbacks(bars5):
             n_signals += 1
             meta = {
@@ -269,6 +328,8 @@ def main() -> int:
                 "is_opening": sig.is_opening,
                 "pullback_bar_count": sig.pullback_bar_count,
                 "signal_bar_with_body": sig.signal_bar_with_body,
+                "spike_pct": round(sig.spike_height / a, 4)
+                             if a and a > 0 else None,
             }
             for target, bucket in ((sig.target_new_high, trades_nh),
                                    (sig.target_measured_move, trades_mm)):
@@ -293,6 +354,8 @@ def main() -> int:
             "commission_per_share": COMMISSION_PER_SHARE,
             "entry_slippage_bps": ENTRY_SLIPPAGE_BPS,
             "stop_slippage_bps": STOP_SLIPPAGE_BPS,
+            "adr": "per-symbol average daily range (mean session high-low, "
+                   "full sample); spike_pct = spike height / ADR",
         },
         "target_new_high": build_segments(trades_nh),
         "target_measured_move": build_segments(trades_mm),
@@ -311,19 +374,22 @@ def main() -> int:
               f"exp={s['expectancy_r']:+.3f}R  CI{s['expectancy_ci95']}  "
               f"pf={s['profit_factor']}")
 
-    print("\n=== BROOKS FIRST-PULLBACK BACKTEST ===")
+    print("\n=== BROOKS FIRST-PULLBACK BACKTEST (costed) ===")
     for key, title in (("target_new_high", "TARGET = at least a new high"),
                        ("target_measured_move", "TARGET = measured move")):
         seg = report[key]
         print(f"\n  [{title}]")
         line(seg["all_first_pullbacks"])
-        line(seg["opening_first_pullbacks"])
-        line(seg["intraday_first_pullbacks"])
-        line(seg["longs"])
-        line(seg["shorts"])
-        line(seg["signal_bar_with_body"])
-        line(seg["signal_bar_no_body"])
-        print(f"    months positive: "
+        print("    -- by spike size vs average daily range --")
+        for s in seg["by_spike_adr"]:
+            line(s)
+        line(seg["spike_under_half_adr"])
+        line(seg["spike_over_half_adr"])
+        if "room_first_half" in seg:
+            print(f"    -- walk-forward, 'room' cohort, split {seg['walk_forward_split_date']} --")
+            line(seg["room_first_half"])
+            line(seg["room_second_half"])
+        print(f"    months positive (all): "
               f"{seg['months_positive']}/{seg['months_total']}")
     print(f"\nReport: {report_path}")
     return 0
