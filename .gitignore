@@ -41,12 +41,13 @@ yarn-error.log*
 !/artifacts/tfo-baseline/
 /artifacts/tfo-baseline/*
 !/artifacts/tfo-baseline/tfo_baseline_mfe_ge_1pct.joblib
-# ... and the backtest report — the headline result is versioned so
-# it's auditable. The trade ledger + 1-min bar cache stay local
+# ... and the backtest reports — the headline results are versioned so
+# they're auditable. Trade ledgers + the 1-min bar cache stay local
 # (regenerable, and large).
 !/artifacts/backtest/
 /artifacts/backtest/*
 !/artifacts/backtest/backtest_report.json
+!/artifacts/backtest/spike_backtest_report.json
 
 # env files (can opt-in for committing if needed)
 .env*
