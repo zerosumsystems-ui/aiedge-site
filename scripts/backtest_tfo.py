@@ -391,23 +391,55 @@ def main(argv: list[str] | None = None) -> int:
     wf = walkforward_scores(rows)
     print(f"  {len(wf)} candidates scored (oldest fold is training seed)")
 
-    # --- simulate primary config ---
-    print(f"Simulating (primary: {PRIMARY_TARGET_R}R / {PRIMARY_HORIZON})...")
+    # --- pre-load every session's 1-min bars (cache hits, fast) ---
+    bars_by_session: dict[tuple, list] = {}
+    for sym, day in sessions:
+        b = fetch_1m_session(args.base_url, sym, day)
+        if b:
+            bars_by_session[(sym, day)] = b
+
+    def run_cell(target_r: float, horizon_bars: int, cost_mult: float = 1.0) -> list[dict]:
+        out: list[dict] = []
+        for r in rows:
+            cid = int(r["id"])
+            if cid not in wf:
+                continue  # seed fold — no walk-forward score
+            bars = bars_by_session.get((r["symbol"], r["session_date"]))
+            if not bars:
+                continue
+            trade = simulate_trade(r, bars, target_r, horizon_bars, cost_mult)
+            if trade is None:
+                continue
+            trade["wf_score"] = round(wf[cid], 4)
+            out.append(trade)
+        return out
+
+    # --- full grid: every target x horizon, all reported ---
+    print("Running grid (target R x horizon)...")
+    grid = []
+    for hname, hbars in HORIZON_GRID.items():
+        for tr in TARGET_R_GRID:
+            cell = run_cell(tr, hbars)
+            s = summarize(cell, f"{tr}R / {hname}")
+            s["target_r"] = tr
+            s["horizon"] = hname
+            grid.append(s)
+            print(f"  {tr}R/{hname}: n={s['n']} exp={s.get('expectancy_r')}"
+                  f" win={s.get('win_rate')} pf={s.get('profit_factor')}")
+
+    # --- simulate primary config (detailed) ---
+    print(f"Simulating primary detail: {PRIMARY_TARGET_R}R / {PRIMARY_HORIZON}...")
     horizon = HORIZON_GRID[PRIMARY_HORIZON]
-    ledger: list[dict] = []
-    for r in rows:
-        cid = int(r["id"])
-        if cid not in wf:
-            continue  # seed fold — no walk-forward score
-        bars = fetch_1m_session(args.base_url, r["symbol"], r["session_date"])
-        if not bars:
-            continue
-        trade = simulate_trade(r, bars, PRIMARY_TARGET_R, horizon)
-        if trade is None:
-            continue
-        trade["wf_score"] = round(wf[cid], 4)
-        ledger.append(trade)
+    ledger = run_cell(PRIMARY_TARGET_R, horizon)
     print(f"  {len(ledger)} trades simulated")
+
+    # --- cost sensitivity on the primary config ---
+    cost_sens = []
+    for cm in (1.0, 2.0, 3.0):
+        cell = run_cell(PRIMARY_TARGET_R, horizon, cost_mult=cm)
+        s = summarize(cell, f"costs x{cm}")
+        s["cost_mult"] = cm
+        cost_sens.append(s)
 
     # --- aggregate ---
     report: dict = {
@@ -420,6 +452,8 @@ def main(argv: list[str] | None = None) -> int:
             "walkforward_folds": N_WALKFORWARD_FOLDS,
         },
         "all_trades": summarize(ledger, "all walk-forward trades"),
+        "grid": grid,
+        "cost_sensitivity": cost_sens,
     }
     # by walk-forward score decile
     if ledger:
