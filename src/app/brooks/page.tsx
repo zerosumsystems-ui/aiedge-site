@@ -73,7 +73,7 @@ function dtwStars(dtw: number): string {
 export default function BrooksPage() {
   const [manifest, setManifest] = useState<{ matches: ManifestMatch[] } | null>(null)
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
-  const [matchData, setMatchData] = useState<MatchData | null>(null)
+  const [loadedMatch, setLoadedMatch] = useState<{ slug: string; data: MatchData } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -95,13 +95,14 @@ export default function BrooksPage() {
 
   useEffect(() => {
     if (!selectedSlug) return
-    setMatchData(null)
     fetch(`/brooks-tour/${selectedSlug}/data.json`, { cache: 'no-store' })
       .then((r) => {
         if (!r.ok) throw new Error(`data HTTP ${r.status}`)
         return r.json()
       })
-      .then(setMatchData)
+      .then((data: MatchData) => {
+        setLoadedMatch({ slug: selectedSlug, data })
+      })
       .catch((e) => setError(e.message))
   }, [selectedSlug])
 
@@ -109,6 +110,7 @@ export default function BrooksPage() {
     if (!manifest) return []
     return [...manifest.matches].sort((a, b) => b.synced_at.localeCompare(a.synced_at))
   }, [manifest])
+  const matchData = loadedMatch?.slug === selectedSlug ? loadedMatch.data : null
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
