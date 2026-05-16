@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: '/scanner', label: 'Scanner' },
   { href: '/setups', label: 'Setups' },
   { href: '/spikes', label: 'Spikes' },
+  { href: '/daily-spikes', label: 'Daily Spikes' },
   { href: '/cc', label: 'gap up + ft setups' },
   { href: '/bgu', label: 'BGU study' },
   { href: '/history', label: 'History' },
