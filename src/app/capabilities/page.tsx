@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Capabilities — AI Edge',
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
 type Capability = {
   title: string
   detail: string
+  /** Optional in-app route this capability is actually wired to. */
+  href?: string
 }
 
 type Section = {
@@ -44,6 +47,13 @@ const SECTIONS: Section[] = [
         title: 'Brooks-tour DTW matching',
         detail:
           'Hybrid DTW (5-channel skeleton + 10-channel Brooks features) against the Brooks book corpus with vertical-flip search and the most-relevant passages pulled per match.',
+        href: '/brooks',
+      },
+      {
+        title: 'Brooks Wisdom reference',
+        detail:
+          'Hallmarks, guidelines, and principles quoted verbatim from the Brooks book corpus — each snippet tagged by kind and cited to its source book and figure.',
+        href: '/brooks/wisdom',
       },
     ],
   },
@@ -237,7 +247,15 @@ export default function CapabilitiesPage() {
                   key={item.title}
                   className="border border-border rounded-[var(--radius)] bg-surface/40 p-4"
                 >
-                  <h3 className="text-sm font-semibold text-text">{item.title}</h3>
+                  <h3 className="text-sm font-semibold text-text">
+                    {item.href ? (
+                      <Link href={item.href} className="text-teal hover:underline">
+                        {item.title} →
+                      </Link>
+                    ) : (
+                      item.title
+                    )}
+                  </h3>
                   <p className="text-sm text-sub mt-1 leading-relaxed">{item.detail}</p>
                 </li>
               ))}
