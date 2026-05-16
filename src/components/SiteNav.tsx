@@ -8,6 +8,7 @@ import { MobileNavDrawer } from './MobileNavDrawer'
 const NAV_ITEMS = [
   { href: '/home', label: 'Home' },
   { href: '/', label: '5 min TFO' },
+  { href: '/state-layers', label: 'States' },
   { href: '/chart', label: 'Chart' },
   { href: '/scanner', label: 'Scanner' },
   { href: '/setups', label: 'Setups' },
@@ -19,7 +20,6 @@ const NAV_ITEMS = [
   { href: '/journal', label: 'Journal' },
   { href: '/training', label: 'Training' },
   { href: '/brooks', label: 'Brooks' },
-  { href: '/state-layers', label: 'States' },
   { href: '/capabilities', label: 'Capabilities' },
   { href: '/blog', label: 'Blog' },
 ]
