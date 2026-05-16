@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { StateLayerChart, type ExampleChart } from '@/components/state-layers/StateLayerChart'
 
 export const metadata = {
   title: 'State Layers | AI Edge',
@@ -11,14 +12,6 @@ type SourceStatus =
   | 'local book-derived'
   | 'implementation-derived'
   | 'operating-model-only'
-
-type Candle = { o: number; h: number; l: number; c: number }
-
-type ExampleChart = {
-  bars: Candle[]
-  level?: { price: number; label: string }
-  highlight?: { index: number; label: string }
-}
 
 type StateLayer = {
   id: string
@@ -565,107 +558,6 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
   )
 }
 
-function ExampleChartSketch({ chart }: { chart: ExampleChart }) {
-  const width = 264
-  const height = 132
-  const padX = 12
-  const padTop = 10
-  const padBottom = 30
-  const plotW = width - padX * 2
-  const plotH = height - padTop - padBottom
-
-  const prices = chart.bars.flatMap((bar) => [bar.h, bar.l])
-  if (chart.level) prices.push(chart.level.price)
-  const min = Math.min(...prices)
-  const max = Math.max(...prices)
-  const span = max - min || 1
-  const y = (price: number) => padTop + ((max - price) / span) * plotH
-
-  const slot = plotW / chart.bars.length
-  const bodyW = Math.min(slot * 0.6, 14)
-  const labelText = chart.highlight?.label
-  const labelX = chart.highlight
-    ? Math.min(Math.max(padX + slot * (chart.highlight.index + 0.5), 56), width - 56)
-    : 0
-
-  return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="mt-3 w-full rounded border border-border bg-bg"
-      role="img"
-      aria-label="Illustrative price-action sketch for this example setup"
-    >
-      {chart.level
-        ? (() => {
-            const ly = y(chart.level.price)
-            return (
-              <g>
-                <line
-                  x1={padX}
-                  x2={width - padX}
-                  y1={ly}
-                  y2={ly}
-                  stroke="var(--sub)"
-                  strokeWidth="1"
-                  strokeDasharray="3 3"
-                />
-                <text x={width - padX} y={ly - 4} textAnchor="end" fontSize="7" fill="var(--sub)">
-                  {chart.level.label}
-                </text>
-              </g>
-            )
-          })()
-        : null}
-
-      {chart.bars.map((bar, index) => {
-        const cx = padX + slot * (index + 0.5)
-        const up = bar.c >= bar.o
-        const color = up ? 'var(--teal)' : 'var(--red)'
-        const bodyTop = y(Math.max(bar.o, bar.c))
-        const bodyBottom = y(Math.min(bar.o, bar.c))
-        const isHighlight = chart.highlight?.index === index
-        return (
-          <g key={index} opacity={chart.highlight && !isHighlight ? 0.55 : 1}>
-            {isHighlight ? (
-              <rect
-                x={cx - slot / 2}
-                y={padTop}
-                width={slot}
-                height={plotH}
-                fill="var(--yellow)"
-                opacity="0.12"
-              />
-            ) : null}
-            <line x1={cx} x2={cx} y1={y(bar.h)} y2={y(bar.l)} stroke={color} strokeWidth="1.5" />
-            <rect
-              x={cx - bodyW / 2}
-              y={bodyTop}
-              width={bodyW}
-              height={Math.max(bodyBottom - bodyTop, 1.5)}
-              fill={color}
-            />
-          </g>
-        )
-      })}
-
-      {chart.highlight
-        ? (() => {
-            const cx = padX + slot * (chart.highlight.index + 0.5)
-            const top = height - padBottom + 2
-            return (
-              <g>
-                <path d={`M ${cx} ${top} l -4 6 l 8 0 z`} fill="var(--yellow)" />
-                <text x={labelX} y={height - 8} textAnchor="middle" fontSize="8" fill="var(--yellow)">
-                  {labelText}
-                </text>
-              </g>
-            )
-          })()
-        : null}
-    </svg>
-  )
-}
-
 function LayerCard({ layer }: { layer: StateLayer }) {
   return (
     <article className="rounded-lg border border-border bg-surface p-4">
@@ -697,7 +589,7 @@ function LayerCard({ layer }: { layer: StateLayer }) {
           <div className="text-xs font-semibold text-text">{layer.example.setup}</div>
           <div className="text-[10px] uppercase tracking-wider text-sub">Chart example</div>
         </div>
-        <ExampleChartSketch chart={layer.example.chart} />
+        <StateLayerChart chart={layer.example.chart} />
         <p className="mt-2 text-xs leading-relaxed text-text/70">{layer.example.read}</p>
         <p className="mt-2 text-xs leading-relaxed text-teal">{layer.example.action}</p>
       </div>
