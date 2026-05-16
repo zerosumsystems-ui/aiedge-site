@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 
 type ManifestMatch = {
   slug: string
@@ -129,6 +130,12 @@ export default function BrooksPage() {
         <p className="text-sm text-sub">
           Trade-by-trade visual matches against the Brooks book corpus, with the most-relevant passages
           quoted. Hybrid DTW (5-channel skeleton + 10-channel Brooks features) with vertical-flip search.
+        </p>
+        <p className="text-xs text-sub mt-2">
+          <Link href="/brooks/wisdom" className="text-teal hover:underline">
+            Brooks Wisdom →
+          </Link>{' '}
+          — hallmarks, guidelines, and principles quoted verbatim from the corpus.
         </p>
       </div>
 
