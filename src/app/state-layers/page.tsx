@@ -3,7 +3,7 @@ import Link from 'next/link'
 export const metadata = {
   title: 'State Layers | AI Edge',
   description:
-    'Brooks Trading Factory state layers with examples, fields, source status, and replay focus.',
+    'Brooks Trading Factory state layers with chart examples, fields, source status, and replay focus.',
 }
 
 type SourceStatus =
@@ -11,6 +11,14 @@ type SourceStatus =
   | 'local book-derived'
   | 'implementation-derived'
   | 'operating-model-only'
+
+type Candle = { o: number; h: number; l: number; c: number }
+
+type ExampleChart = {
+  bars: Candle[]
+  level?: { price: number; label: string }
+  highlight?: { index: number; label: string }
+}
 
 type StateLayer = {
   id: string
@@ -24,6 +32,7 @@ type StateLayer = {
     setup: string
     read: string
     action: string
+    chart: ExampleChart
   }
   caution: string
 }
@@ -41,6 +50,20 @@ const stateLayers: StateLayer[] = [
       setup: 'Trend-from-open first pullback',
       read: '5M remains Always In long; 1M pullback is shallow and does not flip control.',
       action: 'Review long continuation before countertrend reversal ideas.',
+      chart: {
+        bars: [
+          { o: 30, h: 37, l: 29, c: 36 },
+          { o: 36, h: 43, l: 35, c: 42 },
+          { o: 42, h: 49, l: 41, c: 48 },
+          { o: 48, h: 49, l: 43, c: 45 },
+          { o: 45, h: 48, l: 44, c: 47 },
+          { o: 47, h: 55, l: 46, c: 54 },
+          { o: 54, h: 61, l: 53, c: 60 },
+          { o: 60, h: 67, l: 59, c: 66 },
+          { o: 66, h: 73, l: 65, c: 72 },
+        ],
+        highlight: { index: 3, label: 'Shallow pullback — bias holds' },
+      },
     },
     caution: 'Do not turn forced-choice bias into automatic entry permission.',
   },
@@ -56,6 +79,21 @@ const stateLayers: StateLayer[] = [
       setup: 'Opening breakout pullback',
       read: 'Signal bar is clean, but entry bar cannot close beyond the prior high.',
       action: 'Mark as failed proof instead of accepted breakout continuation.',
+      chart: {
+        bars: [
+          { o: 40, h: 47, l: 39, c: 46 },
+          { o: 46, h: 55, l: 45, c: 54 },
+          { o: 54, h: 60, l: 53, c: 59 },
+          { o: 59, h: 60, l: 50, c: 52 },
+          { o: 52, h: 53, l: 48, c: 50 },
+          { o: 50, h: 57, l: 49, c: 56 },
+          { o: 56, h: 59, l: 53, c: 55 },
+          { o: 55, h: 56, l: 47, c: 49 },
+          { o: 49, h: 50, l: 44, c: 45 },
+        ],
+        level: { price: 60, label: 'Prior high' },
+        highlight: { index: 6, label: 'Entry bar fails the high' },
+      },
     },
     caution: 'A pretty signal bar is not enough when context or entry-bar proof is missing.',
   },
@@ -71,6 +109,20 @@ const stateLayers: StateLayer[] = [
       setup: 'Failed H2 after a spike',
       read: 'First pullback entry failed; the next attempt is aging toward wedge or failed-failure context.',
       action: 'Require attempt count in the journal before assigning setup quality.',
+      chart: {
+        bars: [
+          { o: 30, h: 35, l: 29, c: 34 },
+          { o: 34, h: 52, l: 33, c: 50 },
+          { o: 50, h: 56, l: 49, c: 55 },
+          { o: 55, h: 56, l: 48, c: 50 },
+          { o: 50, h: 58, l: 49, c: 57 },
+          { o: 57, h: 61, l: 56, c: 60 },
+          { o: 60, h: 61, l: 52, c: 54 },
+          { o: 54, h: 55, l: 49, c: 50 },
+          { o: 50, h: 51, l: 44, c: 45 },
+        ],
+        highlight: { index: 7, label: 'H2 entry fails' },
+      },
     },
     caution: 'A setup label without attempt number is incomplete.',
   },
@@ -86,6 +138,21 @@ const stateLayers: StateLayer[] = [
       setup: 'Middle-of-range stop entry',
       read: 'Setup exists, but range position and overlap force confidence into gray band.',
       action: 'Record no-trade reason and revisit in rejected-winner review.',
+      chart: {
+        bars: [
+          { o: 48, h: 54, l: 46, c: 52 },
+          { o: 52, h: 54, l: 45, c: 47 },
+          { o: 47, h: 53, l: 45, c: 51 },
+          { o: 51, h: 53, l: 46, c: 48 },
+          { o: 48, h: 55, l: 47, c: 53 },
+          { o: 53, h: 55, l: 47, c: 49 },
+          { o: 49, h: 54, l: 46, c: 52 },
+          { o: 52, h: 54, l: 46, c: 48 },
+          { o: 48, h: 52, l: 46, c: 50 },
+        ],
+        level: { price: 50, label: 'Range middle' },
+        highlight: { index: 4, label: 'Overlap — gray-band decision' },
+      },
     },
     caution: 'Exception tracking is workflow evidence, not a new source of trading edge.',
   },
@@ -101,6 +168,21 @@ const stateLayers: StateLayer[] = [
       setup: 'Breakout retest of opening range high',
       read: 'Price tests the breakout point, holds above it, and traps sellers below the level.',
       action: 'Upgrade continuation review only after the post-test follow-through bar.',
+      chart: {
+        bars: [
+          { o: 38, h: 45, l: 37, c: 44 },
+          { o: 44, h: 51, l: 43, c: 50 },
+          { o: 50, h: 58, l: 49, c: 56 },
+          { o: 56, h: 60, l: 55, c: 58 },
+          { o: 58, h: 59, l: 54, c: 55 },
+          { o: 55, h: 58, l: 54, c: 57 },
+          { o: 57, h: 64, l: 56, c: 63 },
+          { o: 63, h: 70, l: 62, c: 69 },
+          { o: 69, h: 75, l: 68, c: 74 },
+        ],
+        level: { price: 55, label: 'Opening range high' },
+        highlight: { index: 4, label: 'Retest holds above level' },
+      },
     },
     caution: 'A level touch is evidence gathering, not a trigger.',
   },
@@ -116,6 +198,21 @@ const stateLayers: StateLayer[] = [
       setup: 'Breakout above range middle',
       read: 'Breakout lacks follow-through and returns to overlap inside the prior range.',
       action: 'Downgrade to range behavior and block hopeful swing assumptions.',
+      chart: {
+        bars: [
+          { o: 44, h: 50, l: 43, c: 48 },
+          { o: 48, h: 53, l: 46, c: 52 },
+          { o: 52, h: 59, l: 51, c: 57 },
+          { o: 57, h: 58, l: 52, c: 53 },
+          { o: 53, h: 54, l: 47, c: 49 },
+          { o: 49, h: 51, l: 44, c: 46 },
+          { o: 46, h: 52, l: 44, c: 50 },
+          { o: 50, h: 52, l: 45, c: 47 },
+          { o: 47, h: 51, l: 45, c: 49 },
+        ],
+        level: { price: 55, label: 'Range high' },
+        highlight: { index: 3, label: 'Breakout fails to follow through' },
+      },
     },
     caution: 'Do not trade the middle as if it were an edge.',
   },
@@ -131,6 +228,20 @@ const stateLayers: StateLayer[] = [
       setup: 'Bull channel pullback',
       read: 'Pullback is deep, slow, and breaks the channel instead of forming a shallow test.',
       action: 'Move from continuation assumption to proof-required review.',
+      chart: {
+        bars: [
+          { o: 30, h: 36, l: 29, c: 35 },
+          { o: 35, h: 41, l: 34, c: 40 },
+          { o: 40, h: 46, l: 39, c: 45 },
+          { o: 45, h: 51, l: 44, c: 50 },
+          { o: 50, h: 51, l: 46, c: 48 },
+          { o: 48, h: 49, l: 42, c: 44 },
+          { o: 44, h: 45, l: 38, c: 40 },
+          { o: 40, h: 41, l: 35, c: 37 },
+          { o: 37, h: 40, l: 35, c: 38 },
+        ],
+        highlight: { index: 6, label: 'Deep pullback breaks the channel' },
+      },
     },
     caution: 'A channel line break is not automatically a reversal.',
   },
@@ -146,6 +257,21 @@ const stateLayers: StateLayer[] = [
       setup: 'Small winner that misses target by one tick',
       read: 'Scalpers were almost paid, then price reverses to breakeven.',
       action: 'Tag disappointment pressure before judging the original entry.',
+      chart: {
+        bars: [
+          { o: 48, h: 53, l: 47, c: 52 },
+          { o: 52, h: 57, l: 51, c: 56 },
+          { o: 56, h: 61, l: 55, c: 60 },
+          { o: 60, h: 61, l: 59, c: 61 },
+          { o: 61, h: 62, l: 57, c: 58 },
+          { o: 58, h: 59, l: 53, c: 54 },
+          { o: 54, h: 55, l: 50, c: 51 },
+          { o: 51, h: 52, l: 49, c: 50 },
+          { o: 50, h: 51, l: 49, c: 50 },
+        ],
+        level: { price: 62, label: 'Target' },
+        highlight: { index: 4, label: 'Misses target, reverses' },
+      },
     },
     caution: 'Missed target pressure is context evidence, not a standalone fade.',
   },
@@ -161,6 +287,20 @@ const stateLayers: StateLayer[] = [
       setup: 'Opening continuation after stacked body gaps',
       read: 'Repeated gaps stay open and pullbacks cannot close midpoint pressure.',
       action: 'Treat as momentum evidence that still needs trader-equation review.',
+      chart: {
+        bars: [
+          { o: 30, h: 35, l: 29, c: 34 },
+          { o: 38, h: 43, l: 37, c: 42 },
+          { o: 46, h: 51, l: 45, c: 50 },
+          { o: 50, h: 51, l: 47, c: 48 },
+          { o: 53, h: 58, l: 52, c: 57 },
+          { o: 57, h: 58, l: 54, c: 55 },
+          { o: 60, h: 65, l: 59, c: 64 },
+          { o: 64, h: 69, l: 63, c: 68 },
+          { o: 68, h: 73, l: 67, c: 72 },
+        ],
+        highlight: { index: 4, label: 'Gaps stay open — continuation' },
+      },
     },
     caution: 'A gap or gap close is not automatic entry logic.',
   },
@@ -176,6 +316,20 @@ const stateLayers: StateLayer[] = [
       setup: 'Late third push after measured move',
       read: 'Price accelerates into target, then fails to continue after the pullback.',
       action: 'Require resolution before buying another late breakout.',
+      chart: {
+        bars: [
+          { o: 30, h: 37, l: 29, c: 36 },
+          { o: 36, h: 41, l: 35, c: 40 },
+          { o: 40, h: 41, l: 36, c: 38 },
+          { o: 38, h: 47, l: 37, c: 46 },
+          { o: 46, h: 51, l: 45, c: 50 },
+          { o: 50, h: 51, l: 46, c: 48 },
+          { o: 48, h: 60, l: 47, c: 58 },
+          { o: 58, h: 62, l: 54, c: 56 },
+          { o: 56, h: 57, l: 47, c: 49 },
+        ],
+        highlight: { index: 6, label: 'Climactic third push' },
+      },
     },
     caution: 'Do not turn climax labels into automatic fade rules.',
   },
@@ -191,6 +345,20 @@ const stateLayers: StateLayer[] = [
       setup: 'Tight early trading range',
       read: 'First breakout fails, then the failed failure produces stronger follow-through.',
       action: 'Review after the sequence resolves, not on the first poke.',
+      chart: {
+        bars: [
+          { o: 46, h: 49, l: 45, c: 48 },
+          { o: 48, h: 49, l: 45, c: 47 },
+          { o: 47, h: 50, l: 46, c: 49 },
+          { o: 49, h: 50, l: 42, c: 44 },
+          { o: 44, h: 49, l: 43, c: 48 },
+          { o: 48, h: 55, l: 47, c: 54 },
+          { o: 54, h: 61, l: 53, c: 60 },
+          { o: 60, h: 67, l: 59, c: 66 },
+          { o: 66, h: 72, l: 65, c: 71 },
+        ],
+        highlight: { index: 4, label: 'Failed failure resolves up' },
+      },
     },
     caution: 'Breakout mode is a wait state until evidence resolves.',
   },
@@ -206,6 +374,20 @@ const stateLayers: StateLayer[] = [
       setup: '1M reversal inside 15M bull pullback',
       read: 'Lower-timeframe reversal is only a pullback in the higher-timeframe trend.',
       action: 'Downgrade countertrend expectation unless higher-timeframe damage appears.',
+      chart: {
+        bars: [
+          { o: 30, h: 37, l: 29, c: 36 },
+          { o: 36, h: 43, l: 35, c: 42 },
+          { o: 42, h: 49, l: 41, c: 48 },
+          { o: 48, h: 49, l: 43, c: 44 },
+          { o: 44, h: 45, l: 40, c: 41 },
+          { o: 41, h: 44, l: 40, c: 43 },
+          { o: 43, h: 50, l: 42, c: 49 },
+          { o: 49, h: 56, l: 48, c: 55 },
+          { o: 55, h: 62, l: 54, c: 61 },
+        ],
+        highlight: { index: 5, label: 'LTF reversal is only a pullback' },
+      },
     },
     caution: 'Do not average conflicting timeframes into vague confluence.',
   },
@@ -221,6 +403,21 @@ const stateLayers: StateLayer[] = [
       setup: 'Double bottom after sell climax',
       read: 'Trendline break occurred, old low was tested, second reversal has strong follow-through.',
       action: 'Classify as major-reversal candidate for replay, not live rule approval.',
+      chart: {
+        bars: [
+          { o: 60, h: 61, l: 50, c: 52 },
+          { o: 52, h: 53, l: 38, c: 42 },
+          { o: 42, h: 48, l: 41, c: 46 },
+          { o: 46, h: 47, l: 41, c: 43 },
+          { o: 43, h: 44, l: 38, c: 39 },
+          { o: 39, h: 46, l: 38, c: 45 },
+          { o: 45, h: 53, l: 44, c: 52 },
+          { o: 52, h: 59, l: 51, c: 58 },
+          { o: 58, h: 64, l: 57, c: 63 },
+        ],
+        level: { price: 38, label: 'Old low' },
+        highlight: { index: 4, label: 'Double bottom retests old low' },
+      },
     },
     caution: 'Most first reversals are minor, range-forming, or failed.',
   },
@@ -236,6 +433,21 @@ const stateLayers: StateLayer[] = [
       setup: 'Breakout pullback to entry breakeven',
       read: 'Breakout traders were not paid before the pullback and breakeven breaks quickly.',
       action: 'Downgrade accepted breakout and tag trapped-trader risk.',
+      chart: {
+        bars: [
+          { o: 40, h: 47, l: 39, c: 46 },
+          { o: 46, h: 53, l: 45, c: 52 },
+          { o: 52, h: 55, l: 51, c: 54 },
+          { o: 54, h: 55, l: 51, c: 52 },
+          { o: 52, h: 53, l: 47, c: 48 },
+          { o: 48, h: 49, l: 43, c: 44 },
+          { o: 44, h: 48, l: 42, c: 46 },
+          { o: 46, h: 47, l: 41, c: 42 },
+          { o: 42, h: 44, l: 39, c: 40 },
+        ],
+        level: { price: 52, label: 'Entry / breakeven' },
+        highlight: { index: 4, label: 'Breakeven breaks — traders trapped' },
+      },
     },
     caution: 'Stop clusters matter only with regime, location, follow-through, and trader-equation support.',
   },
@@ -353,6 +565,107 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
   )
 }
 
+function ExampleChartSketch({ chart }: { chart: ExampleChart }) {
+  const width = 264
+  const height = 132
+  const padX = 12
+  const padTop = 10
+  const padBottom = 30
+  const plotW = width - padX * 2
+  const plotH = height - padTop - padBottom
+
+  const prices = chart.bars.flatMap((bar) => [bar.h, bar.l])
+  if (chart.level) prices.push(chart.level.price)
+  const min = Math.min(...prices)
+  const max = Math.max(...prices)
+  const span = max - min || 1
+  const y = (price: number) => padTop + ((max - price) / span) * plotH
+
+  const slot = plotW / chart.bars.length
+  const bodyW = Math.min(slot * 0.6, 14)
+  const labelText = chart.highlight?.label
+  const labelX = chart.highlight
+    ? Math.min(Math.max(padX + slot * (chart.highlight.index + 0.5), 56), width - 56)
+    : 0
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="mt-3 w-full rounded border border-border bg-bg"
+      role="img"
+      aria-label="Illustrative price-action sketch for this example setup"
+    >
+      {chart.level
+        ? (() => {
+            const ly = y(chart.level.price)
+            return (
+              <g>
+                <line
+                  x1={padX}
+                  x2={width - padX}
+                  y1={ly}
+                  y2={ly}
+                  stroke="var(--sub)"
+                  strokeWidth="1"
+                  strokeDasharray="3 3"
+                />
+                <text x={width - padX} y={ly - 4} textAnchor="end" fontSize="7" fill="var(--sub)">
+                  {chart.level.label}
+                </text>
+              </g>
+            )
+          })()
+        : null}
+
+      {chart.bars.map((bar, index) => {
+        const cx = padX + slot * (index + 0.5)
+        const up = bar.c >= bar.o
+        const color = up ? 'var(--teal)' : 'var(--red)'
+        const bodyTop = y(Math.max(bar.o, bar.c))
+        const bodyBottom = y(Math.min(bar.o, bar.c))
+        const isHighlight = chart.highlight?.index === index
+        return (
+          <g key={index} opacity={chart.highlight && !isHighlight ? 0.55 : 1}>
+            {isHighlight ? (
+              <rect
+                x={cx - slot / 2}
+                y={padTop}
+                width={slot}
+                height={plotH}
+                fill="var(--yellow)"
+                opacity="0.12"
+              />
+            ) : null}
+            <line x1={cx} x2={cx} y1={y(bar.h)} y2={y(bar.l)} stroke={color} strokeWidth="1.5" />
+            <rect
+              x={cx - bodyW / 2}
+              y={bodyTop}
+              width={bodyW}
+              height={Math.max(bodyBottom - bodyTop, 1.5)}
+              fill={color}
+            />
+          </g>
+        )
+      })}
+
+      {chart.highlight
+        ? (() => {
+            const cx = padX + slot * (chart.highlight.index + 0.5)
+            const top = height - padBottom + 2
+            return (
+              <g>
+                <path d={`M ${cx} ${top} l -4 6 l 8 0 z`} fill="var(--yellow)" />
+                <text x={labelX} y={height - 8} textAnchor="middle" fontSize="8" fill="var(--yellow)">
+                  {labelText}
+                </text>
+              </g>
+            )
+          })()
+        : null}
+    </svg>
+  )
+}
+
 function LayerCard({ layer }: { layer: StateLayer }) {
   return (
     <article className="rounded-lg border border-border bg-surface p-4">
@@ -382,8 +695,9 @@ function LayerCard({ layer }: { layer: StateLayer }) {
       <div className="mt-4 rounded border border-border bg-bg p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs font-semibold text-text">{layer.example.setup}</div>
-          <div className="text-[10px] uppercase tracking-wider text-sub">Example</div>
+          <div className="text-[10px] uppercase tracking-wider text-sub">Chart example</div>
         </div>
+        <ExampleChartSketch chart={layer.example.chart} />
         <p className="mt-2 text-xs leading-relaxed text-text/70">{layer.example.read}</p>
         <p className="mt-2 text-xs leading-relaxed text-teal">{layer.example.action}</p>
       </div>
