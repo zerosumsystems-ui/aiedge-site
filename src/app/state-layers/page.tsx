@@ -552,6 +552,72 @@ const statusStyles: Record<SourceStatus, string> = {
 
 const stageOrder = ['Context', 'Regime', 'Direction', 'Location', 'Compression', 'Maturity', 'Evidence', 'Transition', 'Momentum', 'Pressure', 'Management', 'Review']
 
+// Plain-language explanation of every snapshot field shown on the cards.
+// Sourced from the Codex brooks_state_snapshot schema.
+const FIELD_DESC: Record<string, string> = {
+  always_in_state: 'Which side currently owns the market — long, short, or neutral.',
+  always_in_strength: 'How strongly that directional bias is held.',
+  always_in_mode: 'What kind of trend framework is active — spike, channel, or range.',
+  state_alignment: 'Whether the timeframes agree on direction.',
+  shape_score: "How clean the signal bar's shape is on its own.",
+  context_score: 'How well the signal fits the surrounding context.',
+  entry_bar_score: "Quality of the bar you'd actually enter on.",
+  follow_through_score: 'How convincingly price extended after the entry.',
+  signal_block_reason: 'Why a signal was rejected, when it was.',
+  attempt_number: 'Which try this is — first attempt, second entry, and so on.',
+  legs_completed_since_spike: 'How many price legs have run since the last spike.',
+  last_failed_entry_side: 'Direction of the most recent failed entry.',
+  tbtl_clock_remaining: "Bars left before the move is 'too late to trade'.",
+  setup_name: 'Which setup pattern this candidate is.',
+  exception_flags: 'Any rule exceptions that were waved through.',
+  confidence_band: 'Reliability tier — high, medium, or gray-zone.',
+  trade_class: 'Risk/reward category of the trade.',
+  skip_reason: 'Why the trade was passed on, when skipped.',
+  level_id: 'Identifier for the support/resistance level being tested.',
+  tested_level_type: 'What kind of level it is — support, resistance, breakout point.',
+  retest_result: 'Whether the retest held or failed.',
+  trapped_side: 'Which side got caught on the wrong side of the level.',
+  post_test_follow_through: 'Price action in the bars after the test.',
+  range_gravity_state: 'How strongly price is still being pulled back into the range.',
+  range_position: 'Where price sits in the range — top, middle, or bottom.',
+  breakout_conversion_score: 'Odds a breakout actually sticks.',
+  first_breakout_result: 'How the first breakout attempt resolved.',
+  channel_pressure_state: 'Whether the channel is still pushing or losing force.',
+  pullback_depth_class: 'How deep the pullback is — shallow, moderate, or deep.',
+  pullback_duration_bars: 'How many bars the pullback has lasted.',
+  channel_break_status: 'Whether price has broken the channel line.',
+  order_fill_pressure_state: 'Whether the move paid entered traders or disappointed them.',
+  target_type: 'What kind of target was in play — scalp, measured move, etc.',
+  target_fill_status: 'Whether the target was reached.',
+  missed_target_trap: 'Price tagged near the target, then reversed.',
+  gap_type: 'What kind of gap this is.',
+  gap_direction: 'Whether the gap is up or down.',
+  gap_midpoint: 'The mid price of the gap — a common test level.',
+  gap_continuity_state: 'Whether gaps are supporting the trend or closing against it.',
+  body_gap_closure_count: 'How many body gaps have been filled.',
+  climax_resolution_state: 'How the exhaustion move resolved — continuation or reversal.',
+  climax_phase: 'Which stage of the climax price is in.',
+  climax_shape: 'The geometry of the climax — spike, blow-off, or wedge.',
+  exhaustion_context: 'The conditions leading into the exhaustion.',
+  compression_type: 'What kind of tight range price is coiling in.',
+  breakout_mode_state: 'Whether the market is waiting, breaking out, or failing.',
+  first_breakout_direction: 'Which way the first breakout attempt went.',
+  failed_failure_result: "How a failed breakout's failure resolved.",
+  context_tf: 'The higher timeframe that owns the context.',
+  execution_tf: 'The timeframe the trade is executed on.',
+  trigger_tf: 'The timeframe that generates the entry signal.',
+  tf_regime_by_frame: 'The regime label on each timeframe.',
+  timeframe_authority_state: "Which timeframe's read currently wins.",
+  reversal_proof_state: 'How much evidence supports a real reversal.',
+  prior_trend_damage: 'How badly the prior trend has been broken.',
+  old_extreme_test_type: 'How the prior high or low was retested.',
+  second_reversal_quality: 'Strength of the confirming second reversal.',
+  stop_pressure_zone: 'Where protective stops are clustered.',
+  breakeven_test_state: 'Whether price has come back to test entry cost.',
+  scalper_profit_before_pullback: 'Whether quick traders were paid before the pullback.',
+  stop_distance_mode: 'How the stop is sized relative to noise.',
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function formatPacketDate(iso: string): string {
@@ -680,14 +746,19 @@ function LayerCard({ layer }: { layer: StateLayer }) {
       <p className="mt-3 text-sm leading-relaxed text-text/75">{layer.job}</p>
 
       <div className="mt-4">
-        <div className="text-[10px] uppercase tracking-wider text-sub">Fields</div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-sub">Fields — what each one records</div>
+        <dl className="mt-2 space-y-1.5">
           {layer.fields.map((field) => (
-            <code key={field} className="rounded border border-border bg-bg px-1.5 py-1 text-[11px] text-text/80">
-              {field}
-            </code>
+            <div key={field} className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
+              <dt className="shrink-0">
+                <code className="rounded border border-border bg-bg px-1.5 py-0.5 text-[11px] text-text/80">
+                  {field}
+                </code>
+              </dt>
+              <dd className="text-[11px] leading-relaxed text-text/55">{FIELD_DESC[field] ?? ''}</dd>
+            </div>
           ))}
-        </div>
+        </dl>
       </div>
 
       <div className="mt-4 rounded border border-border bg-bg p-3">
