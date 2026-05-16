@@ -703,7 +703,7 @@ export default function StateLayersPage() {
             const layers = stateLayers.filter((layer) => layer.stage === stage)
             if (!layers.length) return null
             return (
-              <section key={stage} id={stage.toLowerCase().replaceAll(' ', '-')} className="space-y-3 scroll-mt-20">
+              <section key={stage} id={stage.toLowerCase().replaceAll(' ', '-')} className="space-y-3 scroll-mt-[calc(var(--nav-h)+1rem)]">
                 <h2 className="text-sm font-semibold text-text">{stage}</h2>
                 <div className="grid gap-3 lg:grid-cols-2">
                   {layers.map((layer) => (

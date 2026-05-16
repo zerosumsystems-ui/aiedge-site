@@ -187,8 +187,8 @@ export function StateLayerChart({ chart }: { chart: ExampleChart }) {
         (entries) => {
           for (const entry of entries) {
             if (entry.isIntersecting) {
-              played = false
               play()
+              observer?.disconnect()
             }
           }
         },
