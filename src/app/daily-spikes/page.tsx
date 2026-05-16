@@ -53,12 +53,12 @@ const DISPLAY_COLUMNS: DisplayColumn[] = [
   { label: 'Avg Volume', aliases: ['Average Volume', 'Avg Volume'], align: 'right' },
   {
     label: 'EPS Q/Q',
-    aliases: ['EPS growth qtr over qtr', 'EPS Q/Q'],
+    aliases: ['EPS Growth Quarter Over Quarter', 'EPS growth qtr over qtr'],
     align: 'right',
   },
   {
     label: 'EPS this yr',
-    aliases: ['EPS growth this year', 'EPS this year'],
+    aliases: ['EPS Growth This Year', 'EPS growth this year'],
     align: 'right',
   },
   { label: 'Market Cap', aliases: ['Market Cap'], align: 'right' },
