@@ -18,6 +18,20 @@ Will usually talks or types fast — he will not remember to type slash commands
 
 When in doubt about which one fits, ask in one sentence. Do not require Will to use the exact slash syntax.
 
+## Standing workflow — auto-review, then go live
+
+Will does not want to type `go` every time. After completing a change he asked
+for, do not wait for a `go` trigger:
+
+1. Self-review the diff (reuse, correctness, regressions).
+2. Run the Go Live Workflow in `AGENTS.md` (quality checks → show proof → ship → verify).
+3. Report what shipped and the verified live URL.
+
+Stop and surface to Will instead of shipping when: a check fails, the boundary
+hook fires, the change is risky or ambiguous, or he is still mid-conversation
+about what he wants. When unsure whether a change is "done" enough to ship, ask
+in one sentence rather than sitting on it.
+
 ## Standing skills (auto-load — no trigger needed)
 
 - `aiedge-chart` — anything under `/chart`, indicators, ƒx menu, watchlist, overlays, chart settings.
