@@ -23,5 +23,14 @@ export function ChartClient() {
   const initialSymbol = raw && /^[A-Z][A-Z0-9.\-]{0,7}$/.test(raw.toUpperCase())
     ? raw.toUpperCase()
     : undefined
-  return <TradingViewTerminal initialSymbolOverride={initialSymbol} />
+  // `?tf=` lets a linking page seed the timeframe — e.g. /daily-spikes
+  // sends `tf=daily` so a daily-screen candidate opens on the daily chart.
+  // The terminal validates the value and falls back to the persisted pref.
+  const initialTimeframe = search?.get("tf") ?? undefined
+  return (
+    <TradingViewTerminal
+      initialSymbolOverride={initialSymbol}
+      initialTimeframeOverride={initialTimeframe}
+    />
+  )
 }

@@ -148,7 +148,7 @@ export default async function DailySpikesPage() {
                         <span className="text-sub">—</span>
                       ) : (
                         <Link
-                          href={`/chart?symbol=${encodeURIComponent(ticker)}`}
+                          href={`/chart?symbol=${encodeURIComponent(ticker)}&tf=daily`}
                           className="font-semibold text-teal hover:underline"
                         >
                           {ticker}

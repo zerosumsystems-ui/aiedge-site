@@ -3681,9 +3681,19 @@ interface TradingViewTerminalProps {
    * the persisted prefs as before — we don't re-read this on every render.
    */
   initialSymbolOverride?: string
+  /**
+   * Timeframe passed in by the route via `?tf=` URL param. When it names a
+   * known timeframe it seeds the chart on mount, overriding the persisted
+   * per-symbol pref. /daily-spikes uses this to open candidates on the
+   * daily chart. Anything unrecognized is ignored.
+   */
+  initialTimeframeOverride?: string
 }
 
-export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTerminalProps = {}) {
+export function TradingViewTerminal({
+  initialSymbolOverride,
+  initialTimeframeOverride,
+}: TradingViewTerminalProps = {}) {
   const [symbols, setSymbols] = useState<string[]>(() => {
     const customs = readCustomSymbols()
     return Array.from(new Set([...DEFAULT_SYMBOLS, ...customs]))
@@ -3701,7 +3711,11 @@ export function TradingViewTerminal({ initialSymbolOverride }: TradingViewTermin
   const initialSymbol = initialSymbolOverride ?? storedSymbol()
   const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol)
   const [symbolDraft, setSymbolDraft] = useState(storedSymbol)
-  const [timeframe, setTimeframe] = useState<ChartViewTimeframe>(() => symbolTimeframe(initialSymbol))
+  const [timeframe, setTimeframe] = useState<ChartViewTimeframe>(() =>
+    TIMEFRAMES.some((item) => item.value === initialTimeframeOverride)
+      ? (initialTimeframeOverride as ChartViewTimeframe)
+      : symbolTimeframe(initialSymbol),
+  )
   const [barWindow, setBarWindow] = useState(() => symbolBarWindow(initialSymbol))
   const [sessionMode, setSessionMode] = useState<SessionMode>(() => symbolSessionMode(initialSymbol))
   const [refreshNonce, setRefreshNonce] = useState(0)
