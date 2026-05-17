@@ -519,7 +519,7 @@ export async function GET(request: Request) {
   const work = existing?.promise ?? (async () => {
     // Fetch + parse rows for a given schema. Returns either parsed bars or
     // the raw response details so the caller can decide whether to fall back.
-    async function fetchSchema(targetSchema: DatabentoSchema): Promise<
+    async function fetchSchema(targetSchema: DatabentoSchema, endIso?: string): Promise<
       | { ok: true; rawBars: Bar[] }
       | { ok: false; status: number; body: string }
     > {
@@ -528,7 +528,7 @@ export async function GET(request: Request) {
       fetchUrl.searchParams.set('symbols', ticker)
       fetchUrl.searchParams.set('schema', targetSchema)
       fetchUrl.searchParams.set('start', paddedFrom.toISOString())
-      fetchUrl.searchParams.set('end', paddedTo.toISOString())
+      fetchUrl.searchParams.set('end', endIso ?? paddedTo.toISOString())
       fetchUrl.searchParams.set('encoding', 'json')
       fetchUrl.searchParams.set('pretty_px', 'true')
       fetchUrl.searchParams.set('pretty_ts', 'true')
@@ -566,6 +566,19 @@ export async function GET(request: Request) {
         actualSchema = 'ohlcv-1m'
         schemaFallback = 'ohlcv-1h-to-1m'
         result = await fetchSchema('ohlcv-1m')
+      }
+
+      // Databento 422 `data_end_after_available_end` — the requested
+      // `end` runs past the dataset frontier. The feed-lag clamp assumes
+      // data is published up to ~35 min ago, but on weekends and holidays
+      // the last real session can be days back, so the clamp isn't enough.
+      // The error names the exact available end; retry once clamped to it.
+      if (!result.ok && result.status === 422 && result.body.includes('data_end_after_available_end')) {
+        const m = result.body.match(/available up to '([^']+)'/)
+        const availableEnd = m ? new Date(m[1].replace(' ', 'T')) : null
+        if (availableEnd && !Number.isNaN(availableEnd.getTime()) && availableEnd.getTime() > paddedFrom.getTime()) {
+          result = await fetchSchema(actualSchema, availableEnd.toISOString())
+        }
       }
 
       if (!result.ok) {
