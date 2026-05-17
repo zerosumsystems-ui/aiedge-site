@@ -179,13 +179,22 @@ equity curve is reported as a secondary view.
 ## 8. Reproduce
 
 ```
-# 1. dataset (candidates + features + outcomes + pivot_ts) is in
-#    artifacts/tfo-baseline/raw_dataset.json
-# 2. gather + cache 1-minute bars
+# 1. dataset (candidates + features + outcomes + pivot_ts): read from
+#    artifacts/tfo-baseline/raw_dataset.json, or auto-pulled from
+#    Supabase when that file is absent (needs SUPABASE_URL +
+#    SUPABASE_SERVICE_ROLE_KEY).
+# 2. gather + cache 1-minute bars (from the Cloudflare R2 bars bucket;
+#    needs R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY /
+#    R2_BARS_BUCKET).
 python3 scripts/ml/backtest_tfo.py --fetch-only
 # 3. full backtest
 python3 scripts/ml/backtest_tfo.py
 ```
+
+1-minute bars come from the R2 bars bucket — monthly Databento
+ohlcv-1m parquet files, one per symbol/month. Sessions for a
+symbol/month the bucket does not yet carry are skipped, and the run
+reports the coverage (`sessions_with_bars` / `sessions_total`).
 
 Outputs: `artifacts/backtest/backtest_report.json` (aggregate) and
 `artifacts/backtest/trade_ledger.json` (every simulated fill, auditable

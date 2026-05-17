@@ -3,6 +3,7 @@
 # Used by:
 #   scripts/train_tfo_baseline.py
 #   scripts/train_aapl_opening_baseline.py
+#   scripts/ml/backtest_tfo.py   (boto3 — reads 1-min bars from Cloudflare R2)
 #
 # Installed by .claude/hooks/session-start.sh into the system Python on
 # cloud sessions, and by Will's local env on the Mac mini.
@@ -11,3 +12,4 @@ scikit-learn>=1.4,<2
 pandas>=2.0,<3
 joblib>=1.3,<2
 pyarrow>=14,<22
+boto3>=1.34,<2

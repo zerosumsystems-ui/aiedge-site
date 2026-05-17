@@ -24,15 +24,23 @@ Pipeline:
      bootstrap CIs, by-decile / by-month / by-symbol, cost
      sensitivity, benchmark vs blind + random entry.
 
-1-minute bars are fetched once per session and cached under
-artifacts/backtest/bars_1m/. Re-runs of the simulation are fast.
+1-minute bars are read from the Cloudflare R2 bars bucket (monthly
+Databento ohlcv-1m parquet files), sliced to each RTH session and
+cached under artifacts/backtest/bars_1m/. Re-runs of the simulation
+are fast. Sessions for a symbol/month R2 does not carry are skipped.
+
+The candidate set is read from artifacts/tfo-baseline/raw_dataset.json;
+when that file is absent it is pulled fresh from Supabase (with the
+pivot_ts the backtest needs) and written there.
 
 Usage:
     python3 scripts/backtest_tfo.py --fetch-only     # gather + cache 1m bars
     python3 scripts/backtest_tfo.py                  # full run (uses cache)
 
 Required env:
-    SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   (only if --from-supabase)
+    R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BARS_BUCKET
+    SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY
+        (only when raw_dataset.json is missing)
 """
 
 from __future__ import annotations
@@ -41,9 +49,9 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
-import time
-import urllib.error
+import threading
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -91,14 +99,68 @@ FEATURE_COLUMNS = [
 
 # ===== data loading ===================================================
 
+def _pull_candidates_from_supabase() -> list[dict]:
+    """Pull the labeled TFO candidates straight from Supabase, including
+    the pivot_ts the backtest needs (train_tfo_baseline.py's pull omits
+    it). PostgREST caps a response at 1000 rows, so page through."""
+    url = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        print(
+            "ERROR: raw_dataset.json is missing and SUPABASE_URL / "
+            "SUPABASE_SERVICE_ROLE_KEY are not set, so the candidate set "
+            "cannot be pulled. Set them in the Environment settings.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    select = (
+        "id,symbol,session_date,direction,fire_ts,pivot_ts,"
+        "outcome_mfe_pct,outcome_net_pct,is_good,features"
+    )
+    page = 1000
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        qs = urllib.parse.urlencode({
+            "select": select,
+            "pattern": "eq.tfo",
+            "outcome_computed_at": "not.is.null",
+            "features_extracted_at": "not.is.null",
+            "order": "session_date.asc,fire_ts.asc",
+            "limit": str(page),
+            "offset": str(offset),
+        })
+        endpoint = url.rstrip("/") + "/rest/v1/setup_candidates?" + qs
+        req = urllib.request.Request(endpoint, headers={
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+        })
+        with urllib.request.urlopen(req, timeout=60) as r:
+            batch = json.loads(r.read())
+        rows.extend(batch)
+        if len(batch) < page:
+            break
+        offset += page
+    return rows
+
+
 def load_candidates() -> list[dict]:
-    """Load the candidate rows. raw_dataset.json lacks pivot_ts, so we
-    also need a pivot_ts source — re-pulled via Supabase by the caller
-    into a sidecar file, or present already. We require:
+    """Load the candidate rows. We require:
       symbol, session_date, direction, fire_ts, pivot_ts, features,
       outcome_mfe_pct, is_good.
+
+    Reads artifacts/tfo-baseline/raw_dataset.json; when that file is
+    absent it is pulled fresh from Supabase (with pivot_ts) and saved.
     """
-    rows = json.loads(DATASET.read_text())
+    if not DATASET.exists():
+        print("raw_dataset.json absent — pulling candidates from Supabase...",
+              flush=True)
+        rows = _pull_candidates_from_supabase()
+        DATASET.parent.mkdir(parents=True, exist_ok=True)
+        DATASET.write_text(json.dumps(rows))
+        print(f"  wrote {len(rows)} candidates to {DATASET}", flush=True)
+    else:
+        rows = json.loads(DATASET.read_text())
     missing_pivot = [r for r in rows if r.get("pivot_ts") is None]
     if missing_pivot:
         print(
@@ -165,11 +227,85 @@ def walkforward_scores(rows: list[dict]) -> dict[int, float]:
     return scores
 
 
-# ===== bar fetching + caching =========================================
+# ===== bar fetching: Cloudflare R2 1-minute parquet ==================
+#
+# Bars come from the R2 bars bucket — monthly Databento ohlcv-1m parquet
+# files, one per symbol/month, keyed
+#   databento/<PUBLISHER>_<SYMBOL>_ohlcv-1m_<YYYY-MM>.parquet
+# A monthly parquet is downloaded once, then every RTH session in that
+# month is sliced from it and written to the bars_1m/ JSON cache, which
+# keeps the cache contract backtest_spike.py also reads.
+
+R2_CACHE = OUT_DIR / "r2_cache"          # downloaded monthly parquet files
+RTH_OPEN_MIN = 9 * 60 + 30               # 09:30 ET
+RTH_CLOSE_MIN = 16 * 60                  # 16:00 ET
+
+_r2_lock = threading.Lock()
+_r2_client = None
+_r2_index: dict[str, dict[str, str]] | None = None   # symbol -> {YYYY-MM: key}
+_month_cache: dict[tuple[str, str], object] = {}     # (symbol, month) -> DataFrame|None
+
+
+def _r2():
+    global _r2_client
+    if _r2_client is None:
+        import boto3
+        _r2_client = boto3.client(
+            "s3",
+            endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
+            aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+            aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+            region_name="auto",
+        )
+    return _r2_client
+
+
+def _r2_object_index() -> dict[str, dict[str, str]]:
+    """List the R2 bars bucket once; map symbol -> {month: object key}."""
+    global _r2_index
+    if _r2_index is not None:
+        return _r2_index
+    bucket = os.environ["R2_BARS_BUCKET"]
+    pat = re.compile(r"databento/.+?_([A-Z]+)_ohlcv-1m_(\d{4}-\d{2})\.parquet$")
+    idx: dict[str, dict[str, str]] = {}
+    paginator = _r2().get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix="databento/"):
+        for obj in page.get("Contents", []):
+            m = pat.match(obj["Key"])
+            if m:
+                idx.setdefault(m.group(1), {})[m.group(2)] = obj["Key"]
+    _r2_index = idx
+    return idx
+
+
+def _load_month(symbol: str, month: str):
+    """Return the monthly 1-min DataFrame for (symbol, YYYY-MM), or None
+    when the R2 bucket carries no parquet for it."""
+    ck = (symbol, month)
+    with _r2_lock:
+        if ck in _month_cache:
+            return _month_cache[ck]
+        import pandas as pd
+        key = _r2_object_index().get(symbol, {}).get(month)
+        df = None
+        if key:
+            R2_CACHE.mkdir(parents=True, exist_ok=True)
+            local = R2_CACHE / key.split("/")[-1]
+            if not local.exists():
+                _r2().download_file(os.environ["R2_BARS_BUCKET"], key, str(local))
+            df = pd.read_parquet(local)
+        _month_cache[ck] = df
+        return df
+
 
 def fetch_1m_session(base_url: str, symbol: str, day: str) -> list[dict] | None:
-    """Fetch one RTH session of 1-min bars, with a small on-disk cache.
-    Returns chronological list of {t,o,h,l,c,v} or None on failure."""
+    """One RTH session of 1-min bars for (symbol, day), sourced from the
+    Cloudflare R2 bars bucket. Returns a chronological list of
+    {t,o,h,l,c,v} (t = epoch seconds), or None when R2 carries no data
+    for that symbol/month.
+
+    base_url is kept for signature compatibility — bars now come from
+    R2, not the live /api/bars route."""
     BARS_CACHE.mkdir(parents=True, exist_ok=True)
     cache_path = BARS_CACHE / f"{symbol}_{day}.json"
     if cache_path.exists():
@@ -177,24 +313,30 @@ def fetch_1m_session(base_url: str, symbol: str, day: str) -> list[dict] | None:
             return json.loads(cache_path.read_text())
         except Exception:
             pass
-    qs = urllib.parse.urlencode({
-        "ticker": symbol, "from": day, "to": day,
-        "tf": "1min", "session": "rth", "limit": "500",
-    })
-    url = f"{base_url}/api/bars?{qs}"
-    last_exc = None
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(url, timeout=40) as r:
-                bars = json.loads(r.read()).get("bars") or []
-            bars = sorted(bars, key=lambda b: int(b["t"]))
-            cache_path.write_text(json.dumps(bars))
-            return bars
-        except Exception as e:
-            last_exc = e
-            time.sleep(1.0 + attempt)
-    print(f"  [skip] 1m {symbol} {day}: {last_exc}", file=sys.stderr)
-    return None
+    df = _load_month(symbol, day[:7])
+    if df is None or df.empty:
+        return None
+    # ts_event index is tz-aware UTC; slice the day and keep RTH only,
+    # both judged in US/Eastern to match the live route's session=rth.
+    et = df.index.tz_convert("America/New_York")
+    minutes = et.hour * 60 + et.minute
+    mask = (et.strftime("%Y-%m-%d") == day) & \
+           (minutes >= RTH_OPEN_MIN) & (minutes < RTH_CLOSE_MIN)
+    rows = df[mask]
+    bars = [
+        {
+            "t": int(ts.timestamp()),
+            "o": float(o), "h": float(h), "l": float(lo), "c": float(c),
+            "v": int(v),
+        }
+        for ts, o, h, lo, c, v in zip(
+            rows.index, rows["open"], rows["high"], rows["low"],
+            rows["close"], rows["volume"],
+        )
+    ]
+    bars.sort(key=lambda b: b["t"])
+    cache_path.write_text(json.dumps(bars))
+    return bars
 
 
 # ===== trade simulation ===============================================
@@ -441,6 +583,18 @@ def main(argv: list[str] | None = None) -> int:
         s["cost_mult"] = cm
         cost_sens.append(s)
 
+    # --- R2 bar coverage (what the bucket carried vs. what was needed) ---
+    covered = set(bars_by_session.keys())
+    sym_total: dict[str, int] = {}
+    sym_covered: dict[str, int] = {}
+    for sym, day in sessions:
+        sym_total[sym] = sym_total.get(sym, 0) + 1
+        sym_covered[sym] = sym_covered.get(sym, 0) + (1 if (sym, day) in covered else 0)
+    symbols_absent = sorted(s for s, n in sym_covered.items() if n == 0)
+    symbols_partial = sorted(
+        s for s in sym_total if 0 < sym_covered[s] < sym_total[s]
+    )
+
     # --- aggregate ---
     report: dict = {
         "config": {
@@ -450,6 +604,14 @@ def main(argv: list[str] | None = None) -> int:
             "entry_slippage_bps": ENTRY_SLIPPAGE_BPS,
             "stop_slippage_bps": STOP_SLIPPAGE_BPS,
             "walkforward_folds": N_WALKFORWARD_FOLDS,
+        },
+        "coverage": {
+            "bar_source": "cloudflare-r2",
+            "sessions_total": len(sessions),
+            "sessions_with_bars": len(covered),
+            "symbols_total": len(sym_total),
+            "symbols_absent": symbols_absent,
+            "symbols_partial": symbols_partial,
         },
         "all_trades": summarize(ledger, "all walk-forward trades"),
         "grid": grid,
