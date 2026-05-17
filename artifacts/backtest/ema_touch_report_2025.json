@@ -1,0 +1,341 @@
+{
+  "config": {
+    "entry": "close of the first-EMA-touch bar",
+    "stop": "1 tick beyond the touch extreme (ATR variant: atr_mult beyond)",
+    "target": "R-multiple of risk, or measured move",
+    "commission_per_share": 0.005,
+    "entry_slippage_bps": 2.0,
+    "stop_slippage_bps": 4.0,
+    "min_risk_ticks": 5,
+    "min_risk_bps": 15.0,
+    "universe": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "AMZN",
+      "GOOGL",
+      "META",
+      "TSLA",
+      "AMD",
+      "AVGO",
+      "NFLX",
+      "JPM",
+      "V",
+      "MA",
+      "HD",
+      "CRM",
+      "ADBE",
+      "QCOM",
+      "INTC",
+      "MU",
+      "AMAT",
+      "ORCL",
+      "LLY",
+      "UNH",
+      "CAT",
+      "SPY",
+      "QQQ",
+      "IWM",
+      "DIA",
+      "XLF",
+      "XLE",
+      "XLV",
+      "XLI",
+      "SMH",
+      "TQQQ",
+      "SQQQ",
+      "TLT"
+    ],
+    "start": "2025-01-01",
+    "end": "2025-12-31"
+  },
+  "sessions_loaded": 7000,
+  "variants": {
+    "ema20_1r": {
+      "filtered_untradable": 5460,
+      "all": {
+        "label": "ema20_1r (all)",
+        "n": 1488,
+        "target_hit_rate": 0.4852,
+        "expectancy_r": -0.2068,
+        "expectancy_ci95": [
+          -0.2603,
+          -0.1512
+        ],
+        "win_rate": 0.4906,
+        "avg_win_r": 0.8833,
+        "avg_loss_r": -1.2567,
+        "profit_factor": 0.677,
+        "total_r": -307.72,
+        "max_drawdown_r": -309.85
+      },
+      "stocks_only": {
+        "label": "ema20_1r (stocks only)",
+        "n": 1129,
+        "target_hit_rate": 0.4889,
+        "expectancy_r": -0.196,
+        "expectancy_ci95": [
+          -0.2617,
+          -0.1327
+        ],
+        "win_rate": 0.4925,
+        "avg_win_r": 0.8951,
+        "avg_loss_r": -1.2546,
+        "profit_factor": 0.692,
+        "total_r": -221.24,
+        "max_drawdown_r": -222.67
+      },
+      "by_day": {
+        "label": "ema20_1r (by-day clustered)",
+        "n_days": 185,
+        "expectancy_r": -0.1778,
+        "expectancy_ci95": [
+          -0.2466,
+          -0.11
+        ],
+        "positive_day_rate": 0.3838
+      }
+    },
+    "ema20_2r": {
+      "filtered_untradable": 5460,
+      "all": {
+        "label": "ema20_2r (all)",
+        "n": 1488,
+        "target_hit_rate": 0.3233,
+        "expectancy_r": -0.2092,
+        "expectancy_ci95": [
+          -0.287,
+          -0.1337
+        ],
+        "win_rate": 0.3394,
+        "avg_win_r": 1.8265,
+        "avg_loss_r": -1.255,
+        "profit_factor": 0.748,
+        "total_r": -311.26,
+        "max_drawdown_r": -316.58
+      },
+      "stocks_only": {
+        "label": "ema20_2r (stocks only)",
+        "n": 1129,
+        "target_hit_rate": 0.3215,
+        "expectancy_r": -0.2093,
+        "expectancy_ci95": [
+          -0.2944,
+          -0.1262
+        ],
+        "win_rate": 0.3375,
+        "avg_win_r": 1.8366,
+        "avg_loss_r": -1.2513,
+        "profit_factor": 0.748,
+        "total_r": -236.26,
+        "max_drawdown_r": -245.8
+      },
+      "by_day": {
+        "label": "ema20_2r (by-day clustered)",
+        "n_days": 185,
+        "expectancy_r": -0.1829,
+        "expectancy_ci95": [
+          -0.2831,
+          -0.085
+        ],
+        "positive_day_rate": 0.373
+      }
+    },
+    "ema10_1r": {
+      "filtered_untradable": 5055,
+      "all": {
+        "label": "ema10_1r (all)",
+        "n": 1944,
+        "target_hit_rate": 0.4918,
+        "expectancy_r": -0.1939,
+        "expectancy_ci95": [
+          -0.2397,
+          -0.1448
+        ],
+        "win_rate": 0.4933,
+        "avg_win_r": 0.8955,
+        "avg_loss_r": -1.2546,
+        "profit_factor": 0.695,
+        "total_r": -376.95,
+        "max_drawdown_r": -382.54
+      },
+      "stocks_only": {
+        "label": "ema10_1r (stocks only)",
+        "n": 1452,
+        "target_hit_rate": 0.4931,
+        "expectancy_r": -0.1873,
+        "expectancy_ci95": [
+          -0.2429,
+          -0.1324
+        ],
+        "win_rate": 0.4931,
+        "avg_win_r": 0.904,
+        "avg_loss_r": -1.2489,
+        "profit_factor": 0.704,
+        "total_r": -271.9,
+        "max_drawdown_r": -274.14
+      },
+      "by_day": {
+        "label": "ema10_1r (by-day clustered)",
+        "n_days": 186,
+        "expectancy_r": -0.1965,
+        "expectancy_ci95": [
+          -0.2508,
+          -0.1399
+        ],
+        "positive_day_rate": 0.3011
+      }
+    },
+    "ema10_2r": {
+      "filtered_untradable": 5055,
+      "all": {
+        "label": "ema10_2r (all)",
+        "n": 1944,
+        "target_hit_rate": 0.3148,
+        "expectancy_r": -0.2309,
+        "expectancy_ci95": [
+          -0.2933,
+          -0.1649
+        ],
+        "win_rate": 0.3277,
+        "avg_win_r": 1.8511,
+        "avg_loss_r": -1.2456,
+        "profit_factor": 0.724,
+        "total_r": -448.9,
+        "max_drawdown_r": -463.21
+      },
+      "stocks_only": {
+        "label": "ema10_2r (stocks only)",
+        "n": 1452,
+        "target_hit_rate": 0.3237,
+        "expectancy_r": -0.2088,
+        "expectancy_ci95": [
+          -0.2834,
+          -0.1344
+        ],
+        "win_rate": 0.332,
+        "avg_win_r": 1.8776,
+        "avg_loss_r": -1.2455,
+        "profit_factor": 0.749,
+        "total_r": -303.11,
+        "max_drawdown_r": -316.01
+      },
+      "by_day": {
+        "label": "ema10_2r (by-day clustered)",
+        "n_days": 186,
+        "expectancy_r": -0.2405,
+        "expectancy_ci95": [
+          -0.3238,
+          -0.15
+        ],
+        "positive_day_rate": 0.2957
+      }
+    },
+    "ema20_mm": {
+      "filtered_untradable": 5460,
+      "all": {
+        "label": "ema20_mm (all)",
+        "n": 1488,
+        "target_hit_rate": 0.1337,
+        "expectancy_r": -0.2348,
+        "expectancy_ci95": [
+          -0.3513,
+          -0.1169
+        ],
+        "win_rate": 0.213,
+        "avg_win_r": 3.5459,
+        "avg_loss_r": -1.2583,
+        "profit_factor": 0.763,
+        "total_r": -349.43,
+        "max_drawdown_r": -357.35
+      },
+      "stocks_only": {
+        "label": "ema20_mm (stocks only)",
+        "n": 1129,
+        "target_hit_rate": 0.1275,
+        "expectancy_r": -0.2557,
+        "expectancy_ci95": [
+          -0.3879,
+          -0.1239
+        ],
+        "win_rate": 0.209,
+        "avg_win_r": 3.5177,
+        "avg_loss_r": -1.2529,
+        "profit_factor": 0.742,
+        "total_r": -288.66,
+        "max_drawdown_r": -292.33
+      },
+      "by_day": {
+        "label": "ema20_mm (by-day clustered)",
+        "n_days": 185,
+        "expectancy_r": -0.156,
+        "expectancy_ci95": [
+          -0.3226,
+          0.0209
+        ],
+        "positive_day_rate": 0.3622
+      }
+    },
+    "ema20_atr2r": {
+      "filtered_untradable": 2248,
+      "all": {
+        "label": "ema20_atr2r (all)",
+        "n": 4606,
+        "target_hit_rate": 0.262,
+        "expectancy_r": -0.1786,
+        "expectancy_ci95": [
+          -0.2181,
+          -0.1396
+        ],
+        "win_rate": 0.3485,
+        "avg_win_r": 1.6149,
+        "avg_loss_r": -1.1379,
+        "profit_factor": 0.759,
+        "total_r": -822.78,
+        "max_drawdown_r": -837.27
+      },
+      "stocks_only": {
+        "label": "ema20_atr2r (stocks only)",
+        "n": 3376,
+        "target_hit_rate": 0.2541,
+        "expectancy_r": -0.1746,
+        "expectancy_ci95": [
+          -0.2195,
+          -0.1282
+        ],
+        "win_rate": 0.3489,
+        "avg_win_r": 1.592,
+        "avg_loss_r": -1.1214,
+        "profit_factor": 0.761,
+        "total_r": -589.54,
+        "max_drawdown_r": -590.74
+      },
+      "by_day": {
+        "label": "ema20_atr2r (by-day clustered)",
+        "n_days": 186,
+        "expectancy_r": -0.1783,
+        "expectancy_ci95": [
+          -0.2426,
+          -0.1177
+        ],
+        "positive_day_rate": 0.3118
+      }
+    }
+  },
+  "pooled": {
+    "label": "all variants pooled",
+    "n": 12958,
+    "target_hit_rate": 0.3223,
+    "expectancy_r": -0.202,
+    "expectancy_ci95": [
+      -0.2276,
+      -0.1769
+    ],
+    "win_rate": 0.3668,
+    "avg_win_r": 1.5403,
+    "avg_loss_r": -1.2112,
+    "profit_factor": 0.737,
+    "total_r": -2617.04,
+    "max_drawdown_r": -2634.1
+  }
+}
