@@ -3,6 +3,7 @@ import {
   getDemoEarningsGapScreener,
   type EarningsGapDirection,
 } from '@/lib/finviz'
+import { fetchEarningsGapBook } from '@/lib/earnings-gap-book'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,13 +16,43 @@ function parseDirection(value: string | null): 'all' | EarningsGapDirection {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const demo = searchParams.get('demo') === '1'
+  const view = searchParams.get('view')
   const direction = parseDirection(searchParams.get('direction'))
   const includeWatchlist = searchParams.get('watchlist') !== '0'
   const minMovePct = Number(searchParams.get('minMovePct') ?? 3)
+  const minGapPct = Number(searchParams.get('minGapPct') ?? 3)
+  const lookbackRaw = Number(searchParams.get('lookback') ?? 35)
+  const lookbackDays = Math.min(Math.max(Number.isFinite(lookbackRaw) ? Math.floor(lookbackRaw) : 35, 7), 90)
   const limitRaw = Number(searchParams.get('limit') ?? 100)
   const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? Math.floor(limitRaw) : 100, 1), 250)
 
   try {
+    if (view === 'book') {
+      const book = await fetchEarningsGapBook({
+        demo,
+        lookbackDays,
+        minGapPct: Number.isFinite(minGapPct) ? minGapPct : 3,
+      })
+      return Response.json(
+        {
+          ...book,
+          request: {
+            view,
+            lookbackDays,
+            minGapPct: book.minGapPct,
+          },
+        },
+        {
+          status: 200,
+          headers: {
+            'Cache-Control': demo
+              ? 'no-store'
+              : 'public, s-maxage=21600, stale-while-revalidate=43200',
+          },
+        },
+      )
+    }
+
     const payload = demo ? getDemoEarningsGapScreener() : await fetchEarningsGapScreener()
     const candidates = payload.candidates
       .filter((candidate) => direction === 'all' || candidate.direction === direction)
