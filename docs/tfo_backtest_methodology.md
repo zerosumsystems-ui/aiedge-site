@@ -27,9 +27,17 @@ live Fly aggregator.
 
 ## 2. Data
 
-- **Source**: Databento equity data, served through the application's
-  `/api/bars` endpoint. Detection uses 5-minute RTH bars; the
-  execution simulation uses 1-minute RTH bars.
+- **Source**: Databento `ohlcv-1m` equity data, stored as monthly
+  per-symbol parquet files in the Cloudflare R2 `aiedge-bars` bucket.
+  Detection uses 5-minute RTH bars aggregated from the 1-minute feed;
+  the execution simulation uses 1-minute RTH bars. RTH is judged in
+  US/Eastern (09:30–16:00), matching the live `/api/bars` route.
+- **Price-scale normalisation**: the R2 export is not internally
+  consistent — parquet files dated 2025-10 onward store OHLC in
+  nano-dollar fixed-point scale (real price × 1e-9), earlier months in
+  dollars. The loader detects a sub-$1 median close (impossible for
+  this universe) and rescales those files by 1e9. Without this every
+  trade from 2025-10 on collapses to an exact −1R artefact.
 - **Universe**: 49 liquid US equities and sector ETFs (index ETFs,
   sector ETFs, mega-cap single names). Chosen for tight spreads and
   clean microstructure.
@@ -79,7 +87,13 @@ signals the live aggregator would have emitted in real time.
 ## 4. Model & walk-forward validation
 
 Each candidate is scored by a logistic-regression model on the
-14-feature vector. Score = P(MFE ≥ 1% favorably within 2 hours).
+14-feature vector. Score = P(`is_good`) — the V2 label from migration
+0008: the setup paid at least 1.5× its heat and moved at least 0.5%
+favorably. This replaces the earlier `mfe_ge_1pct` target, which that
+migration records as "ticker-blind and never volatility-aware". The
+score-decile profile in `backtest_report.json` is the test of whether
+the model adds edge; on the corrected data it does not, under either
+target.
 
 **Validation is walk-forward, not k-fold.** k-fold cross-validation
 would let a model trained on 2026 sessions score a 2025 holdout —

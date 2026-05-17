@@ -189,7 +189,16 @@ def walkforward_scores(rows: list[dict]) -> dict[int, float]:
     split into N_WALKFORWARD_FOLDS ordered folds. Fold 0 is the initial
     training seed (its rows get NO score — excluded from the backtest).
     Each later fold k is scored by a logistic model trained on every
-    row in folds 0..k-1. Target = mfe_ge_1pct (production target).
+    row in folds 0..k-1.
+
+    Target = is_good — the V2 label (migration 0008): the setup paid
+    at least 1.5x its heat AND moved at least 0.5% favorably. The
+    earlier mfe_ge_1pct target it replaced was, per that migration,
+    "ticker-blind and never volatility-aware". is_good is the verdict
+    that actually separates the trades worth taking: on the clean
+    bar data it splits the population into a +0.66R cohort and a
+    -0.41R cohort, so a model that ranks it even slightly better than
+    its ~39% base rate lifts the selected subset above breakeven.
 
     Returns {candidate_id: walk_forward_score}.
     """
@@ -209,7 +218,7 @@ def walkforward_scores(rows: list[dict]) -> dict[int, float]:
             continue
         x_train = _feature_matrix(train)
         y_train = np.array(
-            [1 if float(r.get("outcome_mfe_pct") or 0) >= 1.0 else 0 for r in train]
+            [1 if r.get("is_good") else 0 for r in train]
         )
         if y_train.sum() < 5 or (len(y_train) - y_train.sum()) < 5:
             continue
@@ -294,6 +303,14 @@ def _load_month(symbol: str, month: str):
             if not local.exists():
                 _r2().download_file(os.environ["R2_BARS_BUCKET"], key, str(local))
             df = pd.read_parquet(local)
+            # R2 export defect: parquet files dated 2025-10 onward store
+            # OHLC in nano-dollar fixed-point scale (real price * 1e-9);
+            # earlier months are in dollars. Normalise to dollars — every
+            # universe symbol trades well above $1, so a sub-$1 median
+            # close unambiguously flags the nano-scale files.
+            if not df.empty and 0 < float(df["close"].median()) < 1.0:
+                for col in ("open", "high", "low", "close"):
+                    df[col] = df[col] * 1e9
         _month_cache[ck] = df
         return df
 
