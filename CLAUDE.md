@@ -20,17 +20,22 @@ When in doubt about which one fits, ask in one sentence. Do not require Will to 
 
 ## Standing workflow — auto-review, then go live
 
-Will does not want to type `go` every time. After completing a change he asked
-for, do not wait for a `go` trigger:
+Will never manually reviews or merges, and does not want to type `go` every
+time. After completing any change he asked for, do not wait for a `go` trigger
+and do not ask for permission to ship or to merge:
 
 1. Self-review the diff (reuse, correctness, regressions).
-2. Run the Go Live Workflow in `AGENTS.md` (quality checks → show proof → ship → verify).
+2. If the review looks good, run the Go Live Workflow in `AGENTS.md` (quality
+   checks → show proof → ship → verify) — all the way to production.
 3. Report what shipped and the verified live URL.
 
-Stop and surface to Will instead of shipping when: a check fails, the boundary
-hook fires, the change is risky or ambiguous, or he is still mid-conversation
-about what he wants. When unsure whether a change is "done" enough to ship, ask
-in one sentence rather than sitting on it.
+This applies to PR work too: never leave a finished change sitting as a draft
+PR waiting on Will, and never ask "merge or not" — review it and ship it.
+
+Stop and surface to Will instead of shipping ONLY when: a check fails, the
+boundary hook fires, the change is risky or ambiguous, or he is still
+mid-conversation about what he wants. When unsure whether a change is "done"
+enough to ship, ask in one sentence rather than sitting on it.
 
 ## Standing skills (auto-load — no trigger needed)
 
