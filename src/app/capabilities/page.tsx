@@ -50,10 +50,10 @@ const SECTIONS: Section[] = [
         href: '/brooks',
       },
       {
-        title: 'Brooks Wisdom reference',
+        title: 'Wisdom reference',
         detail:
           'Hallmarks, guidelines, and principles quoted verbatim from the Brooks book corpus — each snippet tagged by kind and cited to its source book and figure.',
-        href: '/brooks/wisdom',
+        href: '/wisdom',
       },
     ],
   },

@@ -132,8 +132,8 @@ export default function BrooksPage() {
           quoted. Hybrid DTW (5-channel skeleton + 10-channel Brooks features) with vertical-flip search.
         </p>
         <p className="text-xs text-sub mt-2">
-          <Link href="/brooks/wisdom" className="text-teal hover:underline">
-            Brooks Wisdom →
+          <Link href="/wisdom" className="text-teal hover:underline">
+            Wisdom →
           </Link>{' '}
           — hallmarks, guidelines, and principles quoted verbatim from the corpus.
         </p>

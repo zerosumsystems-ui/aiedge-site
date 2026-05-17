@@ -7,7 +7,7 @@ import {
 } from '@/lib/brooks-wisdom'
 
 export const metadata: Metadata = {
-  title: 'Brooks Wisdom — AI Edge',
+  title: 'Wisdom — AI Edge',
   description:
     'Hardcoded reference of Al Brooks hallmarks, guidelines, and principles, quoted verbatim from the Brooks book corpus.',
 }
@@ -24,19 +24,20 @@ const KIND_LABEL: Record<WisdomKind, string> = {
   principle: 'Principle',
 }
 
-export default function BrooksWisdomPage() {
+export default function WisdomPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <header className="mb-6">
-        <h1 className="text-xl font-semibold text-text">Brooks Wisdom</h1>
+        <h1 className="text-xl font-semibold text-text">Wisdom</h1>
         <p className="text-sm text-sub mt-1">
           {WISDOM_SNIPPET_COUNT} hallmarks, guidelines, and principles, each
           quoted verbatim from the Al Brooks book corpus. Nothing here is
           paraphrased — every line cites the book and figure it came from.
         </p>
         <p className="text-xs text-sub mt-2">
+          Related:{' '}
           <Link href="/brooks" className="text-teal hover:underline">
-            ← Brooks Tour
+            Brooks Tour →
           </Link>
         </p>
       </header>

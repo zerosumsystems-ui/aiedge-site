@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: '/journal', label: 'Journal' },
   { href: '/training', label: 'Training' },
   { href: '/brooks', label: 'Brooks' },
+  { href: '/wisdom', label: 'Wisdom' },
   { href: '/capabilities', label: 'Capabilities' },
   { href: '/blog', label: 'Blog' },
 ]
