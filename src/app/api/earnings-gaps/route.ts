@@ -19,7 +19,8 @@ export async function GET(request: Request) {
   const view = searchParams.get('view')
   const direction = parseDirection(searchParams.get('direction'))
   const includeWatchlist = searchParams.get('watchlist') !== '0'
-  const minMovePct = Number(searchParams.get('minMovePct') ?? 3)
+  const minMovePctRaw = Number(searchParams.get('minMovePct') ?? 3)
+  const minMovePct = Number.isFinite(minMovePctRaw) ? minMovePctRaw : 3
   const minGapPct = Number(searchParams.get('minGapPct') ?? 3)
   const lookbackRaw = Number(searchParams.get('lookback') ?? 35)
   const lookbackDays = Math.min(Math.max(Number.isFinite(lookbackRaw) ? Math.floor(lookbackRaw) : 35, 7), 90)
