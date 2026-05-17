@@ -1,0 +1,112 @@
+{
+  "generated_at": "2026-05-15T21:53:39.065233+00:00",
+  "decision_bar": 4,
+  "label": "closed in far 30% of range toward trend",
+  "n_sessions": 2237,
+  "n_dates": 339,
+  "base_rate": 0.388,
+  "features": [
+    "max_consecutive_trend_bars",
+    "close_position_session",
+    "net_in_trend_adr",
+    "dist_from_ema_adr",
+    "counter_trend_bar_frac",
+    "bars_since_ema_touch",
+    "largest_pullback_adr",
+    "spike_present"
+  ],
+  "groupkfold_by_date": {
+    "logistic_balanced": {
+      "auc": 0.6153,
+      "accuracy": 0.565,
+      "f1_pos": 0.5311,
+      "brier": 0.24
+    },
+    "lift_logistic": [
+      {
+        "quintile": 1,
+        "n": 447,
+        "pred_proba_mean": 0.3068,
+        "actual_trend_rate": 0.2192
+      },
+      {
+        "quintile": 2,
+        "n": 447,
+        "pred_proba_mean": 0.4444,
+        "actual_trend_rate": 0.3893
+      },
+      {
+        "quintile": 3,
+        "n": 448,
+        "pred_proba_mean": 0.5111,
+        "actual_trend_rate": 0.3571
+      },
+      {
+        "quintile": 4,
+        "n": 447,
+        "pred_proba_mean": 0.5703,
+        "actual_trend_rate": 0.4452
+      },
+      {
+        "quintile": 5,
+        "n": 448,
+        "pred_proba_mean": 0.6366,
+        "actual_trend_rate": 0.529
+      }
+    ],
+    "random_forest_balanced": {
+      "auc": 0.6157,
+      "accuracy": 0.5731,
+      "f1_pos": 0.5194,
+      "brier": 0.2379
+    }
+  },
+  "chronological_holdout": {
+    "logistic_balanced": {
+      "auc": 0.6128,
+      "accuracy": 0.5627,
+      "f1_pos": 0.512,
+      "brier": 0.2386
+    },
+    "random_forest_balanced": {
+      "auc": 0.6173,
+      "accuracy": 0.5789,
+      "f1_pos": 0.4989,
+      "brier": 0.2352
+    }
+  },
+  "feature_importances_rf": [
+    {
+      "feature": "dist_from_ema_adr",
+      "importance": 0.2284
+    },
+    {
+      "feature": "close_position_session",
+      "importance": 0.224
+    },
+    {
+      "feature": "net_in_trend_adr",
+      "importance": 0.1906
+    },
+    {
+      "feature": "largest_pullback_adr",
+      "importance": 0.1355
+    },
+    {
+      "feature": "max_consecutive_trend_bars",
+      "importance": 0.0742
+    },
+    {
+      "feature": "bars_since_ema_touch",
+      "importance": 0.0732
+    },
+    {
+      "feature": "counter_trend_bar_frac",
+      "importance": 0.0401
+    },
+    {
+      "feature": "spike_present",
+      "importance": 0.034
+    }
+  ]
+}
