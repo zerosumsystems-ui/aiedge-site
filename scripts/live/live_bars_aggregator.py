@@ -604,6 +604,15 @@ def run() -> None:
         log.warning("TfoLiveRunner construction failed (continuing without it): %s", exc)
         tfo_runner = None
 
+    # Pullback live runner — same secondary-feature contract as the TFO
+    # runner. Recurs intraday; runs on every 1min close.
+    try:
+        from live_pullback_runner import PullbackLiveRunner
+        pullback_runner = PullbackLiveRunner()
+    except Exception as exc:
+        log.warning("PullbackLiveRunner construction failed (continuing without it): %s", exc)
+        pullback_runner = None
+
     def on_close(sym: str, bar: Bar) -> None:
         log.info(
             "[%s] %d  o=%.2f h=%.2f l=%.2f c=%.2f v=%d",
@@ -612,12 +621,18 @@ def run() -> None:
         _health_mark("last_bar_at", time.time())
         _health_bump("bars_total")
         cache.write_bar(sym, bar)
-        if tfo_runner is not None and tfo_runner.enabled:
-            # Pass the bar as a plain dict so live_tfo_runner doesn't take
-            # a dependency on Bar (and so synthetic tests can call it).
-            tfo_runner.on_1m_close(sym, {
+        # Pass the bar as a plain dict so the runners don't take a
+        # dependency on Bar (and so synthetic tests can call them).
+        if (tfo_runner is not None and tfo_runner.enabled) or (
+            pullback_runner is not None and pullback_runner.enabled
+        ):
+            bar_dict = {
                 "t": bar.t, "o": bar.o, "h": bar.h, "l": bar.l, "c": bar.c, "v": bar.v,
-            })
+            }
+            if tfo_runner is not None and tfo_runner.enabled:
+                tfo_runner.on_1m_close(sym, bar_dict)
+            if pullback_runner is not None and pullback_runner.enabled:
+                pullback_runner.on_1m_close(sym, bar_dict)
 
     def on_partial(sym: str, bar: Bar) -> None:
         cache.write_partial(sym, bar)

@@ -24,13 +24,21 @@ interface Candidate {
   model_target: string | null
   model_version: string | null
   model_scored_at: string | null
+  features: Record<string, unknown> | null
 }
 
-type PatternFilter = "all" | "tfo"
+type PatternFilter = "all" | "tfo" | "pullback"
 type DirectionFilter = "all" | "long" | "short"
 
 const PATTERN_LABEL: Record<string, string> = {
   tfo: "TFO",
+  pullback: "Pullback",
+}
+
+// Pullback rows stash their geometry in the generic features jsonb.
+function featNum(c: Candidate, key: string): number | null {
+  const v = c.features?.[key]
+  return typeof v === "number" ? v : null
 }
 
 function formatScore(n: number): string {
@@ -89,6 +97,8 @@ export function ScannerCandidatesList() {
     }
   }, [patternFilter, directionFilter])
 
+  const isPullback = patternFilter === "pullback"
+
   const grouped = useMemo(() => {
     if (!candidates) return new Map<string, Candidate[]>()
     const m = new Map<string, Candidate[]>()
@@ -122,6 +132,9 @@ export function ScannerCandidatesList() {
         <FilterPill active={patternFilter === "tfo"} onClick={() => setPatternFilter("tfo")}>
           TFO
         </FilterPill>
+        <FilterPill active={patternFilter === "pullback"} onClick={() => setPatternFilter("pullback")}>
+          Pullback
+        </FilterPill>
         <span className="ml-3 text-sub">Direction:</span>
         <FilterPill active={directionFilter === "all"} onClick={() => setDirectionFilter("all")}>
           All
@@ -146,11 +159,17 @@ export function ScannerCandidatesList() {
 
       {!error && candidates !== null && candidates.length === 0 && (
         <div className="rounded-md border border-border bg-surface px-3 py-6 text-center text-xs text-sub">
-          No candidates yet. Run{" "}
-          <code className="rounded bg-bg px-1.5 py-0.5 text-text">
-            scripts/backfill/backfill_tfo_candidates.py
-          </code>{" "}
-          to populate.
+          {isPullback ? (
+            <>No pullback candidates yet. The live runner surfaces them as small pullbacks fire during RTH.</>
+          ) : (
+            <>
+              No candidates yet. Run{" "}
+              <code className="rounded bg-bg px-1.5 py-0.5 text-text">
+                scripts/backfill/backfill_tfo_candidates.py
+              </code>{" "}
+              to populate.
+            </>
+          )}
         </div>
       )}
 
@@ -170,7 +189,7 @@ export function ScannerCandidatesList() {
                         <HelpLabel
                           label="Pattern"
                           title="Setup type"
-                          body="TFO = Trend From the Open. Low (or high) of day forms in the first 4 RTH 5-min bars, then 3+ consecutive in-direction closes follow, 2+ of them Brooks-strong."
+                          body="TFO = Trend From the Open. Low (or high) of day forms in the first 4 RTH 5-min bars, then 3+ consecutive in-direction closes follow, 2+ of them Brooks-strong. Pullback = a Brooks small pullback: a strong impulse leg, a brief shallow pullback, then a with-trend breakout-stop entry."
                         />
                       </th>
                       <th className="px-3 py-2 text-left">
@@ -187,20 +206,41 @@ export function ScannerCandidatesList() {
                           body="When the 3rd consecutive in-direction close printed — the moment the setup confirmed."
                         />
                       </th>
-                      <th className="px-3 py-2 text-right">
-                        <HelpLabel
-                          label="Run"
-                          title="Consecutive count"
-                          body="Total run of in-direction closes after the pivot (the LOD/HOD bar). The setup needs at least 3."
-                        />
-                      </th>
-                      <th className="px-3 py-2 text-right">
-                        <HelpLabel
-                          label="Strong"
-                          title="Brooks-strong / total"
-                          body="How many of the confirming closes are Brooks-strong bars (body ≥ 50% of range, close in the top 25% for longs / bottom 25% for shorts) out of the total run. Need ≥ 2."
-                        />
-                      </th>
+                      {isPullback ? (
+                        <>
+                          <th className="px-3 py-2 text-right">
+                            <HelpLabel
+                              label="Impulse"
+                              title="Impulse strength (ATR multiples)"
+                              body="Height of the trend leg before the pullback, measured in ATR. Bigger means a stronger move into the pullback."
+                            />
+                          </th>
+                          <th className="px-3 py-2 text-right">
+                            <HelpLabel
+                              label="Pullback"
+                              title="Pullback size"
+                              body="Bars in the pullback and how far it retraced the impulse. A small pullback is brief (≤ 4 bars) and shallow (≤ 50% retrace)."
+                            />
+                          </th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-3 py-2 text-right">
+                            <HelpLabel
+                              label="Run"
+                              title="Consecutive count"
+                              body="Total run of in-direction closes after the pivot (the LOD/HOD bar). The setup needs at least 3."
+                            />
+                          </th>
+                          <th className="px-3 py-2 text-right">
+                            <HelpLabel
+                              label="Strong"
+                              title="Brooks-strong / total"
+                              body="How many of the confirming closes are Brooks-strong bars (body ≥ 50% of range, close in the top 25% for longs / bottom 25% for shorts) out of the total run. Need ≥ 2."
+                            />
+                          </th>
+                        </>
+                      )}
                       <th className="px-3 py-2 text-right">
                         <HelpLabel
                           label="Model"
@@ -225,10 +265,14 @@ export function ScannerCandidatesList() {
                   </thead>
                   <tbody>
                     {rows.map((c) => {
-                      // Default click → /setups: animate this specific
+                      // TFO rows → /setups: animate this specific
                       // candidate, then user taps "deep dive" there to
-                      // reach the chart view.
-                      const href = `/setups?ticker=${encodeURIComponent(c.symbol)}&t=${c.fire_ts}&pattern=${c.pattern}&direction=${c.direction}`
+                      // reach the chart. The /setups reel is TFO-shaped,
+                      // so pullback rows open the chart on that symbol
+                      // directly.
+                      const href = c.pattern === "pullback"
+                        ? `/chart?symbol=${encodeURIComponent(c.symbol)}`
+                        : `/setups?ticker=${encodeURIComponent(c.symbol)}&t=${c.fire_ts}&pattern=${c.pattern}&direction=${c.direction}`
                       // Row-level click so the whole row is a tap target on
                       // mobile, not just the symbol cell. Keep the <Link>
                       // wrapping the symbol so keyboard / cmd-click / middle-
@@ -264,12 +308,29 @@ export function ScannerCandidatesList() {
                           <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
                             {formatTime(c.fire_ts)}
                           </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
-                            {c.consecutive_count}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
-                            {c.strong_count}/{c.consecutive_count}
-                          </td>
+                          {isPullback ? (
+                            <>
+                              <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
+                                {featNum(c, "impulse_atr") == null
+                                  ? "—"
+                                  : `${featNum(c, "impulse_atr")!.toFixed(1)}×`}
+                              </td>
+                              <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
+                                {featNum(c, "pullback_len") == null || featNum(c, "retrace") == null
+                                  ? "—"
+                                  : `${featNum(c, "pullback_len")}b · ${Math.round(featNum(c, "retrace")! * 100)}%`}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
+                                {c.consecutive_count}
+                              </td>
+                              <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
+                                {c.strong_count}/{c.consecutive_count}
+                              </td>
+                            </>
+                          )}
                           <td
                             className={`px-3 py-2 text-right font-mono text-xs tabular-nums ${
                               c.model_score == null ? "text-sub/60" : modelScoreClass(c.model_score)
