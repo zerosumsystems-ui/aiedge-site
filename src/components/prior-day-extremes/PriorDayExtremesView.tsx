@@ -113,11 +113,20 @@ export function PriorDayExtremesView() {
 
   const filteredExamples = useMemo(() => {
     if (!data) return []
-    return data.examples.filter((ex) => {
-      const outcomeOk = outcome === "all" || ex.exit_reason === outcome
-      const symbolOk = symbol === "all" || ex.symbol === symbol
-      return outcomeOk && symbolOk
-    })
+    // Order chronologically rather than by outcome. The source array is sorted
+    // winners-first, which makes the default gallery view look far rosier than
+    // the backtest verdict — a chronological sort keeps the sample neutral.
+    return data.examples
+      .filter((ex) => {
+        const outcomeOk = outcome === "all" || ex.exit_reason === outcome
+        const symbolOk = symbol === "all" || ex.symbol === symbol
+        return outcomeOk && symbolOk
+      })
+      .sort((a, b) =>
+        a.session_date === b.session_date
+          ? a.symbol.localeCompare(b.symbol)
+          : a.session_date.localeCompare(b.session_date)
+      )
   }, [data, outcome, symbol])
 
   return (
@@ -218,6 +227,11 @@ export function PriorDayExtremesView() {
 
       {data && (
         <>
+          <p className="mb-3 text-[11px] leading-relaxed text-sub">
+            This is a hand-sized sample for visual replay, not a representative
+            draw — it carries more winners than the full population. Trust the
+            backtest verdict above for the real edge.
+          </p>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredExamples.map((ex, i) => (
               <ExtremeCard key={`${ex.symbol}-${ex.session_date}-${i}`} ex={ex} />
@@ -298,23 +312,6 @@ function ExtremeCard({ ex }: { ex: PriorDayExtremeExample }) {
       entryPrice: ex.entry_price,
       stopPrice: ex.stop_price,
       targetPrice: ex.target_price,
-      exitPrice: ex.exit_price,
-      markers: [
-        {
-          time: ex.entry_ts,
-          position: ex.direction === "long" ? "belowBar" : "aboveBar",
-          color: "#00c896",
-          shape: ex.direction === "long" ? "arrowUp" : "arrowDown",
-          text: "entry",
-        },
-        {
-          time: ex.exit_ts,
-          position: ex.direction === "long" ? "aboveBar" : "belowBar",
-          color: "#f5c842",
-          shape: "circle",
-          text: "exit",
-        },
-      ],
     },
   }
   const exit = EXIT_STYLE[ex.exit_reason] ?? { label: ex.exit_reason, cls: "text-sub" }
