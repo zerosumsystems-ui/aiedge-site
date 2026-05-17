@@ -48,6 +48,8 @@ yarn-error.log*
 /artifacts/backtest/*
 !/artifacts/backtest/backtest_report.json
 !/artifacts/backtest/spike_backtest_report.json
+!/artifacts/backtest/ema_touch_report_2024.json
+!/artifacts/backtest/ema_touch_report_2025.json
 
 # env files (can opt-in for committing if needed)
 .env*
