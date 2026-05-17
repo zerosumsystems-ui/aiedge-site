@@ -151,6 +151,12 @@ function previousWeekday(date: string): string {
 function resolveAvailableSessionDate(date: string, session: string | null, openingMinutes: number): string {
   const window = sessionFetchWindow(date, session, openingMinutes)
   if (!window) return date
+  // A Saturday or Sunday never has a trading session, so a same-day
+  // request for one would query Databento for a date it has no data on
+  // (a 422). Resolve to the prior weekday — the most recent real session.
+  const [y, mo, d] = date.split('-').map(Number)
+  const dow = new Date(Date.UTC(y, mo - 1, d, 12)).getUTCDay()
+  if (dow === 0 || dow === 6) return previousWeekday(date)
   const availableCutoff = Date.now() - DATABENTO_FEED_LAG_MS
   return window.start.getTime() > availableCutoff ? previousWeekday(date) : date
 }
