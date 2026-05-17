@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/setups', label: 'Setups' },
   { href: '/spikes', label: 'Spikes' },
   { href: '/daily-spikes', label: 'Daily Spikes' },
+  { href: '/earnings-gaps', label: 'Earnings Gaps' },
   { href: '/cc', label: 'gap up + ft setups' },
   { href: '/bgu', label: 'BGU study' },
   { href: '/history', label: 'History' },

@@ -1,0 +1,12 @@
+.artifacts
+.claude
+.git
+.next
+.vercel
+coverage
+node_modules
+npm-debug.log*
+out
+playwright-report
+test-results
+*.tsbuildinfo
