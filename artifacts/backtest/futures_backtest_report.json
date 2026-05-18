@@ -1,0 +1,544 @@
+{
+  "config": {
+    "instruments": [
+      "ES",
+      "NQ",
+      "YM",
+      "RTY"
+    ],
+    "pullback_primary": "2.0R/2h",
+    "spike_target": "measured move = spike height",
+    "commission_per_share": 0.005,
+    "entry_slippage_bps": 2.0,
+    "stop_slippage_bps": 4.0
+  },
+  "per_instrument": {
+    "ES": {
+      "sessions": 1644,
+      "pullback": {
+        "label": "ES pullback",
+        "n": 3190,
+        "target_hit_rate": 0.3226,
+        "expectancy_r": -0.4768,
+        "expectancy_ci95": [
+          -0.5334,
+          -0.4217
+        ],
+        "win_rate": 0.3486,
+        "avg_win_r": 1.6918,
+        "avg_loss_r": -1.6374,
+        "profit_factor": 0.553,
+        "total_r": -1521.12,
+        "max_drawdown_r": -1521.5,
+        "sharpe_like": -0.294
+      },
+      "spike_all": {
+        "label": "ES spikes",
+        "n": 567,
+        "target_hit_rate": 0.4603,
+        "expectancy_r": -0.0331,
+        "expectancy_ci95": [
+          -0.1096,
+          0.043
+        ],
+        "win_rate": 0.5485,
+        "avg_win_r": 0.7588,
+        "avg_loss_r": -0.9953,
+        "profit_factor": 0.926,
+        "total_r": -18.79,
+        "max_drawdown_r": -27.32
+      },
+      "spike_opening": {
+        "label": "ES opening spikes",
+        "n": 60,
+        "target_hit_rate": 0.45,
+        "expectancy_r": -0.0494,
+        "expectancy_ci95": [
+          -0.2824,
+          0.1832
+        ],
+        "win_rate": 0.5167,
+        "avg_win_r": 0.7888,
+        "avg_loss_r": -0.9454,
+        "profit_factor": 0.892,
+        "total_r": -2.96,
+        "max_drawdown_r": -8.3
+      }
+    },
+    "NQ": {
+      "sessions": 1643,
+      "pullback": {
+        "label": "NQ pullback",
+        "n": 3785,
+        "target_hit_rate": 0.3057,
+        "expectancy_r": -0.492,
+        "expectancy_ci95": [
+          -0.5414,
+          -0.4425
+        ],
+        "win_rate": 0.3276,
+        "avg_win_r": 1.7234,
+        "avg_loss_r": -1.5714,
+        "profit_factor": 0.534,
+        "total_r": -1862.28,
+        "max_drawdown_r": -1862.99,
+        "sharpe_like": -0.312
+      },
+      "spike_all": {
+        "label": "NQ spikes",
+        "n": 580,
+        "target_hit_rate": 0.4414,
+        "expectancy_r": -0.015,
+        "expectancy_ci95": [
+          -0.0906,
+          0.0589
+        ],
+        "win_rate": 0.5552,
+        "avg_win_r": 0.7496,
+        "avg_loss_r": -0.9693,
+        "profit_factor": 0.965,
+        "total_r": -8.71,
+        "max_drawdown_r": -20.54
+      },
+      "spike_opening": {
+        "label": "NQ opening spikes",
+        "n": 74,
+        "target_hit_rate": 0.5,
+        "expectancy_r": 0.0755,
+        "expectancy_ci95": [
+          -0.1286,
+          0.2679
+        ],
+        "win_rate": 0.5811,
+        "avg_win_r": 0.8004,
+        "avg_loss_r": -0.9299,
+        "profit_factor": 1.194,
+        "total_r": 5.59,
+        "max_drawdown_r": -7.24
+      }
+    },
+    "YM": {
+      "sessions": 1649,
+      "pullback": {
+        "label": "YM pullback",
+        "n": 3029,
+        "target_hit_rate": 0.3262,
+        "expectancy_r": -0.4986,
+        "expectancy_ci95": [
+          -0.5581,
+          -0.4398
+        ],
+        "win_rate": 0.3506,
+        "avg_win_r": 1.6779,
+        "avg_loss_r": -1.6737,
+        "profit_factor": 0.541,
+        "total_r": -1510.28,
+        "max_drawdown_r": -1510.34,
+        "sharpe_like": -0.305
+      },
+      "spike_all": {
+        "label": "YM spikes",
+        "n": 660,
+        "target_hit_rate": 0.4136,
+        "expectancy_r": -0.1143,
+        "expectancy_ci95": [
+          -0.187,
+          -0.04
+        ],
+        "win_rate": 0.5045,
+        "avg_win_r": 0.7513,
+        "avg_loss_r": -0.9958,
+        "profit_factor": 0.768,
+        "total_r": -75.42,
+        "max_drawdown_r": -79.45
+      },
+      "spike_opening": {
+        "label": "YM opening spikes",
+        "n": 61,
+        "target_hit_rate": 0.459,
+        "expectancy_r": 0.0324,
+        "expectancy_ci95": [
+          -0.1844,
+          0.2484
+        ],
+        "win_rate": 0.541,
+        "avg_win_r": 0.775,
+        "avg_loss_r": -0.8428,
+        "profit_factor": 1.084,
+        "total_r": 1.97,
+        "max_drawdown_r": -9.21
+      }
+    },
+    "RTY": {
+      "sessions": 1650,
+      "pullback": {
+        "label": "RTY pullback",
+        "n": 3873,
+        "target_hit_rate": 0.3238,
+        "expectancy_r": -0.3931,
+        "expectancy_ci95": [
+          -0.443,
+          -0.3421
+        ],
+        "win_rate": 0.3519,
+        "avg_win_r": 1.7129,
+        "avg_loss_r": -1.5368,
+        "profit_factor": 0.605,
+        "total_r": -1522.52,
+        "max_drawdown_r": -1529.87,
+        "sharpe_like": -0.248
+      },
+      "spike_all": {
+        "label": "RTY spikes",
+        "n": 757,
+        "target_hit_rate": 0.4003,
+        "expectancy_r": -0.0365,
+        "expectancy_ci95": [
+          -0.1001,
+          0.0279
+        ],
+        "win_rate": 0.5244,
+        "avg_win_r": 0.7381,
+        "avg_loss_r": -0.8908,
+        "profit_factor": 0.914,
+        "total_r": -27.67,
+        "max_drawdown_r": -47.26
+      },
+      "spike_opening": {
+        "label": "RTY opening spikes",
+        "n": 90,
+        "target_hit_rate": 0.3667,
+        "expectancy_r": -0.0441,
+        "expectancy_ci95": [
+          -0.2235,
+          0.133
+        ],
+        "win_rate": 0.5444,
+        "avg_win_r": 0.6854,
+        "avg_loss_r": -0.9158,
+        "profit_factor": 0.894,
+        "total_r": -3.97,
+        "max_drawdown_r": -11.95
+      }
+    }
+  },
+  "pooled": {
+    "pullback": {
+      "label": "all index futures \u2014 pullback",
+      "n": 13877,
+      "target_hit_rate": 0.3191,
+      "expectancy_r": -0.4624,
+      "expectancy_ci95": [
+        -0.4897,
+        -0.4346
+      ],
+      "win_rate": 0.3442,
+      "avg_win_r": 1.7029,
+      "avg_loss_r": -1.599,
+      "profit_factor": 0.559,
+      "total_r": -6416.21,
+      "max_drawdown_r": -6414.7,
+      "sharpe_like": -0.288
+    },
+    "spike_all": {
+      "label": "all index futures \u2014 spikes",
+      "n": 2564,
+      "target_hit_rate": 0.4263,
+      "expectancy_r": -0.0509,
+      "expectancy_ci95": [
+        -0.0865,
+        -0.0158
+      ],
+      "win_rate": 0.5316,
+      "avg_win_r": 0.7488,
+      "avg_loss_r": -0.9585,
+      "profit_factor": 0.887,
+      "total_r": -130.58,
+      "max_drawdown_r": -141.65
+    },
+    "spike_opening": {
+      "label": "all index futures \u2014 opening spikes",
+      "n": 285,
+      "target_hit_rate": 0.4386,
+      "expectancy_r": 0.0022,
+      "expectancy_ci95": [
+        -0.0976,
+        0.1061
+      ],
+      "win_rate": 0.5474,
+      "avg_win_r": 0.7566,
+      "avg_loss_r": -0.91,
+      "profit_factor": 1.005,
+      "total_r": 0.64,
+      "max_drawdown_r": -11.95
+    }
+  },
+  "pullback_by_year": [
+    {
+      "label": "2019",
+      "n": 267,
+      "target_hit_rate": 0.2996,
+      "expectancy_r": -0.6464,
+      "expectancy_ci95": [
+        -0.842,
+        -0.4458
+      ],
+      "win_rate": 0.3371,
+      "avg_win_r": 1.558,
+      "avg_loss_r": -1.7672,
+      "profit_factor": 0.448,
+      "total_r": -172.58,
+      "max_drawdown_r": -171.08,
+      "sharpe_like": -0.398
+    },
+    {
+      "label": "2020",
+      "n": 2350,
+      "target_hit_rate": 0.3413,
+      "expectancy_r": -0.3364,
+      "expectancy_ci95": [
+        -0.4007,
+        -0.2694
+      ],
+      "win_rate": 0.3604,
+      "avg_win_r": 1.7571,
+      "avg_loss_r": -1.5161,
+      "profit_factor": 0.653,
+      "total_r": -790.43,
+      "max_drawdown_r": -790.65,
+      "sharpe_like": -0.21
+    },
+    {
+      "label": "2021",
+      "n": 1817,
+      "target_hit_rate": 0.3115,
+      "expectancy_r": -0.5212,
+      "expectancy_ci95": [
+        -0.5954,
+        -0.4488
+      ],
+      "win_rate": 0.3363,
+      "avg_win_r": 1.6937,
+      "avg_loss_r": -1.6433,
+      "profit_factor": 0.522,
+      "total_r": -947.0,
+      "max_drawdown_r": -950.7,
+      "sharpe_like": -0.324
+    },
+    {
+      "label": "2022",
+      "n": 2753,
+      "target_hit_rate": 0.3207,
+      "expectancy_r": -0.3587,
+      "expectancy_ci95": [
+        -0.4182,
+        -0.2988
+      ],
+      "win_rate": 0.3513,
+      "avg_win_r": 1.7287,
+      "avg_loss_r": -1.4889,
+      "profit_factor": 0.629,
+      "total_r": -987.58,
+      "max_drawdown_r": -997.1,
+      "sharpe_like": -0.229
+    },
+    {
+      "label": "2023",
+      "n": 2192,
+      "target_hit_rate": 0.3234,
+      "expectancy_r": -0.4907,
+      "expectancy_ci95": [
+        -0.5595,
+        -0.4224
+      ],
+      "win_rate": 0.3536,
+      "avg_win_r": 1.6554,
+      "avg_loss_r": -1.6645,
+      "profit_factor": 0.544,
+      "total_r": -1075.67,
+      "max_drawdown_r": -1078.43,
+      "sharpe_like": -0.302
+    },
+    {
+      "label": "2024",
+      "n": 2060,
+      "target_hit_rate": 0.3155,
+      "expectancy_r": -0.5546,
+      "expectancy_ci95": [
+        -0.6259,
+        -0.482
+      ],
+      "win_rate": 0.3364,
+      "avg_win_r": 1.6872,
+      "avg_loss_r": -1.691,
+      "profit_factor": 0.506,
+      "total_r": -1142.42,
+      "max_drawdown_r": -1148.38,
+      "sharpe_like": -0.341
+    },
+    {
+      "label": "2025",
+      "n": 1965,
+      "target_hit_rate": 0.3104,
+      "expectancy_r": -0.5224,
+      "expectancy_ci95": [
+        -0.591,
+        -0.4551
+      ],
+      "win_rate": 0.3293,
+      "avg_win_r": 1.7178,
+      "avg_loss_r": -1.622,
+      "profit_factor": 0.52,
+      "total_r": -1026.45,
+      "max_drawdown_r": -1025.22,
+      "sharpe_like": -0.326
+    },
+    {
+      "label": "2026",
+      "n": 473,
+      "target_hit_rate": 0.2706,
+      "expectancy_r": -0.5794,
+      "expectancy_ci95": [
+        -0.7142,
+        -0.4441
+      ],
+      "win_rate": 0.3108,
+      "avg_win_r": 1.608,
+      "avg_loss_r": -1.5658,
+      "profit_factor": 0.463,
+      "total_r": -274.08,
+      "max_drawdown_r": -272.7,
+      "sharpe_like": -0.38
+    }
+  ],
+  "spike_opening_by_year": [
+    {
+      "label": "2019",
+      "n": 15,
+      "target_hit_rate": 0.1333,
+      "expectancy_r": -0.271,
+      "expectancy_ci95": [
+        -0.6312,
+        0.0953
+      ],
+      "win_rate": 0.4,
+      "avg_win_r": 0.4344,
+      "avg_loss_r": -0.7413,
+      "profit_factor": 0.391,
+      "total_r": -4.07,
+      "max_drawdown_r": -4.17
+    },
+    {
+      "label": "2020",
+      "n": 38,
+      "target_hit_rate": 0.5526,
+      "expectancy_r": 0.2225,
+      "expectancy_ci95": [
+        -0.061,
+        0.4862
+      ],
+      "win_rate": 0.6579,
+      "avg_win_r": 0.7933,
+      "avg_loss_r": -0.8751,
+      "profit_factor": 1.743,
+      "total_r": 8.46,
+      "max_drawdown_r": -2.6
+    },
+    {
+      "label": "2021",
+      "n": 45,
+      "target_hit_rate": 0.4889,
+      "expectancy_r": 0.0297,
+      "expectancy_ci95": [
+        -0.2359,
+        0.2931
+      ],
+      "win_rate": 0.5333,
+      "avg_win_r": 0.8379,
+      "avg_loss_r": -0.8939,
+      "profit_factor": 1.071,
+      "total_r": 1.34,
+      "max_drawdown_r": -5.05
+    },
+    {
+      "label": "2022",
+      "n": 24,
+      "target_hit_rate": 0.4583,
+      "expectancy_r": 0.0443,
+      "expectancy_ci95": [
+        -0.3133,
+        0.3928
+      ],
+      "win_rate": 0.5417,
+      "avg_win_r": 0.8076,
+      "avg_loss_r": -0.8579,
+      "profit_factor": 1.113,
+      "total_r": 1.06,
+      "max_drawdown_r": -2.68
+    },
+    {
+      "label": "2023",
+      "n": 38,
+      "target_hit_rate": 0.2632,
+      "expectancy_r": -0.2987,
+      "expectancy_ci95": [
+        -0.5588,
+        -0.0273
+      ],
+      "win_rate": 0.3684,
+      "avg_win_r": 0.705,
+      "avg_loss_r": -0.8841,
+      "profit_factor": 0.465,
+      "total_r": -11.35,
+      "max_drawdown_r": -13.25
+    },
+    {
+      "label": "2024",
+      "n": 45,
+      "target_hit_rate": 0.3778,
+      "expectancy_r": -0.1243,
+      "expectancy_ci95": [
+        -0.3819,
+        0.1478
+      ],
+      "win_rate": 0.5333,
+      "avg_win_r": 0.7053,
+      "avg_loss_r": -1.0724,
+      "profit_factor": 0.752,
+      "total_r": -5.59,
+      "max_drawdown_r": -7.71
+    },
+    {
+      "label": "2025",
+      "n": 65,
+      "target_hit_rate": 0.5385,
+      "expectancy_r": 0.1358,
+      "expectancy_ci95": [
+        -0.0864,
+        0.3443
+      ],
+      "win_rate": 0.6308,
+      "avg_win_r": 0.775,
+      "avg_loss_r": -0.9563,
+      "profit_factor": 1.384,
+      "total_r": 8.82,
+      "max_drawdown_r": -3.58
+    },
+    {
+      "label": "2026",
+      "n": 15,
+      "target_hit_rate": 0.4667,
+      "expectancy_r": 0.1309,
+      "expectancy_ci95": [
+        -0.2713,
+        0.521
+      ],
+      "win_rate": 0.6,
+      "avg_win_r": 0.7119,
+      "avg_loss_r": -0.7407,
+      "profit_factor": 1.442,
+      "total_r": 1.96,
+      "max_drawdown_r": -1.46
+    }
+  ]
+}

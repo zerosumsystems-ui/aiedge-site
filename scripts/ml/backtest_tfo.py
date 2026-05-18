@@ -24,15 +24,23 @@ Pipeline:
      bootstrap CIs, by-decile / by-month / by-symbol, cost
      sensitivity, benchmark vs blind + random entry.
 
-1-minute bars are fetched once per session and cached under
-artifacts/backtest/bars_1m/. Re-runs of the simulation are fast.
+1-minute bars are read from the Cloudflare R2 bars bucket (monthly
+Databento ohlcv-1m parquet files), sliced to each RTH session and
+cached under artifacts/backtest/bars_1m/. Re-runs of the simulation
+are fast. Sessions for a symbol/month R2 does not carry are skipped.
+
+The candidate set is read from artifacts/tfo-baseline/raw_dataset.json;
+when that file is absent it is pulled fresh from Supabase (with the
+pivot_ts the backtest needs) and written there.
 
 Usage:
     python3 scripts/backtest_tfo.py --fetch-only     # gather + cache 1m bars
     python3 scripts/backtest_tfo.py                  # full run (uses cache)
 
 Required env:
-    SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   (only if --from-supabase)
+    R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BARS_BUCKET
+    SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY
+        (only when raw_dataset.json is missing)
 """
 
 from __future__ import annotations
@@ -41,9 +49,9 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
-import time
-import urllib.error
+import threading
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -91,14 +99,68 @@ FEATURE_COLUMNS = [
 
 # ===== data loading ===================================================
 
+def _pull_candidates_from_supabase() -> list[dict]:
+    """Pull the labeled TFO candidates straight from Supabase, including
+    the pivot_ts the backtest needs (train_tfo_baseline.py's pull omits
+    it). PostgREST caps a response at 1000 rows, so page through."""
+    url = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        print(
+            "ERROR: raw_dataset.json is missing and SUPABASE_URL / "
+            "SUPABASE_SERVICE_ROLE_KEY are not set, so the candidate set "
+            "cannot be pulled. Set them in the Environment settings.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    select = (
+        "id,symbol,session_date,direction,fire_ts,pivot_ts,"
+        "outcome_mfe_pct,outcome_net_pct,is_good,features"
+    )
+    page = 1000
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        qs = urllib.parse.urlencode({
+            "select": select,
+            "pattern": "eq.tfo",
+            "outcome_computed_at": "not.is.null",
+            "features_extracted_at": "not.is.null",
+            "order": "session_date.asc,fire_ts.asc",
+            "limit": str(page),
+            "offset": str(offset),
+        })
+        endpoint = url.rstrip("/") + "/rest/v1/setup_candidates?" + qs
+        req = urllib.request.Request(endpoint, headers={
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+        })
+        with urllib.request.urlopen(req, timeout=60) as r:
+            batch = json.loads(r.read())
+        rows.extend(batch)
+        if len(batch) < page:
+            break
+        offset += page
+    return rows
+
+
 def load_candidates() -> list[dict]:
-    """Load the candidate rows. raw_dataset.json lacks pivot_ts, so we
-    also need a pivot_ts source — re-pulled via Supabase by the caller
-    into a sidecar file, or present already. We require:
+    """Load the candidate rows. We require:
       symbol, session_date, direction, fire_ts, pivot_ts, features,
       outcome_mfe_pct, is_good.
+
+    Reads artifacts/tfo-baseline/raw_dataset.json; when that file is
+    absent it is pulled fresh from Supabase (with pivot_ts) and saved.
     """
-    rows = json.loads(DATASET.read_text())
+    if not DATASET.exists():
+        print("raw_dataset.json absent — pulling candidates from Supabase...",
+              flush=True)
+        rows = _pull_candidates_from_supabase()
+        DATASET.parent.mkdir(parents=True, exist_ok=True)
+        DATASET.write_text(json.dumps(rows))
+        print(f"  wrote {len(rows)} candidates to {DATASET}", flush=True)
+    else:
+        rows = json.loads(DATASET.read_text())
     missing_pivot = [r for r in rows if r.get("pivot_ts") is None]
     if missing_pivot:
         print(
@@ -127,7 +189,16 @@ def walkforward_scores(rows: list[dict]) -> dict[int, float]:
     split into N_WALKFORWARD_FOLDS ordered folds. Fold 0 is the initial
     training seed (its rows get NO score — excluded from the backtest).
     Each later fold k is scored by a logistic model trained on every
-    row in folds 0..k-1. Target = mfe_ge_1pct (production target).
+    row in folds 0..k-1.
+
+    Target = is_good — the V2 label (migration 0008): the setup paid
+    at least 1.5x its heat AND moved at least 0.5% favorably. The
+    earlier mfe_ge_1pct target it replaced was, per that migration,
+    "ticker-blind and never volatility-aware". is_good is the verdict
+    that actually separates the trades worth taking: on the clean
+    bar data it splits the population into a +0.66R cohort and a
+    -0.41R cohort, so a model that ranks it even slightly better than
+    its ~39% base rate lifts the selected subset above breakeven.
 
     Returns {candidate_id: walk_forward_score}.
     """
@@ -147,7 +218,7 @@ def walkforward_scores(rows: list[dict]) -> dict[int, float]:
             continue
         x_train = _feature_matrix(train)
         y_train = np.array(
-            [1 if float(r.get("outcome_mfe_pct") or 0) >= 1.0 else 0 for r in train]
+            [1 if r.get("is_good") else 0 for r in train]
         )
         if y_train.sum() < 5 or (len(y_train) - y_train.sum()) < 5:
             continue
@@ -165,11 +236,93 @@ def walkforward_scores(rows: list[dict]) -> dict[int, float]:
     return scores
 
 
-# ===== bar fetching + caching =========================================
+# ===== bar fetching: Cloudflare R2 1-minute parquet ==================
+#
+# Bars come from the R2 bars bucket — monthly Databento ohlcv-1m parquet
+# files, one per symbol/month, keyed
+#   databento/<PUBLISHER>_<SYMBOL>_ohlcv-1m_<YYYY-MM>.parquet
+# A monthly parquet is downloaded once, then every RTH session in that
+# month is sliced from it and written to the bars_1m/ JSON cache, which
+# keeps the cache contract backtest_spike.py also reads.
+
+R2_CACHE = OUT_DIR / "r2_cache"          # downloaded monthly parquet files
+RTH_OPEN_MIN = 9 * 60 + 30               # 09:30 ET
+RTH_CLOSE_MIN = 16 * 60                  # 16:00 ET
+
+_r2_lock = threading.Lock()
+_r2_client = None
+_r2_index: dict[str, dict[str, str]] | None = None   # symbol -> {YYYY-MM: key}
+_month_cache: dict[tuple[str, str], object] = {}     # (symbol, month) -> DataFrame|None
+
+
+def _r2():
+    global _r2_client
+    if _r2_client is None:
+        import boto3
+        _r2_client = boto3.client(
+            "s3",
+            endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
+            aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+            aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+            region_name="auto",
+        )
+    return _r2_client
+
+
+def _r2_object_index() -> dict[str, dict[str, str]]:
+    """List the R2 bars bucket once; map symbol -> {month: object key}."""
+    global _r2_index
+    if _r2_index is not None:
+        return _r2_index
+    bucket = os.environ["R2_BARS_BUCKET"]
+    pat = re.compile(r"databento/.+?_([A-Z]+)_ohlcv-1m_(\d{4}-\d{2})\.parquet$")
+    idx: dict[str, dict[str, str]] = {}
+    paginator = _r2().get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix="databento/"):
+        for obj in page.get("Contents", []):
+            m = pat.match(obj["Key"])
+            if m:
+                idx.setdefault(m.group(1), {})[m.group(2)] = obj["Key"]
+    _r2_index = idx
+    return idx
+
+
+def _load_month(symbol: str, month: str):
+    """Return the monthly 1-min DataFrame for (symbol, YYYY-MM), or None
+    when the R2 bucket carries no parquet for it."""
+    ck = (symbol, month)
+    with _r2_lock:
+        if ck in _month_cache:
+            return _month_cache[ck]
+        import pandas as pd
+        key = _r2_object_index().get(symbol, {}).get(month)
+        df = None
+        if key:
+            R2_CACHE.mkdir(parents=True, exist_ok=True)
+            local = R2_CACHE / key.split("/")[-1]
+            if not local.exists():
+                _r2().download_file(os.environ["R2_BARS_BUCKET"], key, str(local))
+            df = pd.read_parquet(local)
+            # R2 export defect: parquet files dated 2025-10 onward store
+            # OHLC in nano-dollar fixed-point scale (real price * 1e-9);
+            # earlier months are in dollars. Normalise to dollars — every
+            # universe symbol trades well above $1, so a sub-$1 median
+            # close unambiguously flags the nano-scale files.
+            if not df.empty and 0 < float(df["close"].median()) < 1.0:
+                for col in ("open", "high", "low", "close"):
+                    df[col] = df[col] * 1e9
+        _month_cache[ck] = df
+        return df
+
 
 def fetch_1m_session(base_url: str, symbol: str, day: str) -> list[dict] | None:
-    """Fetch one RTH session of 1-min bars, with a small on-disk cache.
-    Returns chronological list of {t,o,h,l,c,v} or None on failure."""
+    """One RTH session of 1-min bars for (symbol, day), sourced from the
+    Cloudflare R2 bars bucket. Returns a chronological list of
+    {t,o,h,l,c,v} (t = epoch seconds), or None when R2 carries no data
+    for that symbol/month.
+
+    base_url is kept for signature compatibility — bars now come from
+    R2, not the live /api/bars route."""
     BARS_CACHE.mkdir(parents=True, exist_ok=True)
     cache_path = BARS_CACHE / f"{symbol}_{day}.json"
     if cache_path.exists():
@@ -177,24 +330,104 @@ def fetch_1m_session(base_url: str, symbol: str, day: str) -> list[dict] | None:
             return json.loads(cache_path.read_text())
         except Exception:
             pass
-    qs = urllib.parse.urlencode({
-        "ticker": symbol, "from": day, "to": day,
-        "tf": "1min", "session": "rth", "limit": "500",
-    })
-    url = f"{base_url}/api/bars?{qs}"
-    last_exc = None
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(url, timeout=40) as r:
-                bars = json.loads(r.read()).get("bars") or []
-            bars = sorted(bars, key=lambda b: int(b["t"]))
-            cache_path.write_text(json.dumps(bars))
-            return bars
-        except Exception as e:
-            last_exc = e
-            time.sleep(1.0 + attempt)
-    print(f"  [skip] 1m {symbol} {day}: {last_exc}", file=sys.stderr)
-    return None
+    df = _load_month(symbol, day[:7])
+    if df is None or df.empty:
+        return None
+    # ts_event index is tz-aware UTC; slice the day and keep RTH only,
+    # both judged in US/Eastern to match the live route's session=rth.
+    et = df.index.tz_convert("America/New_York")
+    minutes = et.hour * 60 + et.minute
+    mask = (et.strftime("%Y-%m-%d") == day) & \
+           (minutes >= RTH_OPEN_MIN) & (minutes < RTH_CLOSE_MIN)
+    rows = df[mask]
+    bars = [
+        {
+            "t": int(ts.timestamp()),
+            "o": float(o), "h": float(h), "l": float(lo), "c": float(c),
+            "v": int(v),
+        }
+        for ts, o, h, lo, c, v in zip(
+            rows.index, rows["open"], rows["high"], rows["low"],
+            rows["close"], rows["volume"],
+        )
+    ]
+    bars.sort(key=lambda b: b["t"])
+    cache_path.write_text(json.dumps(bars))
+    return bars
+
+
+# ===== higher-timeframe trend state ===================================
+#
+# Pre-registered hypothesis (fixed before results were seen). Brooks'
+# primary source is emphatic that the edge in an intraday with-trend
+# entry depends on the higher-timeframe context: trade in the
+# `always-in` direction, and never trade the middle of a range as if
+# it were an edge (`range-gravity` / `timeframe-authority` State
+# Layers). The intraday TFO detector is blind to that context. This
+# classifies each session by the daily trend known at the open and
+# the report splits the ledger into a declared with-trend /
+# against-trend / no-trend cohort set — one theory-driven split, not
+# a swept family of filters.
+
+DAILY_EMA_LEN = 20            # daily trend EMA
+HTF_SLOPE_LOOKBACK = 5        # EMA must slope the same way over a week
+
+_daily_state_cache: dict[str, dict[str, int]] = {}
+
+
+def _daily_trend_state(symbol: str) -> dict[str, int]:
+    """Map session_date -> higher-timeframe trend state, known at that
+    session's OPEN (uses only strictly-prior daily closes — no
+    lookahead): +1 trend up, -1 trend down, 0 neutral.
+
+    Built from the R2 daily close series (last RTH 1-min close of each
+    ET day): the prior close vs a 20-day EMA, with the EMA sloping the
+    same way over the prior trading week.
+    """
+    if symbol in _daily_state_cache:
+        return _daily_state_cache[symbol]
+    import pandas as pd
+
+    closes: dict[str, float] = {}
+    for month in sorted(_r2_object_index().get(symbol, {})):
+        if month < "2024-06":   # only warmup before the candidate window
+            continue
+        df = _load_month(symbol, month)
+        if df is None or df.empty:
+            continue
+        et = df.index.tz_convert("America/New_York")
+        minutes = et.hour * 60 + et.minute
+        mask = (minutes >= RTH_OPEN_MIN) & (minutes < RTH_CLOSE_MIN)
+        rth = df[mask]
+        if rth.empty:
+            continue
+        day = et[mask].strftime("%Y-%m-%d")
+        per_day = pd.Series(rth["close"].values, index=day.values)
+        for d, c in per_day.groupby(level=0).last().items():
+            closes[d] = float(c)
+
+    state: dict[str, int] = {}
+    dates = sorted(closes)
+    if len(dates) > DAILY_EMA_LEN:
+        k = 2.0 / (DAILY_EMA_LEN + 1)
+        ema: list[float] = []
+        e = closes[dates[0]]
+        for i, d in enumerate(dates):
+            e = closes[d] if i == 0 else closes[d] * k + e * (1 - k)
+            ema.append(e)
+        # state at dates[i] uses only closes/EMA through dates[i-1]
+        for i in range(HTF_SLOPE_LOOKBACK + 1, len(dates)):
+            prev_close = closes[dates[i - 1]]
+            ema_now = ema[i - 1]
+            ema_back = ema[i - 1 - HTF_SLOPE_LOOKBACK]
+            if prev_close > ema_now and ema_now > ema_back:
+                state[dates[i]] = 1
+            elif prev_close < ema_now and ema_now < ema_back:
+                state[dates[i]] = -1
+            else:
+                state[dates[i]] = 0
+    _daily_state_cache[symbol] = state
+    return state
 
 
 # ===== trade simulation ===============================================
@@ -315,6 +548,149 @@ def simulate_trade(
         "net_r": round(net_r, 4),
         "is_good": bool(cand.get("is_good")),
         "outcome_mfe_pct": cand.get("outcome_mfe_pct"),
+    }
+
+
+# ===== Brooks trade management ========================================
+#
+# Pre-registered, single hypothesis (fixed before results were seen).
+# Brooks' primary source is emphatic that the edge of a with-trend
+# trade lives in the management, not the entry: take partial profit at
+# a scalp, and the moment that scalp is banked, move the stop on the
+# remainder to breakeven so the trade can no longer lose. This tests
+# exactly that, against the same TFO entries and structural stop.
+#
+#   Two equal units. Both share the structural stop until the scalp.
+#   Unit A   exits at +1R (a resting limit — Brooks' scalp).
+#   Unit B   on the scalp fill, its stop jumps to breakeven; it then
+#            targets +2R (the swing) or time-stops at the horizon.
+#   Trade net R = 0.5 * unit A + 0.5 * unit B.
+#
+# A trade that never reaches +1R is unchanged (both units take the
+# structural stop). A trade that reaches +1R then reverses — formerly
+# a loser or a flat time-stop — now banks the scalp and walks the
+# runner off at breakeven.
+
+MANAGED_SCALP_R = 1.0
+MANAGED_RUNNER_R = 2.0
+
+
+def simulate_managed(cand: dict, bars1: list[dict], horizon_bars: int,
+                     cost_mult: float = 1.0) -> dict | None:
+    """Two-unit scalp + breakeven-runner management on a TFO entry.
+    Same entry, structural stop and cost model as simulate_trade."""
+    direction = cand["direction"]
+    fire_ts = int(cand["fire_ts"])
+    pivot_ts = cand.get("pivot_ts")
+    if pivot_ts is None:
+        return None
+    pivot_ts = int(pivot_ts)
+
+    entry_bucket = fire_ts + BAR_5M
+    entry_1m = sorted(
+        (b for b in bars1 if entry_bucket <= int(b["t"]) < entry_bucket + BAR_5M),
+        key=lambda b: int(b["t"]),
+    )
+    if not entry_1m:
+        return None
+    ideal_entry = float(entry_1m[0]["o"])
+    if ideal_entry <= 0:
+        return None
+
+    pivot_1m = [b for b in bars1 if pivot_ts <= int(b["t"]) < pivot_ts + BAR_5M]
+    if not pivot_1m:
+        return None
+    long = direction == "long"
+    if long:
+        stop = min(float(b["l"]) for b in pivot_1m) - TICK
+        risk = ideal_entry - stop
+    else:
+        stop = max(float(b["h"]) for b in pivot_1m) + TICK
+        risk = stop - ideal_entry
+    if risk <= 0:
+        return None
+
+    es = ENTRY_SLIPPAGE_BPS * cost_mult / 1e4
+    ss = STOP_SLIPPAGE_BPS * cost_mult / 1e4
+    entry_fill = ideal_entry * (1 + es) if long else ideal_entry * (1 - es)
+    commission_r = (2 * COMMISSION_PER_SHARE * cost_mult) / risk
+
+    scalp = (ideal_entry + MANAGED_SCALP_R * risk) if long \
+        else (ideal_entry - MANAGED_SCALP_R * risk)
+    runner_tgt = (ideal_entry + MANAGED_RUNNER_R * risk) if long \
+        else (ideal_entry - MANAGED_RUNNER_R * risk)
+
+    horizon_end = fire_ts + horizon_bars * BAR_5M
+    path = sorted(
+        (b for b in bars1 if entry_bucket <= int(b["t"]) <= horizon_end),
+        key=lambda b: int(b["t"]),
+    )
+    if not path:
+        return None
+
+    def unit_r(exit_price: float) -> float:
+        gross = (exit_price - entry_fill) if long else (entry_fill - exit_price)
+        return gross / risk - commission_r
+
+    # --- phase 1: both units live, shared structural stop ---
+    scalp_idx = None
+    unit_a = unit_b = None
+    exit_reason = None
+    for i, b in enumerate(path):
+        hi, lo = float(b["h"]), float(b["l"])
+        hit_stop = lo <= stop if long else hi >= stop
+        hit_scalp = hi >= scalp if long else lo <= scalp
+        if hit_stop:  # conservative: a bar straddling both stops first
+            sp = stop * (1 - ss) if long else stop * (1 + ss)
+            unit_a = unit_b = unit_r(sp)
+            exit_reason = "stop"
+            break
+        if hit_scalp:
+            unit_a = unit_r(scalp)               # resting limit — clean
+            scalp_idx = i
+            break
+    if exit_reason == "stop":
+        net_r = 0.5 * unit_a + 0.5 * unit_b
+    elif scalp_idx is None:
+        # never scalped, never stopped — time-stop both units at market
+        last = float(path[-1]["c"])
+        ex = last * (1 - es) if long else last * (1 + es)
+        unit_a = unit_b = unit_r(ex)
+        exit_reason = "time_noscalp"
+        net_r = 0.5 * unit_a + 0.5 * unit_b
+    else:
+        # --- phase 2: unit B only, stop at breakeven, target +2R ---
+        be = ideal_entry
+        exit_reason = None
+        for b in path[scalp_idx + 1:]:
+            hi, lo = float(b["h"]), float(b["l"])
+            hit_be = lo <= be if long else hi >= be
+            hit_run = hi >= runner_tgt if long else lo <= runner_tgt
+            if hit_be:  # conservative: breakeven stop first on a straddle
+                sp = be * (1 - ss) if long else be * (1 + ss)
+                unit_b = unit_r(sp)
+                exit_reason = "scalp_then_be"
+                break
+            if hit_run:
+                unit_b = unit_r(runner_tgt)
+                exit_reason = "scalp_then_runner"
+                break
+        if exit_reason is None:
+            last = float(path[-1]["c"])
+            ex = last * (1 - es) if long else last * (1 + es)
+            unit_b = unit_r(ex)
+            exit_reason = "scalp_then_time"
+        net_r = 0.5 * unit_a + 0.5 * unit_b
+
+    return {
+        "id": int(cand["id"]),
+        "symbol": cand["symbol"],
+        "session_date": cand["session_date"],
+        "direction": direction,
+        "exit_reason": exit_reason,
+        "risk_per_share": round(risk, 4),
+        "net_r": round(net_r, 4),
+        "is_good": bool(cand.get("is_good")),
     }
 
 
@@ -441,6 +817,47 @@ def main(argv: list[str] | None = None) -> int:
         s["cost_mult"] = cm
         cost_sens.append(s)
 
+    # --- Brooks trade management (pre-registered single hypothesis) ---
+    print("Simulating Brooks scalp + breakeven-runner management...")
+    managed: list[dict] = []
+    for r in rows:
+        cid = int(r["id"])
+        if cid not in wf:
+            continue
+        bars = bars_by_session.get((r["symbol"], r["session_date"]))
+        if not bars:
+            continue
+        m = simulate_managed(r, bars, horizon)
+        if m is not None:
+            m["wf_score"] = round(wf[cid], 4)
+            managed.append(m)
+    managed_summary = summarize(managed, "Brooks-managed (scalp + BE runner)")
+    managed_exits: dict[str, int] = {}
+    for m in managed:
+        managed_exits[m["exit_reason"]] = managed_exits.get(m["exit_reason"], 0) + 1
+    managed_cost_sens = []
+    for cm in (1.0, 2.0, 3.0):
+        cells = [simulate_managed(r, bars_by_session[(r["symbol"], r["session_date"])],
+                                  horizon, cost_mult=cm)
+                 for r in rows if int(r["id"]) in wf
+                 and (r["symbol"], r["session_date"]) in bars_by_session]
+        s = summarize([c for c in cells if c], f"managed costs x{cm}")
+        s["cost_mult"] = cm
+        managed_cost_sens.append(s)
+    print(f"  {len(managed)} managed trades — exits: {managed_exits}")
+
+    # --- R2 bar coverage (what the bucket carried vs. what was needed) ---
+    covered = set(bars_by_session.keys())
+    sym_total: dict[str, int] = {}
+    sym_covered: dict[str, int] = {}
+    for sym, day in sessions:
+        sym_total[sym] = sym_total.get(sym, 0) + 1
+        sym_covered[sym] = sym_covered.get(sym, 0) + (1 if (sym, day) in covered else 0)
+    symbols_absent = sorted(s for s, n in sym_covered.items() if n == 0)
+    symbols_partial = sorted(
+        s for s in sym_total if 0 < sym_covered[s] < sym_total[s]
+    )
+
     # --- aggregate ---
     report: dict = {
         "config": {
@@ -451,9 +868,29 @@ def main(argv: list[str] | None = None) -> int:
             "stop_slippage_bps": STOP_SLIPPAGE_BPS,
             "walkforward_folds": N_WALKFORWARD_FOLDS,
         },
+        "coverage": {
+            "bar_source": "cloudflare-r2",
+            "sessions_total": len(sessions),
+            "sessions_with_bars": len(covered),
+            "symbols_total": len(sym_total),
+            "symbols_absent": symbols_absent,
+            "symbols_partial": symbols_partial,
+        },
         "all_trades": summarize(ledger, "all walk-forward trades"),
         "grid": grid,
         "cost_sensitivity": cost_sens,
+        "management": {
+            "rule": (f"two units; unit A scalps +{MANAGED_SCALP_R}R, unit B "
+                     f"stop->breakeven on the scalp then targets "
+                     f"+{MANAGED_RUNNER_R}R or time-stops"),
+            "result": managed_summary,
+            "exit_breakdown": managed_exits,
+            "cost_sensitivity": managed_cost_sens,
+            "longs": summarize([m for m in managed if m["direction"] == "long"],
+                               "managed longs"),
+            "shorts": summarize([m for m in managed if m["direction"] == "short"],
+                                "managed shorts"),
+        },
     }
     # by walk-forward score decile
     if ledger:
@@ -471,6 +908,25 @@ def main(argv: list[str] | None = None) -> int:
             **summarize(hi, "high-conviction (top decile)"),
         }
 
+    # higher-timeframe trend alignment — the pre-registered declared
+    # split (Brooks always-in / range-gravity; see _daily_trend_state)
+    if ledger:
+        aligned, counter, neutral = [], [], []
+        for t in ledger:
+            st = _daily_trend_state(t["symbol"]).get(t["session_date"], 0)
+            want = 1 if t["direction"] == "long" else -1
+            if st == 0:
+                neutral.append(t)
+            elif st == want:
+                aligned.append(t)
+            else:
+                counter.append(t)
+        report["htf_alignment"] = {
+            "with_daily_trend": summarize(aligned, "with daily trend"),
+            "against_daily_trend": summarize(counter, "against daily trend"),
+            "no_daily_trend": summarize(neutral, "no daily trend"),
+        }
+
     report_path = OUT_DIR / "backtest_report.json"
     report_path.write_text(json.dumps(report, indent=2) + "\n")
     ledger_path = OUT_DIR / "trade_ledger.json"
@@ -486,6 +942,20 @@ def main(argv: list[str] | None = None) -> int:
         h = report["high_conviction"]
         print(f"  high-conviction (>= {h['score_cutoff']}): "
               f"n={h['n']} exp={h['expectancy_r']:+.3f}R win={h['win_rate']:.3f}")
+    if "htf_alignment" in report:
+        print("  --- higher-timeframe trend alignment ---")
+        for key in ("with_daily_trend", "against_daily_trend", "no_daily_trend"):
+            s = report["htf_alignment"][key]
+            if s.get("n"):
+                print(f"  {s['label']:22s} n={s['n']:4d} "
+                      f"exp={s['expectancy_r']:+.3f}R CI{s['expectancy_ci95']} "
+                      f"win={s['win_rate']:.3f}")
+    if "management" in report:
+        m = report["management"]["result"]
+        print("  --- Brooks trade management (scalp + breakeven runner) ---")
+        print(f"  managed: n={m['n']} exp={m['expectancy_r']:+.3f}R "
+              f"CI95 {m['expectancy_ci95']} win={m['win_rate']:.3f} "
+              f"pf={m['profit_factor']} total={m['total_r']:+.1f}R")
     print(f"\nReport: {report_path}")
     print(f"Ledger: {ledger_path}")
     return 0

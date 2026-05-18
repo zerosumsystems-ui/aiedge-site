@@ -27,9 +27,17 @@ live Fly aggregator.
 
 ## 2. Data
 
-- **Source**: Databento equity data, served through the application's
-  `/api/bars` endpoint. Detection uses 5-minute RTH bars; the
-  execution simulation uses 1-minute RTH bars.
+- **Source**: Databento `ohlcv-1m` equity data, stored as monthly
+  per-symbol parquet files in the Cloudflare R2 `aiedge-bars` bucket.
+  Detection uses 5-minute RTH bars aggregated from the 1-minute feed;
+  the execution simulation uses 1-minute RTH bars. RTH is judged in
+  US/Eastern (09:30–16:00), matching the live `/api/bars` route.
+- **Price-scale normalisation**: the R2 export is not internally
+  consistent — parquet files dated 2025-10 onward store OHLC in
+  nano-dollar fixed-point scale (real price × 1e-9), earlier months in
+  dollars. The loader detects a sub-$1 median close (impossible for
+  this universe) and rescales those files by 1e9. Without this every
+  trade from 2025-10 on collapses to an exact −1R artefact.
 - **Universe**: 49 liquid US equities and sector ETFs (index ETFs,
   sector ETFs, mega-cap single names). Chosen for tight spreads and
   clean microstructure.
@@ -79,7 +87,13 @@ signals the live aggregator would have emitted in real time.
 ## 4. Model & walk-forward validation
 
 Each candidate is scored by a logistic-regression model on the
-14-feature vector. Score = P(MFE ≥ 1% favorably within 2 hours).
+14-feature vector. Score = P(`is_good`) — the V2 label from migration
+0008: the setup paid at least 1.5× its heat and moved at least 0.5%
+favorably. This replaces the earlier `mfe_ge_1pct` target, which that
+migration records as "ticker-blind and never volatility-aware". The
+score-decile profile in `backtest_report.json` is the test of whether
+the model adds edge; on the corrected data it does not, under either
+target.
 
 **Validation is walk-forward, not k-fold.** k-fold cross-validation
 would let a model trained on 2026 sessions score a 2025 holdout —
@@ -147,6 +161,18 @@ price levels. Net R per trade = (exit fill − entry fill) / R −
 commission_R, where the fills include slippage. A fixed-fractional
 equity curve is reported as a secondary view.
 
+### 5.7 Trade management (pre-registered alternative exit)
+
+Brooks' primary source places most of a with-trend trade's edge in the
+*management*. The report carries one pre-registered management
+variant alongside the fixed-target grid, fixed before results were
+seen: two equal units sharing the structural stop; unit A scalps at
++1R (a resting limit); on that fill unit B's stop jumps to breakeven
+and it then targets +2R or time-stops. Trade R = ½·A + ½·B. A trade
+that never reaches +1R is unchanged. This is the `management` block of
+`backtest_report.json` — reported whatever it shows; it is not a knob
+to be turned until the curve looks good.
+
 ## 6. Metrics
 
 - Expectancy (net R / trade) with a bootstrap 95% confidence interval
@@ -179,13 +205,22 @@ equity curve is reported as a secondary view.
 ## 8. Reproduce
 
 ```
-# 1. dataset (candidates + features + outcomes + pivot_ts) is in
-#    artifacts/tfo-baseline/raw_dataset.json
-# 2. gather + cache 1-minute bars
+# 1. dataset (candidates + features + outcomes + pivot_ts): read from
+#    artifacts/tfo-baseline/raw_dataset.json, or auto-pulled from
+#    Supabase when that file is absent (needs SUPABASE_URL +
+#    SUPABASE_SERVICE_ROLE_KEY).
+# 2. gather + cache 1-minute bars (from the Cloudflare R2 bars bucket;
+#    needs R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY /
+#    R2_BARS_BUCKET).
 python3 scripts/ml/backtest_tfo.py --fetch-only
 # 3. full backtest
 python3 scripts/ml/backtest_tfo.py
 ```
+
+1-minute bars come from the R2 bars bucket — monthly Databento
+ohlcv-1m parquet files, one per symbol/month. Sessions for a
+symbol/month the bucket does not yet carry are skipped, and the run
+reports the coverage (`sessions_with_bars` / `sessions_total`).
 
 Outputs: `artifacts/backtest/backtest_report.json` (aggregate) and
 `artifacts/backtest/trade_ledger.json` (every simulated fill, auditable
