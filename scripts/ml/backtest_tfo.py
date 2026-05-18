@@ -356,6 +356,80 @@ def fetch_1m_session(base_url: str, symbol: str, day: str) -> list[dict] | None:
     return bars
 
 
+# ===== higher-timeframe trend state ===================================
+#
+# Pre-registered hypothesis (fixed before results were seen). Brooks'
+# primary source is emphatic that the edge in an intraday with-trend
+# entry depends on the higher-timeframe context: trade in the
+# `always-in` direction, and never trade the middle of a range as if
+# it were an edge (`range-gravity` / `timeframe-authority` State
+# Layers). The intraday TFO detector is blind to that context. This
+# classifies each session by the daily trend known at the open and
+# the report splits the ledger into a declared with-trend /
+# against-trend / no-trend cohort set — one theory-driven split, not
+# a swept family of filters.
+
+DAILY_EMA_LEN = 20            # daily trend EMA
+HTF_SLOPE_LOOKBACK = 5        # EMA must slope the same way over a week
+
+_daily_state_cache: dict[str, dict[str, int]] = {}
+
+
+def _daily_trend_state(symbol: str) -> dict[str, int]:
+    """Map session_date -> higher-timeframe trend state, known at that
+    session's OPEN (uses only strictly-prior daily closes — no
+    lookahead): +1 trend up, -1 trend down, 0 neutral.
+
+    Built from the R2 daily close series (last RTH 1-min close of each
+    ET day): the prior close vs a 20-day EMA, with the EMA sloping the
+    same way over the prior trading week.
+    """
+    if symbol in _daily_state_cache:
+        return _daily_state_cache[symbol]
+    import pandas as pd
+
+    closes: dict[str, float] = {}
+    for month in sorted(_r2_object_index().get(symbol, {})):
+        if month < "2024-06":   # only warmup before the candidate window
+            continue
+        df = _load_month(symbol, month)
+        if df is None or df.empty:
+            continue
+        et = df.index.tz_convert("America/New_York")
+        minutes = et.hour * 60 + et.minute
+        mask = (minutes >= RTH_OPEN_MIN) & (minutes < RTH_CLOSE_MIN)
+        rth = df[mask]
+        if rth.empty:
+            continue
+        day = et[mask].strftime("%Y-%m-%d")
+        per_day = pd.Series(rth["close"].values, index=day.values)
+        for d, c in per_day.groupby(level=0).last().items():
+            closes[d] = float(c)
+
+    state: dict[str, int] = {}
+    dates = sorted(closes)
+    if len(dates) > DAILY_EMA_LEN:
+        k = 2.0 / (DAILY_EMA_LEN + 1)
+        ema: list[float] = []
+        e = closes[dates[0]]
+        for i, d in enumerate(dates):
+            e = closes[d] if i == 0 else closes[d] * k + e * (1 - k)
+            ema.append(e)
+        # state at dates[i] uses only closes/EMA through dates[i-1]
+        for i in range(HTF_SLOPE_LOOKBACK + 1, len(dates)):
+            prev_close = closes[dates[i - 1]]
+            ema_now = ema[i - 1]
+            ema_back = ema[i - 1 - HTF_SLOPE_LOOKBACK]
+            if prev_close > ema_now and ema_now > ema_back:
+                state[dates[i]] = 1
+            elif prev_close < ema_now and ema_now < ema_back:
+                state[dates[i]] = -1
+            else:
+                state[dates[i]] = 0
+    _daily_state_cache[symbol] = state
+    return state
+
+
 # ===== trade simulation ===============================================
 
 def _five_min_bucket(ts: int) -> int:
@@ -650,6 +724,25 @@ def main(argv: list[str] | None = None) -> int:
             **summarize(hi, "high-conviction (top decile)"),
         }
 
+    # higher-timeframe trend alignment — the pre-registered declared
+    # split (Brooks always-in / range-gravity; see _daily_trend_state)
+    if ledger:
+        aligned, counter, neutral = [], [], []
+        for t in ledger:
+            st = _daily_trend_state(t["symbol"]).get(t["session_date"], 0)
+            want = 1 if t["direction"] == "long" else -1
+            if st == 0:
+                neutral.append(t)
+            elif st == want:
+                aligned.append(t)
+            else:
+                counter.append(t)
+        report["htf_alignment"] = {
+            "with_daily_trend": summarize(aligned, "with daily trend"),
+            "against_daily_trend": summarize(counter, "against daily trend"),
+            "no_daily_trend": summarize(neutral, "no daily trend"),
+        }
+
     report_path = OUT_DIR / "backtest_report.json"
     report_path.write_text(json.dumps(report, indent=2) + "\n")
     ledger_path = OUT_DIR / "trade_ledger.json"
@@ -665,6 +758,14 @@ def main(argv: list[str] | None = None) -> int:
         h = report["high_conviction"]
         print(f"  high-conviction (>= {h['score_cutoff']}): "
               f"n={h['n']} exp={h['expectancy_r']:+.3f}R win={h['win_rate']:.3f}")
+    if "htf_alignment" in report:
+        print("  --- higher-timeframe trend alignment ---")
+        for key in ("with_daily_trend", "against_daily_trend", "no_daily_trend"):
+            s = report["htf_alignment"][key]
+            if s.get("n"):
+                print(f"  {s['label']:22s} n={s['n']:4d} "
+                      f"exp={s['expectancy_r']:+.3f}R CI{s['expectancy_ci95']} "
+                      f"win={s['win_rate']:.3f}")
     print(f"\nReport: {report_path}")
     print(f"Ledger: {ledger_path}")
     return 0

@@ -459,5 +459,55 @@
     "total_r": -9.54,
     "max_drawdown_r": -11.32,
     "sharpe_like": -0.141
+  },
+  "htf_alignment": {
+    "with_daily_trend": {
+      "label": "with daily trend",
+      "n": 366,
+      "expectancy_r": -0.0455,
+      "expectancy_ci95": [
+        -0.1161,
+        0.0279
+      ],
+      "win_rate": 0.4672,
+      "avg_win_r": 0.5608,
+      "avg_loss_r": -0.5772,
+      "profit_factor": 0.852,
+      "total_r": -16.65,
+      "max_drawdown_r": -34.04,
+      "sharpe_like": -0.063
+    },
+    "against_daily_trend": {
+      "label": "against daily trend",
+      "n": 400,
+      "expectancy_r": 0.0425,
+      "expectancy_ci95": [
+        -0.033,
+        0.1185
+      ],
+      "win_rate": 0.5,
+      "avg_win_r": 0.6579,
+      "avg_loss_r": -0.573,
+      "profit_factor": 1.148,
+      "total_r": 16.99,
+      "max_drawdown_r": -27.78,
+      "sharpe_like": 0.054
+    },
+    "no_daily_trend": {
+      "label": "no daily trend",
+      "n": 134,
+      "expectancy_r": 0.0416,
+      "expectancy_ci95": [
+        -0.0971,
+        0.1831
+      ],
+      "win_rate": 0.4851,
+      "avg_win_r": 0.7274,
+      "avg_loss_r": -0.6045,
+      "profit_factor": 1.133,
+      "total_r": 5.57,
+      "max_drawdown_r": -14.34,
+      "sharpe_like": 0.05
+    }
   }
 }
