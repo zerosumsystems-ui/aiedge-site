@@ -161,6 +161,18 @@ price levels. Net R per trade = (exit fill − entry fill) / R −
 commission_R, where the fills include slippage. A fixed-fractional
 equity curve is reported as a secondary view.
 
+### 5.7 Trade management (pre-registered alternative exit)
+
+Brooks' primary source places most of a with-trend trade's edge in the
+*management*. The report carries one pre-registered management
+variant alongside the fixed-target grid, fixed before results were
+seen: two equal units sharing the structural stop; unit A scalps at
++1R (a resting limit); on that fill unit B's stop jumps to breakeven
+and it then targets +2R or time-stops. Trade R = ½·A + ½·B. A trade
+that never reaches +1R is unchanged. This is the `management` block of
+`backtest_report.json` — reported whatever it shows; it is not a knob
+to be turned until the curve looks good.
+
 ## 6. Metrics
 
 - Expectancy (net R / trade) with a bootstrap 95% confidence interval

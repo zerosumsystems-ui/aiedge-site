@@ -551,6 +551,149 @@ def simulate_trade(
     }
 
 
+# ===== Brooks trade management ========================================
+#
+# Pre-registered, single hypothesis (fixed before results were seen).
+# Brooks' primary source is emphatic that the edge of a with-trend
+# trade lives in the management, not the entry: take partial profit at
+# a scalp, and the moment that scalp is banked, move the stop on the
+# remainder to breakeven so the trade can no longer lose. This tests
+# exactly that, against the same TFO entries and structural stop.
+#
+#   Two equal units. Both share the structural stop until the scalp.
+#   Unit A   exits at +1R (a resting limit — Brooks' scalp).
+#   Unit B   on the scalp fill, its stop jumps to breakeven; it then
+#            targets +2R (the swing) or time-stops at the horizon.
+#   Trade net R = 0.5 * unit A + 0.5 * unit B.
+#
+# A trade that never reaches +1R is unchanged (both units take the
+# structural stop). A trade that reaches +1R then reverses — formerly
+# a loser or a flat time-stop — now banks the scalp and walks the
+# runner off at breakeven.
+
+MANAGED_SCALP_R = 1.0
+MANAGED_RUNNER_R = 2.0
+
+
+def simulate_managed(cand: dict, bars1: list[dict], horizon_bars: int,
+                     cost_mult: float = 1.0) -> dict | None:
+    """Two-unit scalp + breakeven-runner management on a TFO entry.
+    Same entry, structural stop and cost model as simulate_trade."""
+    direction = cand["direction"]
+    fire_ts = int(cand["fire_ts"])
+    pivot_ts = cand.get("pivot_ts")
+    if pivot_ts is None:
+        return None
+    pivot_ts = int(pivot_ts)
+
+    entry_bucket = fire_ts + BAR_5M
+    entry_1m = sorted(
+        (b for b in bars1 if entry_bucket <= int(b["t"]) < entry_bucket + BAR_5M),
+        key=lambda b: int(b["t"]),
+    )
+    if not entry_1m:
+        return None
+    ideal_entry = float(entry_1m[0]["o"])
+    if ideal_entry <= 0:
+        return None
+
+    pivot_1m = [b for b in bars1 if pivot_ts <= int(b["t"]) < pivot_ts + BAR_5M]
+    if not pivot_1m:
+        return None
+    long = direction == "long"
+    if long:
+        stop = min(float(b["l"]) for b in pivot_1m) - TICK
+        risk = ideal_entry - stop
+    else:
+        stop = max(float(b["h"]) for b in pivot_1m) + TICK
+        risk = stop - ideal_entry
+    if risk <= 0:
+        return None
+
+    es = ENTRY_SLIPPAGE_BPS * cost_mult / 1e4
+    ss = STOP_SLIPPAGE_BPS * cost_mult / 1e4
+    entry_fill = ideal_entry * (1 + es) if long else ideal_entry * (1 - es)
+    commission_r = (2 * COMMISSION_PER_SHARE * cost_mult) / risk
+
+    scalp = (ideal_entry + MANAGED_SCALP_R * risk) if long \
+        else (ideal_entry - MANAGED_SCALP_R * risk)
+    runner_tgt = (ideal_entry + MANAGED_RUNNER_R * risk) if long \
+        else (ideal_entry - MANAGED_RUNNER_R * risk)
+
+    horizon_end = fire_ts + horizon_bars * BAR_5M
+    path = sorted(
+        (b for b in bars1 if entry_bucket <= int(b["t"]) <= horizon_end),
+        key=lambda b: int(b["t"]),
+    )
+    if not path:
+        return None
+
+    def unit_r(exit_price: float) -> float:
+        gross = (exit_price - entry_fill) if long else (entry_fill - exit_price)
+        return gross / risk - commission_r
+
+    # --- phase 1: both units live, shared structural stop ---
+    scalp_idx = None
+    unit_a = unit_b = None
+    exit_reason = None
+    for i, b in enumerate(path):
+        hi, lo = float(b["h"]), float(b["l"])
+        hit_stop = lo <= stop if long else hi >= stop
+        hit_scalp = hi >= scalp if long else lo <= scalp
+        if hit_stop:  # conservative: a bar straddling both stops first
+            sp = stop * (1 - ss) if long else stop * (1 + ss)
+            unit_a = unit_b = unit_r(sp)
+            exit_reason = "stop"
+            break
+        if hit_scalp:
+            unit_a = unit_r(scalp)               # resting limit — clean
+            scalp_idx = i
+            break
+    if exit_reason == "stop":
+        net_r = 0.5 * unit_a + 0.5 * unit_b
+    elif scalp_idx is None:
+        # never scalped, never stopped — time-stop both units at market
+        last = float(path[-1]["c"])
+        ex = last * (1 - es) if long else last * (1 + es)
+        unit_a = unit_b = unit_r(ex)
+        exit_reason = "time_noscalp"
+        net_r = 0.5 * unit_a + 0.5 * unit_b
+    else:
+        # --- phase 2: unit B only, stop at breakeven, target +2R ---
+        be = ideal_entry
+        exit_reason = None
+        for b in path[scalp_idx + 1:]:
+            hi, lo = float(b["h"]), float(b["l"])
+            hit_be = lo <= be if long else hi >= be
+            hit_run = hi >= runner_tgt if long else lo <= runner_tgt
+            if hit_be:  # conservative: breakeven stop first on a straddle
+                sp = be * (1 - ss) if long else be * (1 + ss)
+                unit_b = unit_r(sp)
+                exit_reason = "scalp_then_be"
+                break
+            if hit_run:
+                unit_b = unit_r(runner_tgt)
+                exit_reason = "scalp_then_runner"
+                break
+        if exit_reason is None:
+            last = float(path[-1]["c"])
+            ex = last * (1 - es) if long else last * (1 + es)
+            unit_b = unit_r(ex)
+            exit_reason = "scalp_then_time"
+        net_r = 0.5 * unit_a + 0.5 * unit_b
+
+    return {
+        "id": int(cand["id"]),
+        "symbol": cand["symbol"],
+        "session_date": cand["session_date"],
+        "direction": direction,
+        "exit_reason": exit_reason,
+        "risk_per_share": round(risk, 4),
+        "net_r": round(net_r, 4),
+        "is_good": bool(cand.get("is_good")),
+    }
+
+
 # ===== metrics ========================================================
 
 def _bootstrap_ci(values: np.ndarray, n: int = 5000) -> tuple[float, float]:
@@ -674,6 +817,35 @@ def main(argv: list[str] | None = None) -> int:
         s["cost_mult"] = cm
         cost_sens.append(s)
 
+    # --- Brooks trade management (pre-registered single hypothesis) ---
+    print("Simulating Brooks scalp + breakeven-runner management...")
+    managed: list[dict] = []
+    for r in rows:
+        cid = int(r["id"])
+        if cid not in wf:
+            continue
+        bars = bars_by_session.get((r["symbol"], r["session_date"]))
+        if not bars:
+            continue
+        m = simulate_managed(r, bars, horizon)
+        if m is not None:
+            m["wf_score"] = round(wf[cid], 4)
+            managed.append(m)
+    managed_summary = summarize(managed, "Brooks-managed (scalp + BE runner)")
+    managed_exits: dict[str, int] = {}
+    for m in managed:
+        managed_exits[m["exit_reason"]] = managed_exits.get(m["exit_reason"], 0) + 1
+    managed_cost_sens = []
+    for cm in (1.0, 2.0, 3.0):
+        cells = [simulate_managed(r, bars_by_session[(r["symbol"], r["session_date"])],
+                                  horizon, cost_mult=cm)
+                 for r in rows if int(r["id"]) in wf
+                 and (r["symbol"], r["session_date"]) in bars_by_session]
+        s = summarize([c for c in cells if c], f"managed costs x{cm}")
+        s["cost_mult"] = cm
+        managed_cost_sens.append(s)
+    print(f"  {len(managed)} managed trades — exits: {managed_exits}")
+
     # --- R2 bar coverage (what the bucket carried vs. what was needed) ---
     covered = set(bars_by_session.keys())
     sym_total: dict[str, int] = {}
@@ -707,6 +879,18 @@ def main(argv: list[str] | None = None) -> int:
         "all_trades": summarize(ledger, "all walk-forward trades"),
         "grid": grid,
         "cost_sensitivity": cost_sens,
+        "management": {
+            "rule": (f"two units; unit A scalps +{MANAGED_SCALP_R}R, unit B "
+                     f"stop->breakeven on the scalp then targets "
+                     f"+{MANAGED_RUNNER_R}R or time-stops"),
+            "result": managed_summary,
+            "exit_breakdown": managed_exits,
+            "cost_sensitivity": managed_cost_sens,
+            "longs": summarize([m for m in managed if m["direction"] == "long"],
+                               "managed longs"),
+            "shorts": summarize([m for m in managed if m["direction"] == "short"],
+                                "managed shorts"),
+        },
     }
     # by walk-forward score decile
     if ledger:
@@ -766,6 +950,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {s['label']:22s} n={s['n']:4d} "
                       f"exp={s['expectancy_r']:+.3f}R CI{s['expectancy_ci95']} "
                       f"win={s['win_rate']:.3f}")
+    if "management" in report:
+        m = report["management"]["result"]
+        print("  --- Brooks trade management (scalp + breakeven runner) ---")
+        print(f"  managed: n={m['n']} exp={m['expectancy_r']:+.3f}R "
+              f"CI95 {m['expectancy_ci95']} win={m['win_rate']:.3f} "
+              f"pf={m['profit_factor']} total={m['total_r']:+.1f}R")
     print(f"\nReport: {report_path}")
     print(f"Ledger: {ledger_path}")
     return 0

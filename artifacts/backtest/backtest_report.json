@@ -281,6 +281,117 @@
       "cost_mult": 3.0
     }
   ],
+  "management": {
+    "rule": "two units; unit A scalps +1.0R, unit B stop->breakeven on the scalp then targets +2.0R or time-stops",
+    "result": {
+      "label": "Brooks-managed (scalp + BE runner)",
+      "n": 900,
+      "expectancy_r": -0.0003,
+      "expectancy_ci95": [
+        -0.046,
+        0.0449
+      ],
+      "win_rate": 0.5,
+      "avg_win_r": 0.5868,
+      "avg_loss_r": -0.5874,
+      "profit_factor": 0.999,
+      "total_r": -0.26,
+      "max_drawdown_r": -42.23,
+      "sharpe_like": -0.0
+    },
+    "exit_breakdown": {
+      "time_noscalp": 574,
+      "scalp_then_runner": 35,
+      "scalp_then_be": 31,
+      "scalp_then_time": 117,
+      "stop": 143
+    },
+    "cost_sensitivity": [
+      {
+        "label": "managed costs x1.0",
+        "n": 900,
+        "expectancy_r": -0.0003,
+        "expectancy_ci95": [
+          -0.046,
+          0.0449
+        ],
+        "win_rate": 0.5,
+        "avg_win_r": 0.5868,
+        "avg_loss_r": -0.5874,
+        "profit_factor": 0.999,
+        "total_r": -0.26,
+        "max_drawdown_r": -42.23,
+        "sharpe_like": -0.0,
+        "cost_mult": 1.0
+      },
+      {
+        "label": "managed costs x2.0",
+        "n": 900,
+        "expectancy_r": -0.0537,
+        "expectancy_ci95": [
+          -0.0996,
+          -0.0078
+        ],
+        "win_rate": 0.47,
+        "avg_win_r": 0.5769,
+        "avg_loss_r": -0.6129,
+        "profit_factor": 0.835,
+        "total_r": -48.35,
+        "max_drawdown_r": -67.47,
+        "sharpe_like": -0.074,
+        "cost_mult": 2.0
+      },
+      {
+        "label": "managed costs x3.0",
+        "n": 900,
+        "expectancy_r": -0.1072,
+        "expectancy_ci95": [
+          -0.1539,
+          -0.0603
+        ],
+        "win_rate": 0.4389,
+        "avg_win_r": 0.5712,
+        "avg_loss_r": -0.6377,
+        "profit_factor": 0.701,
+        "total_r": -96.44,
+        "max_drawdown_r": -108.1,
+        "sharpe_like": -0.144,
+        "cost_mult": 3.0
+      }
+    ],
+    "longs": {
+      "label": "managed longs",
+      "n": 475,
+      "expectancy_r": 0.0489,
+      "expectancy_ci95": [
+        -0.0139,
+        0.1124
+      ],
+      "win_rate": 0.5242,
+      "avg_win_r": 0.6061,
+      "avg_loss_r": -0.565,
+      "profit_factor": 1.182,
+      "total_r": 23.22,
+      "max_drawdown_r": -21.44,
+      "sharpe_like": 0.069
+    },
+    "shorts": {
+      "label": "managed shorts",
+      "n": 425,
+      "expectancy_r": -0.0552,
+      "expectancy_ci95": [
+        -0.1241,
+        0.0117
+      ],
+      "win_rate": 0.4729,
+      "avg_win_r": 0.563,
+      "avg_loss_r": -0.61,
+      "profit_factor": 0.828,
+      "total_r": -23.47,
+      "max_drawdown_r": -40.59,
+      "sharpe_like": -0.077
+    }
+  },
   "by_score_decile": [
     {
       "label": "decile 1",
