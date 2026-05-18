@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/setups', label: 'Setups' },
   { href: '/spikes', label: 'Spikes' },
   { href: '/ema-touches', label: 'EMA Touches' },
+  { href: '/day-analog', label: 'Day Analog' },
   { href: '/prior-day-extremes', label: 'PD Extremes' },
   { href: '/daily-spikes', label: 'Daily Spikes' },
   { href: '/earnings-gaps', label: 'Earnings Gaps' },
