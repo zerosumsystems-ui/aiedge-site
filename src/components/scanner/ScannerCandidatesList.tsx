@@ -27,12 +27,13 @@ interface Candidate {
   features: Record<string, unknown> | null
 }
 
-type PatternFilter = "all" | "tfo" | "pullback"
+type PatternFilter = "all" | "tfo" | "pullback" | "wedge"
 type DirectionFilter = "all" | "long" | "short"
 
 const PATTERN_LABEL: Record<string, string> = {
   tfo: "TFO",
   pullback: "Pullback",
+  wedge: "Wedge",
 }
 
 // Pullback rows stash their geometry in the generic features jsonb.
@@ -135,6 +136,9 @@ export function ScannerCandidatesList() {
         <FilterPill active={patternFilter === "pullback"} onClick={() => setPatternFilter("pullback")}>
           Pullback
         </FilterPill>
+        <FilterPill active={patternFilter === "wedge"} onClick={() => setPatternFilter("wedge")}>
+          Wedge
+        </FilterPill>
         <span className="ml-3 text-sub">Direction:</span>
         <FilterPill active={directionFilter === "all"} onClick={() => setDirectionFilter("all")}>
           All
@@ -189,7 +193,7 @@ export function ScannerCandidatesList() {
                         <HelpLabel
                           label="Pattern"
                           title="Setup type"
-                          body="TFO = Trend From the Open. Low (or high) of day forms in the first 4 RTH 5-min bars, then 3+ consecutive in-direction closes follow, 2+ of them Brooks-strong. Pullback = a Brooks small pullback: a strong impulse leg, a brief shallow pullback, then a with-trend breakout-stop entry."
+                          body="TFO = Trend From the Open. Low (or high) of day forms in the first 4 RTH 5-min bars, then 3+ consecutive in-direction closes follow, 2+ of them Brooks-strong. Pullback = a Brooks small pullback: a strong impulse leg, a brief shallow pullback, then a with-trend breakout-stop entry. Wedge = two converging trendlines through confirmed swing pivots; the signal fires on the breakout close — a falling wedge breaks up (long), a rising wedge breaks down (short)."
                         />
                       </th>
                       <th className="px-3 py-2 text-left">
