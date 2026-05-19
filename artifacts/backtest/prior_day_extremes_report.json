@@ -1,0 +1,590 @@
+{
+  "config": {
+    "data": "public/analogs 5-min corpus",
+    "prior_day": "resolved from the corpus' own trading calendar",
+    "variant": "1_reversal_bar",
+    "target_r": 2.0,
+    "commission_per_share": 0.005,
+    "entry_slippage_bps": 2.0,
+    "stop_slippage_bps": 4.0,
+    "oos_cutoff_date": "2025-10-07"
+  },
+  "baseline": {
+    "label": "baseline (all reversals)",
+    "n": 1758,
+    "win_rate": 0.377702,
+    "target_hit_rate": 0.290102,
+    "stop_rate": 0.55802,
+    "timeout_rate": 0.151877,
+    "expectancy_r": -0.121778,
+    "expectancy_ci95": [
+      -0.1866,
+      -0.0555
+    ],
+    "profit_factor": 0.834113,
+    "targets": 510,
+    "stops": 981,
+    "timeouts": 267
+  },
+  "filter_grid": [
+    {
+      "label": "attempt_1",
+      "n": 904,
+      "win_rate": 0.397124,
+      "target_hit_rate": 0.278761,
+      "stop_rate": 0.511062,
+      "timeout_rate": 0.210177,
+      "expectancy_r": -0.029003,
+      "expectancy_ci95": [
+        -0.1163,
+        0.0622
+      ],
+      "profit_factor": 0.954964,
+      "targets": 252,
+      "stops": 462,
+      "timeouts": 190,
+      "in_sample_expectancy_r": -0.016082,
+      "in_sample_ci95": [
+        -0.1321,
+        0.1027
+      ]
+    },
+    {
+      "label": "attempt_2plus",
+      "n": 854,
+      "win_rate": 0.357143,
+      "target_hit_rate": 0.302108,
+      "stop_rate": 0.607728,
+      "timeout_rate": 0.090164,
+      "expectancy_r": -0.219985,
+      "expectancy_ci95": [
+        -0.3177,
+        -0.1188
+      ],
+      "profit_factor": 0.73479,
+      "targets": 258,
+      "stops": 519,
+      "timeouts": 77,
+      "in_sample_expectancy_r": -0.256931,
+      "in_sample_ci95": [
+        -0.3824,
+        -0.1332
+      ]
+    },
+    {
+      "label": "morning_entry",
+      "n": 1184,
+      "win_rate": 0.384291,
+      "target_hit_rate": 0.291385,
+      "stop_rate": 0.555743,
+      "timeout_rate": 0.152872,
+      "expectancy_r": -0.08422,
+      "expectancy_ci95": [
+        -0.1618,
+        -0.0012
+      ],
+      "profit_factor": 0.880731,
+      "targets": 345,
+      "stops": 658,
+      "timeouts": 181,
+      "in_sample_expectancy_r": -0.13766,
+      "in_sample_ci95": [
+        -0.2403,
+        -0.0356
+      ]
+    },
+    {
+      "label": "afternoon_entry",
+      "n": 574,
+      "win_rate": 0.364111,
+      "target_hit_rate": 0.287456,
+      "stop_rate": 0.562718,
+      "timeout_rate": 0.149826,
+      "expectancy_r": -0.19925,
+      "expectancy_ci95": [
+        -0.3148,
+        -0.0804
+      ],
+      "profit_factor": 0.748353,
+      "targets": 165,
+      "stops": 323,
+      "timeouts": 86,
+      "in_sample_expectancy_r": -0.130375,
+      "in_sample_ci95": [
+        -0.2827,
+        0.0249
+      ]
+    },
+    {
+      "label": "failed_high_short",
+      "n": 920,
+      "win_rate": 0.381522,
+      "target_hit_rate": 0.305435,
+      "stop_rate": 0.551087,
+      "timeout_rate": 0.143478,
+      "expectancy_r": -0.100527,
+      "expectancy_ci95": [
+        -0.1938,
+        -0.0047
+      ],
+      "profit_factor": 0.862633,
+      "targets": 281,
+      "stops": 507,
+      "timeouts": 132,
+      "in_sample_expectancy_r": -0.134171,
+      "in_sample_ci95": [
+        -0.2497,
+        -0.0105
+      ]
+    },
+    {
+      "label": "failed_low_long",
+      "n": 838,
+      "win_rate": 0.373508,
+      "target_hit_rate": 0.27327,
+      "stop_rate": 0.565632,
+      "timeout_rate": 0.161098,
+      "expectancy_r": -0.145109,
+      "expectancy_ci95": [
+        -0.2407,
+        -0.0486
+      ],
+      "profit_factor": 0.803005,
+      "targets": 229,
+      "stops": 474,
+      "timeouts": 135,
+      "in_sample_expectancy_r": -0.136548,
+      "in_sample_ci95": [
+        -0.2611,
+        -0.0137
+      ]
+    },
+    {
+      "label": "intraday_breakout",
+      "n": 1307,
+      "win_rate": 0.373374,
+      "target_hit_rate": 0.30987,
+      "stop_rate": 0.582249,
+      "timeout_rate": 0.107881,
+      "expectancy_r": -0.148967,
+      "expectancy_ci95": [
+        -0.2303,
+        -0.0686
+      ],
+      "profit_factor": 0.809513,
+      "targets": 405,
+      "stops": 761,
+      "timeouts": 141,
+      "in_sample_expectancy_r": -0.158688,
+      "in_sample_ci95": [
+        -0.2606,
+        -0.0562
+      ]
+    },
+    {
+      "label": "strong_reversal_bar",
+      "n": 1216,
+      "win_rate": 0.366776,
+      "target_hit_rate": 0.26727,
+      "stop_rate": 0.554276,
+      "timeout_rate": 0.178454,
+      "expectancy_r": -0.131472,
+      "expectancy_ci95": [
+        -0.2067,
+        -0.0523
+      ],
+      "profit_factor": 0.815416,
+      "targets": 325,
+      "stops": 674,
+      "timeouts": 217,
+      "in_sample_expectancy_r": -0.137105,
+      "in_sample_ci95": [
+        -0.2368,
+        -0.0393
+      ]
+    },
+    {
+      "label": "ema_aligned",
+      "n": 456,
+      "win_rate": 0.368421,
+      "target_hit_rate": 0.22807,
+      "stop_rate": 0.519737,
+      "timeout_rate": 0.252193,
+      "expectancy_r": -0.152274,
+      "expectancy_ci95": [
+        -0.2709,
+        -0.027
+      ],
+      "profit_factor": 0.776742,
+      "targets": 104,
+      "stops": 237,
+      "timeouts": 115,
+      "in_sample_expectancy_r": -0.155125,
+      "in_sample_ci95": [
+        -0.3083,
+        0.0034
+      ]
+    },
+    {
+      "label": "small_overshoot",
+      "n": 1194,
+      "win_rate": 0.374372,
+      "target_hit_rate": 0.312395,
+      "stop_rate": 0.582915,
+      "timeout_rate": 0.10469,
+      "expectancy_r": -0.170171,
+      "expectancy_ci95": [
+        -0.2517,
+        -0.0841
+      ],
+      "profit_factor": 0.786952,
+      "targets": 373,
+      "stops": 696,
+      "timeouts": 125,
+      "in_sample_expectancy_r": -0.182833,
+      "in_sample_ci95": [
+        -0.29,
+        -0.0747
+      ]
+    }
+  ],
+  "management_sweep": [
+    {
+      "target_r": 1.0,
+      "baseline": {
+        "label": "baseline @ 1.0R",
+        "n": 1758,
+        "win_rate": 0.506257,
+        "target_hit_rate": 0.486348,
+        "stop_rate": 0.45165,
+        "timeout_rate": 0.062002,
+        "expectancy_r": -0.14297,
+        "expectancy_ci95": [
+          -0.1921,
+          -0.093
+        ],
+        "profit_factor": 0.756766,
+        "targets": 855,
+        "stops": 794,
+        "timeouts": 109
+      },
+      "attempt_1": {
+        "label": "attempt_1 @ 1.0R",
+        "n": 904,
+        "win_rate": 0.516593,
+        "target_hit_rate": 0.485619,
+        "stop_rate": 0.415929,
+        "timeout_rate": 0.098451,
+        "expectancy_r": -0.05865,
+        "expectancy_ci95": [
+          -0.1223,
+          0.0088
+        ],
+        "profit_factor": 0.886632,
+        "targets": 439,
+        "stops": 376,
+        "timeouts": 89
+      },
+      "attempt_1_in_sample": {
+        "label": "attempt_1 @ 1.0R in",
+        "n": 543,
+        "win_rate": 0.537753,
+        "target_hit_rate": 0.508287,
+        "stop_rate": 0.401473,
+        "timeout_rate": 0.090239,
+        "expectancy_r": -0.02074,
+        "expectancy_ci95": [
+          -0.1054,
+          0.0649
+        ],
+        "profit_factor": 0.958244,
+        "targets": 276,
+        "stops": 218,
+        "timeouts": 49
+      },
+      "attempt_1_out_of_sample": {
+        "label": "attempt_1 @ 1.0R oos",
+        "n": 361,
+        "win_rate": 0.484765,
+        "target_hit_rate": 0.451524,
+        "stop_rate": 0.437673,
+        "timeout_rate": 0.110803,
+        "expectancy_r": -0.115671,
+        "expectancy_ci95": [
+          -0.2224,
+          -0.0101
+        ],
+        "profit_factor": 0.789065,
+        "targets": 163,
+        "stops": 158,
+        "timeouts": 40
+      }
+    },
+    {
+      "target_r": 1.5,
+      "baseline": {
+        "label": "baseline @ 1.5R",
+        "n": 1758,
+        "win_rate": 0.415245,
+        "target_hit_rate": 0.361206,
+        "stop_rate": 0.526735,
+        "timeout_rate": 0.112059,
+        "expectancy_r": -0.155685,
+        "expectancy_ci95": [
+          -0.213,
+          -0.0964
+        ],
+        "profit_factor": 0.774092,
+        "targets": 635,
+        "stops": 926,
+        "timeouts": 197
+      },
+      "attempt_1": {
+        "label": "attempt_1 @ 1.5R",
+        "n": 904,
+        "win_rate": 0.431416,
+        "target_hit_rate": 0.357301,
+        "stop_rate": 0.482301,
+        "timeout_rate": 0.160398,
+        "expectancy_r": -0.061783,
+        "expectancy_ci95": [
+          -0.1382,
+          0.017
+        ],
+        "profit_factor": 0.897945,
+        "targets": 323,
+        "stops": 436,
+        "timeouts": 145
+      },
+      "attempt_1_in_sample": {
+        "label": "attempt_1 @ 1.5R in",
+        "n": 543,
+        "win_rate": 0.441989,
+        "target_hit_rate": 0.366483,
+        "stop_rate": 0.482505,
+        "timeout_rate": 0.151013,
+        "expectancy_r": -0.046308,
+        "expectancy_ci95": [
+          -0.1491,
+          0.0579
+        ],
+        "profit_factor": 0.923298,
+        "targets": 199,
+        "stops": 262,
+        "timeouts": 82
+      },
+      "attempt_1_out_of_sample": {
+        "label": "attempt_1 @ 1.5R oos",
+        "n": 361,
+        "win_rate": 0.415512,
+        "target_hit_rate": 0.34349,
+        "stop_rate": 0.481994,
+        "timeout_rate": 0.174515,
+        "expectancy_r": -0.08506,
+        "expectancy_ci95": [
+          -0.2121,
+          0.0401
+        ],
+        "profit_factor": 0.860072,
+        "targets": 124,
+        "stops": 174,
+        "timeouts": 63
+      }
+    },
+    {
+      "target_r": 2.0,
+      "baseline": {
+        "label": "baseline @ 2.0R",
+        "n": 1758,
+        "win_rate": 0.377702,
+        "target_hit_rate": 0.290102,
+        "stop_rate": 0.55802,
+        "timeout_rate": 0.151877,
+        "expectancy_r": -0.121778,
+        "expectancy_ci95": [
+          -0.1866,
+          -0.0555
+        ],
+        "profit_factor": 0.834113,
+        "targets": 510,
+        "stops": 981,
+        "timeouts": 267
+      },
+      "attempt_1": {
+        "label": "attempt_1 @ 2.0R",
+        "n": 904,
+        "win_rate": 0.397124,
+        "target_hit_rate": 0.278761,
+        "stop_rate": 0.511062,
+        "timeout_rate": 0.210177,
+        "expectancy_r": -0.029003,
+        "expectancy_ci95": [
+          -0.1163,
+          0.0622
+        ],
+        "profit_factor": 0.954964,
+        "targets": 252,
+        "stops": 462,
+        "timeouts": 190
+      },
+      "attempt_1_in_sample": {
+        "label": "attempt_1 @ 2.0R in",
+        "n": 543,
+        "win_rate": 0.401473,
+        "target_hit_rate": 0.290976,
+        "stop_rate": 0.517495,
+        "timeout_rate": 0.191529,
+        "expectancy_r": -0.016082,
+        "expectancy_ci95": [
+          -0.1321,
+          0.1027
+        ],
+        "profit_factor": 0.975246,
+        "targets": 158,
+        "stops": 281,
+        "timeouts": 104
+      },
+      "attempt_1_out_of_sample": {
+        "label": "attempt_1 @ 2.0R oos",
+        "n": 361,
+        "win_rate": 0.390582,
+        "target_hit_rate": 0.260388,
+        "stop_rate": 0.501385,
+        "timeout_rate": 0.238227,
+        "expectancy_r": -0.048439,
+        "expectancy_ci95": [
+          -0.19,
+          0.0951
+        ],
+        "profit_factor": 0.923775,
+        "targets": 94,
+        "stops": 181,
+        "timeouts": 86
+      }
+    },
+    {
+      "target_r": 3.0,
+      "baseline": {
+        "label": "baseline @ 3.0R",
+        "n": 1758,
+        "win_rate": 0.330489,
+        "target_hit_rate": 0.168373,
+        "stop_rate": 0.598407,
+        "timeout_rate": 0.23322,
+        "expectancy_r": -0.136192,
+        "expectancy_ci95": [
+          -0.2108,
+          -0.0579
+        ],
+        "profit_factor": 0.827599,
+        "targets": 296,
+        "stops": 1052,
+        "timeouts": 410
+      },
+      "attempt_1": {
+        "label": "attempt_1 @ 3.0R",
+        "n": 904,
+        "win_rate": 0.358407,
+        "target_hit_rate": 0.14823,
+        "stop_rate": 0.54646,
+        "timeout_rate": 0.30531,
+        "expectancy_r": -0.051647,
+        "expectancy_ci95": [
+          -0.1487,
+          0.0496
+        ],
+        "profit_factor": 0.925089,
+        "targets": 134,
+        "stops": 494,
+        "timeouts": 276
+      },
+      "attempt_1_in_sample": {
+        "label": "attempt_1 @ 3.0R in",
+        "n": 543,
+        "win_rate": 0.357274,
+        "target_hit_rate": 0.152855,
+        "stop_rate": 0.559853,
+        "timeout_rate": 0.287293,
+        "expectancy_r": -0.055094,
+        "expectancy_ci95": [
+          -0.1824,
+          0.0779
+        ],
+        "profit_factor": 0.921691,
+        "targets": 83,
+        "stops": 304,
+        "timeouts": 156
+      },
+      "attempt_1_out_of_sample": {
+        "label": "attempt_1 @ 3.0R oos",
+        "n": 361,
+        "win_rate": 0.360111,
+        "target_hit_rate": 0.141274,
+        "stop_rate": 0.526316,
+        "timeout_rate": 0.33241,
+        "expectancy_r": -0.046462,
+        "expectancy_ci95": [
+          -0.203,
+          0.1154
+        ],
+        "profit_factor": 0.93047,
+        "targets": 51,
+        "stops": 190,
+        "timeouts": 120
+      }
+    }
+  ],
+  "improved_rule_filters": [],
+  "improved_rule": {
+    "label": "attempt_1 @ 2.0R",
+    "n": 904,
+    "win_rate": 0.397124,
+    "target_hit_rate": 0.278761,
+    "stop_rate": 0.511062,
+    "timeout_rate": 0.210177,
+    "expectancy_r": -0.029003,
+    "expectancy_ci95": [
+      -0.1163,
+      0.0622
+    ],
+    "profit_factor": 0.954964,
+    "targets": 252,
+    "stops": 462,
+    "timeouts": 190
+  },
+  "improved_rule_in_sample": {
+    "label": "attempt_1 @ 2.0R in",
+    "n": 543,
+    "win_rate": 0.401473,
+    "target_hit_rate": 0.290976,
+    "stop_rate": 0.517495,
+    "timeout_rate": 0.191529,
+    "expectancy_r": -0.016082,
+    "expectancy_ci95": [
+      -0.1321,
+      0.1027
+    ],
+    "profit_factor": 0.975246,
+    "targets": 158,
+    "stops": 281,
+    "timeouts": 104
+  },
+  "improved_rule_out_of_sample": {
+    "label": "attempt_1 @ 2.0R oos",
+    "n": 361,
+    "win_rate": 0.390582,
+    "target_hit_rate": 0.260388,
+    "stop_rate": 0.501385,
+    "timeout_rate": 0.238227,
+    "expectancy_r": -0.048439,
+    "expectancy_ci95": [
+      -0.19,
+      0.0951
+    ],
+    "profit_factor": 0.923775,
+    "targets": 94,
+    "stops": 181,
+    "timeouts": 86
+  },
+  "improved_rule_holds_oos": false
+}

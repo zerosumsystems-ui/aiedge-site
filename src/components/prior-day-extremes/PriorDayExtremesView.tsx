@@ -32,6 +32,7 @@ interface Verdict {
   stop_rate: number
   timeout_rate: number
   expectancy_r: number
+  expectancy_ci95?: [number, number]
   profit_factor: number | null
   targets: number
   stops: number
@@ -49,8 +50,37 @@ interface SymbolSummary {
   profit_factor_r: number | null
 }
 
+interface FilterRow {
+  name: string
+  label: string
+  n: number
+  expectancy_r: number
+  profit_factor: number | null
+  win_rate: number
+}
+
+interface ManagementRow {
+  target_r: number
+  baseline_expectancy_r: number
+  attempt_1_n: number
+  attempt_1_expectancy_r: number
+  attempt_1_win_rate: number
+  attempt_1_profit_factor: number | null
+}
+
 interface ExamplesPayload {
+  data_window?: string
+  headline_is_improved_rule?: boolean
   verdict: Verdict
+  baseline_verdict?: { n: number; expectancy_r: number; profit_factor: number | null }
+  out_of_sample?: {
+    n: number
+    expectancy_r: number | null
+    expectancy_ci95?: [number, number]
+    profit_factor: number | null
+  }
+  filters?: FilterRow[]
+  management?: ManagementRow[]
   symbol_summary: SymbolSummary[]
   examples: PriorDayExtremeExample[]
 }
@@ -125,10 +155,11 @@ export function PriorDayExtremesView() {
       <header className="mb-5">
         <h1 className="text-2xl font-bold tracking-tight">Prior-Day Extremes</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-sub">
-          A study gallery of stock/ETF trades that broke the prior RTH high or low,
-          failed back through that level, and then reversed the other way. Each chart
-          paints the reversal confirmation bar gold and marks the planned entry, stop,
-          and 2R target.
+          A study of stock/ETF trades that broke the prior regular-session high
+          or low, failed back through that level on the next bar, and reversed
+          the other way. Backtested in-repo, look-ahead free, with commission
+          and slippage. Each chart paints the reversal confirmation bar gold and
+          marks the planned entry, stop, and 2R target.
         </p>
       </header>
 
@@ -139,21 +170,43 @@ export function PriorDayExtremesView() {
               Backtest verdict
             </span>
             <p className="mt-1.5">
-              Tested on {data.verdict.n.toLocaleString()} one-bar failed breakouts
-              across the downloaded 2024 stock/ETF set. The headline win rate is{" "}
-              <span className="font-semibold text-text">{pct(data.verdict.win_rate)}</span>,
-              but only{" "}
+              A reproducible backtest of the 1-bar failed-breakout reversal
+              ({" "}
+              <span className="font-mono text-text">scripts/ml/backtest_prior_day_extremes.py</span>
+              ), run over the 5-minute analog corpus
+              {data.data_window ? ` (${data.data_window})` : ""} —{" "}
+              <span className="font-semibold text-text">
+                {data.verdict.n.toLocaleString()}
+              </span>{" "}
+              reversals across 88 liquid US stocks/ETFs. After costs the setup
+              is a <span className="font-semibold text-red">net loser</span>:
+              expectancy{" "}
+              <span className="font-mono text-red">
+                {signed(data.verdict.expectancy_r)}R
+              </span>
+              {data.verdict.expectancy_ci95 && (
+                <>
+                  {" "}
+                  <span className="font-mono text-sub">
+                    (95% CI {signed(data.verdict.expectancy_ci95[0])} to{" "}
+                    {signed(data.verdict.expectancy_ci95[1])})
+                  </span>
+                </>
+              )}
+              , profit factor{" "}
+              <span className="font-mono text-text">{pf(data.verdict.profit_factor)}</span>
+              , win rate{" "}
+              <span className="font-semibold text-text">{pct(data.verdict.win_rate)}</span>
+              . Only{" "}
               <span className="font-semibold text-text">
                 {pct(data.verdict.target_hit_rate)}
               </span>{" "}
-              reached the full 2R target. Expectancy was{" "}
-              <span className="font-mono text-text">
-                {signed(data.verdict.expectancy_r)}R
-              </span>{" "}
-              with PF(R){" "}
-              <span className="font-mono text-text">{pf(data.verdict.profit_factor)}</span>.
-              The study is interesting, but still wants filtering before it becomes a
-              trading rule.
+              reached the full 2R target. The strongest lever in the
+              pre-registered filter grid is taking only the{" "}
+              <span className="font-semibold text-text">first attempt</span> at a
+              level — that lifts expectancy to roughly breakeven, but no filter
+              or profit target tested turns the setup profitable, and the
+              first-attempt edge does not replicate out-of-sample.
             </p>
           </div>
 
@@ -166,13 +219,117 @@ export function PriorDayExtremesView() {
               sub={`${data.verdict.targets.toLocaleString()} full 2R hits`}
             />
             <Stat
-              label="Timeouts"
-              value={pct(data.verdict.timeout_rate)}
-              sub={`${data.verdict.timeouts.toLocaleString()} trades`}
+              label="Stops"
+              value={pct(data.verdict.stop_rate)}
+              sub={`${data.verdict.stops.toLocaleString()} trades`}
             />
             <Stat label="Avg R" value={`${signed(data.verdict.expectancy_r)}`} sub="per trade" />
             <Stat label="PF(R)" value={pf(data.verdict.profit_factor)} sub="R-multiple basis" />
           </div>
+
+          {data.filters && data.filters.length > 0 && (
+            <section className="mb-4 overflow-hidden rounded-md border border-border bg-surface">
+              <div className="border-b border-border px-3 py-2">
+                <h2 className="text-sm font-semibold tracking-tight">
+                  Pre-registered filter grid
+                </h2>
+                <p className="mt-0.5 text-[11px] text-sub">
+                  Each filter scored on its own, all at the 2R target. None
+                  clears a positive expectancy.
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs tabular-nums">
+                  <thead className="text-[10px] uppercase tracking-[0.12em] text-sub">
+                    <tr className="border-b border-border/70">
+                      <th className="px-3 py-2 text-left">Filter</th>
+                      <th className="px-3 py-2">Trades</th>
+                      <th className="px-3 py-2">Win</th>
+                      <th className="px-3 py-2">Avg R</th>
+                      <th className="px-3 py-2">PF</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.filters.map((row) => (
+                      <tr
+                        key={row.name}
+                        className="border-b border-border/50 last:border-0"
+                      >
+                        <td className="px-3 py-2 text-left text-text">{row.label}</td>
+                        <td className="px-3 py-2">{row.n.toLocaleString()}</td>
+                        <td className="px-3 py-2">{pct(row.win_rate)}</td>
+                        <td
+                          className={`px-3 py-2 font-mono ${
+                            row.expectancy_r >= 0 ? "text-teal" : "text-red"
+                          }`}
+                        >
+                          {signed(row.expectancy_r)}
+                        </td>
+                        <td className="px-3 py-2">{pf(row.profit_factor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {data.management && data.management.length > 0 && (
+            <section className="mb-4 overflow-hidden rounded-md border border-border bg-surface">
+              <div className="border-b border-border px-3 py-2">
+                <h2 className="text-sm font-semibold tracking-tight">
+                  Profit-target sweep (first attempt only)
+                </h2>
+                <p className="mt-0.5 text-[11px] text-sub">
+                  Tuning only the target multiple on the best filter. No target
+                  lifts the first-attempt cohort into profit.
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs tabular-nums">
+                  <thead className="text-[10px] uppercase tracking-[0.12em] text-sub">
+                    <tr className="border-b border-border/70">
+                      <th className="px-3 py-2 text-left">Target</th>
+                      <th className="px-3 py-2">Baseline Avg R</th>
+                      <th className="px-3 py-2">1st-attempt Trades</th>
+                      <th className="px-3 py-2">1st-attempt Win</th>
+                      <th className="px-3 py-2">1st-attempt Avg R</th>
+                      <th className="px-3 py-2">1st-attempt PF</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.management.map((row) => (
+                      <tr
+                        key={row.target_r}
+                        className="border-b border-border/50 last:border-0"
+                      >
+                        <td className="px-3 py-2 text-left font-mono font-semibold text-text">
+                          {row.target_r}R
+                        </td>
+                        <td
+                          className={`px-3 py-2 font-mono ${
+                            row.baseline_expectancy_r >= 0 ? "text-teal" : "text-red"
+                          }`}
+                        >
+                          {signed(row.baseline_expectancy_r)}
+                        </td>
+                        <td className="px-3 py-2">{row.attempt_1_n.toLocaleString()}</td>
+                        <td className="px-3 py-2">{pct(row.attempt_1_win_rate)}</td>
+                        <td
+                          className={`px-3 py-2 font-mono ${
+                            row.attempt_1_expectancy_r >= 0 ? "text-teal" : "text-red"
+                          }`}
+                        >
+                          {signed(row.attempt_1_expectancy_r)}
+                        </td>
+                        <td className="px-3 py-2">{pf(row.attempt_1_profit_factor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           <div className="mb-4 flex flex-wrap items-center gap-2">
             {OUTCOME_FILTERS.map((item) => (
