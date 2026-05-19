@@ -48,6 +48,7 @@ yarn-error.log*
 /artifacts/backtest/*
 !/artifacts/backtest/backtest_report.json
 !/artifacts/backtest/spike_backtest_report.json
+!/artifacts/backtest/prior_day_extremes_report.json
 
 # env files (can opt-in for committing if needed)
 .env*
