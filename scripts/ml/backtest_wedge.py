@@ -80,6 +80,15 @@ HORIZON_GRID = {"20bar": 20, "40bar": 40}  # bars held before the time-stop
 PRIMARY_TARGET_R = 2.0
 PRIMARY_HORIZON = "20bar"
 
+# Brooks scale-in config (Reading Price Charts Bar by Bar, Fig 31.5
+# "Scaling into a Pullback"): enter in tranches at fixed steps against
+# the position, hold ONE wide combined stop beyond the whole structure,
+# and take a modest target. All fixed before any result was seen.
+SCALEIN_TRANCHES = 3             # Brooks: "two or three entries"
+SCALEIN_STEP_FRAC = 0.5          # add every 0.5 × base risk against you
+SCALEIN_WIDE_STOP_MULT = 2.0     # one combined stop at 2 × base risk
+SCALEIN_TARGET_MULT = 1.0        # modest target — 1 × base risk in favour
+
 RANDOM_STATE = 17
 
 # A universe of liquid US equities + sector / index ETFs. Tight
@@ -381,6 +390,132 @@ def simulate_wedge_trade(
     }
 
 
+def simulate_wedge_scalein(
+    bars: list[Bar],
+    signal: WedgeSignal,
+    horizon_bars: int,
+    *,
+    cost_mult: float = 1.0,
+) -> dict | None:
+    """Brooks scale-in variant — Fig 31.5, "Scaling into a Pullback".
+
+    Instead of one entry with a tight stop, the trader enters in
+    tranches at fixed steps *against* the position and holds ONE wide
+    combined stop beyond the whole structure: "scaled in at each
+    one-point drop ... for two or three entries ... risked maybe half
+    of the average range." A wedge that dips then recovers fills more
+    tranches at a better basis; only a full run-through hits the wide
+    stop.
+
+    `base_risk` is the V2 tight structural risk (first entry to one
+    tick past the third push). Tranches sit at the first entry and
+    every SCALEIN_STEP_FRAC × base_risk against it; the wide stop is
+    SCALEIN_WIDE_STOP_MULT × base_risk beyond the first entry; the
+    target is a modest SCALEIN_TARGET_MULT × base_risk in favour.
+
+    Net R is expressed against the *combined* risk to the wide stop —
+    a different unit from the single-entry model, but still "expectancy
+    per unit of capital risked," so the two are comparable.
+    """
+    fire_idx = signal.fired_bar_index
+    entry_idx = fire_idx + 1
+    if entry_idx >= len(bars):
+        return None
+    direction = signal.direction
+    first_entry = bars[entry_idx].o
+    if first_entry <= 0:
+        return None
+
+    sign = 1.0 if direction == "long" else -1.0
+    if direction == "long":
+        base_risk = first_entry - (signal.push_extreme - TICK)
+    else:
+        base_risk = (signal.push_extreme + TICK) - first_entry
+    if base_risk <= 0 or base_risk < MIN_RISK_FRAC * first_entry:
+        return None
+
+    step = SCALEIN_STEP_FRAC * base_risk
+    tranche_levels = [first_entry - sign * step * k
+                      for k in range(SCALEIN_TRANCHES)]
+    wide_stop = first_entry - sign * SCALEIN_WIDE_STOP_MULT * base_risk
+    target = first_entry + sign * SCALEIN_TARGET_MULT * base_risk
+
+    es = ENTRY_SLIPPAGE_BPS * cost_mult / 1e4
+    ss = STOP_SLIPPAGE_BPS * cost_mult / 1e4
+
+    filled = [tranche_levels[0]]          # tranche 1 = market order
+    pending = list(tranche_levels[1:])    # adds = resting limit orders
+
+    path = bars[entry_idx:entry_idx + horizon_bars]
+    if not path:
+        return None
+    exit_price = None
+    exit_reason = None
+    for b in path:
+        # 1. fill any add tranches the bar trades through (worsens basis).
+        for lv in list(pending):
+            if (direction == "long" and b.l <= lv) or \
+               (direction == "short" and b.h >= lv):
+                filled.append(lv)
+                pending.remove(lv)
+        # 2. exits — straddle scored as the wide stop (conservative).
+        if direction == "long":
+            hit_stop, hit_tgt = b.l <= wide_stop, b.h >= target
+        else:
+            hit_stop, hit_tgt = b.h >= wide_stop, b.l <= target
+        if hit_stop:
+            exit_price, exit_reason = wide_stop, (
+                "stop_straddle" if hit_tgt else "stop")
+            break
+        if hit_tgt:
+            exit_price, exit_reason = target, "target"
+            break
+    if exit_price is None:
+        exit_price, exit_reason = path[-1].c, "time"
+
+    n_units = len(filled)
+    if direction == "long":
+        total_risk = sum(f - wide_stop for f in filled)
+    else:
+        total_risk = sum(wide_stop - f for f in filled)
+    if total_risk <= 0:
+        return None
+
+    entry_fills = [f * (1 + es) if direction == "long" else f * (1 - es)
+                   for f in filled]
+    if exit_reason in ("stop", "stop_straddle"):
+        exit_fill = exit_price * (1 - ss) if direction == "long" \
+            else exit_price * (1 + ss)
+    elif exit_reason == "target":
+        exit_fill = exit_price                       # resting limit
+    else:
+        exit_fill = exit_price * (1 - es) if direction == "long" \
+            else exit_price * (1 + es)
+
+    if direction == "long":
+        gross = sum(exit_fill - ef for ef in entry_fills)
+    else:
+        gross = sum(ef - exit_fill for ef in entry_fills)
+    commission_r = (2 * COMMISSION_PER_SHARE * cost_mult * n_units) / total_risk
+    net_r = gross / total_risk - commission_r
+
+    return {
+        "fire_ts": signal.fire_ts,
+        "direction": direction,
+        "wedge_type": signal.wedge_type,
+        "is_flag": signal.is_flag,
+        "channel_overshoot": round(signal.channel_overshoot, 4),
+        "reversal_strength": round(signal.reversal_strength, 4),
+        "first_entry": round(first_entry, 4),
+        "avg_entry": round(sum(filled) / n_units, 4),
+        "wide_stop": round(wide_stop, 4),
+        "target": round(target, 4),
+        "tranches_filled": n_units,
+        "exit_reason": exit_reason,
+        "net_r": round(net_r, 4),
+    }
+
+
 # ===== metrics ========================================================
 
 def _bootstrap_ci(values: np.ndarray, n: int = 5000) -> tuple[float, float]:
@@ -592,6 +727,31 @@ def run_backtest(
     report["brooks_clean"] = summarize(
         brooks_clean, "Brooks-clean (flag + overshoot + strong reversal)")
 
+    # --- Brooks scale-in variant (Fig 31.5) vs the single-entry model ---
+    scalein: list[dict] = []
+    for sym, bars, sig in detections:
+        t = simulate_wedge_scalein(bars, sig, horizon)
+        if t is not None:
+            t["symbol"] = sym
+            scalein.append(t)
+    report["scalein"] = {
+        "config": {
+            "tranches": SCALEIN_TRANCHES,
+            "step_frac": SCALEIN_STEP_FRAC,
+            "wide_stop_mult": SCALEIN_WIDE_STOP_MULT,
+            "target_mult": SCALEIN_TARGET_MULT,
+        },
+        "all_trades": summarize(scalein, "scale-in — all wedges"),
+        "channel_overshoot": summarize(
+            [t for t in scalein if t["channel_overshoot"] > 0],
+            "scale-in — third push overshot"),
+        "channel_undershoot": summarize(
+            [t for t in scalein if t["channel_overshoot"] <= 0],
+            "scale-in — third push undershot"),
+    }
+    scalein_path = OUT_DIR / "wedge_scalein_ledger.json"
+    scalein_path.write_text(json.dumps(scalein, indent=2) + "\n")
+
     # --- benchmark: random entry of matched frequency + horizon ---
     report["benchmark_random_entry"] = random_entry_benchmark(
         bars_by_symbol, max(len(ledger), 1), horizon)
@@ -623,6 +783,14 @@ def run_backtest(
             if q["n"]:
                 print(f"  {q['label']:<48} n={q['n']:<4} "
                       f"exp={q['expectancy_r']:+.3f}R win={q['win_rate']:.3f}")
+        print("\n  --- Brooks scale-in variant (Fig 31.5) ---")
+        for q in (report["scalein"]["all_trades"],
+                  report["scalein"]["channel_overshoot"],
+                  report["scalein"]["channel_undershoot"]):
+            if q["n"]:
+                print(f"  {q['label']:<48} n={q['n']:<4} "
+                      f"exp={q['expectancy_r']:+.3f}R win={q['win_rate']:.3f} "
+                      f"CI95={q['expectancy_ci95']}")
     print(f"\nReport: {report_path}")
     print(f"Ledger: {ledger_path}")
     return 0
@@ -726,6 +894,24 @@ def run_selftest() -> int:
         f"selftest: expected straddle, got {trade3 and trade3['exit_reason']}"
 
     print("PASS simulator: target / stop / straddle all correct")
+
+    # --- scale-in: clean winner fills only tranche 1, hits target ---
+    si_win = simulate_wedge_scalein(bars, sig, horizon_bars=20)
+    assert si_win is not None and si_win["exit_reason"] == "target", \
+        f"selftest: scale-in winner should target, got {si_win}"
+    assert si_win["tranches_filled"] == 1 and si_win["net_r"] > 0, \
+        f"selftest: scale-in winner — 1 tranche, +R, got {si_win}"
+
+    # --- scale-in: a plunge fills all tranches then hits the wide stop ---
+    bars_si = list(bars)
+    bars_si[5] = Bar(t=5, o=100, h=100, l=95.0, c=96.0)
+    si_loss = simulate_wedge_scalein(bars_si, sig, horizon_bars=20)
+    assert si_loss is not None and si_loss["exit_reason"] == "stop", \
+        f"selftest: scale-in plunge should stop, got {si_loss}"
+    assert si_loss["tranches_filled"] == 3 and si_loss["net_r"] < 0, \
+        f"selftest: scale-in plunge — 3 tranches, -R, got {si_loss}"
+    print("PASS scale-in: tranche fills / wide stop / target all correct")
+
     print("all backtest_wedge self-tests passed")
     return 0
 

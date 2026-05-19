@@ -195,6 +195,37 @@ reported in R-multiples — unit-free, comparable across tickers and
 price levels. Net R per trade = (exit fill − entry fill) / R −
 commission_R, where the fills include slippage.
 
+### 5.7 Scale-in variant — Brooks Figure 31.5
+
+§5.1–5.6 describe a *single* entry with a tight one-tick structural
+stop. Brooks also teaches the opposite execution — *scaling in* — and
+the engine simulates it as a second, separately-reported model
+(`simulate_wedge_scalein`). From *Reading Price Charts Bar by Bar*,
+Fig 31.5 "Scaling into a Pullback":
+
+> "the traders … scaled in at each one-point drop … for two or three
+> entries … They could have risked maybe half of the average range,
+> or about five points below their first entry."
+
+Encoded, all parameters fixed before any result was seen:
+
+| Parameter | Value | Meaning |
+|---|---|---|
+| `SCALEIN_TRANCHES` | 3 | Brooks' "two or three entries" |
+| `SCALEIN_STEP_FRAC` | 0.5 | add one tranche every 0.5 × base risk *against* the position |
+| `SCALEIN_WIDE_STOP_MULT` | 2.0 | one combined stop, 2 × base risk beyond the first entry |
+| `SCALEIN_TARGET_MULT` | 1.0 | a modest target, 1 × base risk in favour of the first entry |
+
+`base risk` is the single-entry tight risk (§5.2). Tranche 1 is a
+market order at the bar after the reversal; tranches 2–3 are resting
+limit orders 0.5 and 1.0 base-risk *against* the position. There is
+**one wide stop** for the whole position. A wedge that dips then
+recovers fills more tranches at a better basis and wins; only a full
+run-through reaches the wide stop. Net R is expressed against the
+*combined* risk to that wide stop — a different unit from the
+single-entry R, but still "expectancy per unit of capital risked," so
+the two models are comparable. §7.3 reports the result.
+
 ## 6. Metrics
 
 - Expectancy (net R / trade) with a bootstrap 95% confidence interval
@@ -206,6 +237,8 @@ commission_R, where the fills include slippage.
   holding period*. The wedge edge has to beat plain market drift —
   if the random benchmark earns as much, the wedge signal added
   nothing.
+- The single-entry model (§5.1–5.6) and the **scale-in** model
+  (§5.7) are reported side by side.
 
 ## 7. Result of record
 
@@ -263,6 +296,44 @@ half of the sample off the table. That is the value of an unbiased
 harness — it can both kill the naive strategy and confirm the one
 piece of the primary source that actually holds up.
 
+### 7.3 Scale-in (Brooks Fig 31.5) — the execution that works
+
+The single-entry model loses because a tight one-tick stop is run
+constantly. Brooks' own alternative — scale in, hold one wide stop
+(§5.7) — was simulated on the *same 790 wedges*. It is the first
+configuration in this whole study with a bootstrap CI **entirely
+above zero**:
+
+| Scale-in model | n | Expectancy | CI95 | Win | PF |
+|---|---|---|---|---|---|
+| All wedges | 790 | **+0.072R** | **+0.027…+0.116** | 63.0% | 1.30 |
+| third push overshot the channel line | 214 | **+0.148R** | **+0.069…+0.222** | 66.8% | 1.81 |
+| third push undershot the channel line | 576 | +0.043R | −0.010…+0.095 | 61.6% | 1.17 |
+
+Single-entry on the identical wedges was −0.108R. Scaling in flips it
+to +0.072R, CI above zero, win rate 41% → 63%. Only 117 of 790
+trades ever reach the wide stop; 387 hit the modest target. Stacking
+the one quality marker that held up — the channel overshoot — onto
+the scale-in lifts it to +0.148R (PF 1.81), CI clearly positive.
+
+Honest caveats, stated plainly:
+
+- The scale-in config (3 tranches, 0.5-R step, 2-R wide stop, 1-R
+  target) was pre-registered from the book — not tuned to this curve.
+- Expectancy is **modest** (+0.072R) and `R` here is the *combined*
+  risk to the wide stop, so the per-trade edge is small in absolute
+  terms. The wide stop also means a worse tail: all-wedges max
+  drawdown is −11.5R.
+- It is still one ~year intraday corpus, ~11 names, one regime. A
+  positive in-sample backtest is a *candidate*, not a proven edge —
+  it needs out-of-sample and live-forward confirmation before size.
+
+Read straight: traded Brooks' way — scale in, one wide stop — the
+wedge is no longer a null. The single-entry tight-stop version was
+losing to its own stop, not to the pattern. This is the first result
+in the study that an unbiased harness reports as a genuine, if
+modest, positive.
+
 ## 8. Known limitations
 
 - **Survivorship**: the universe is "today's liquid names." A strict
@@ -308,6 +379,7 @@ python3 scripts/live/wedge_detector_test.py
 ```
 
 Outputs: `artifacts/backtest/wedge_backtest_report.json` (aggregate),
-`artifacts/backtest/wedge_trade_ledger.json` (every simulated fill,
-auditable line by line), and `artifacts/backtest/wedge_scan.json`
-(current live signals).
+`artifacts/backtest/wedge_trade_ledger.json` (every single-entry
+fill), `artifacts/backtest/wedge_scalein_ledger.json` (every scale-in
+fill — §5.7), and `artifacts/backtest/wedge_scan.json` (current live
+signals). All ledgers are auditable line by line.

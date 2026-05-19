@@ -438,6 +438,62 @@
     "max_drawdown_r": -3.16,
     "sharpe_like": 0.208
   },
+  "scalein": {
+    "config": {
+      "tranches": 3,
+      "step_frac": 0.5,
+      "wide_stop_mult": 2.0,
+      "target_mult": 1.0
+    },
+    "all_trades": {
+      "label": "scale-in \u2014 all wedges",
+      "n": 790,
+      "expectancy_r": 0.0716,
+      "expectancy_ci95": [
+        0.0268,
+        0.1155
+      ],
+      "win_rate": 0.6304,
+      "avg_win_r": 0.4888,
+      "avg_loss_r": -0.6399,
+      "profit_factor": 1.303,
+      "total_r": 56.59,
+      "max_drawdown_r": -11.45,
+      "sharpe_like": 0.113
+    },
+    "channel_overshoot": {
+      "label": "scale-in \u2014 third push overshot",
+      "n": 214,
+      "expectancy_r": 0.1483,
+      "expectancy_ci95": [
+        0.0686,
+        0.2225
+      ],
+      "win_rate": 0.6682,
+      "avg_win_r": 0.4947,
+      "avg_loss_r": -0.5494,
+      "profit_factor": 1.814,
+      "total_r": 31.74,
+      "max_drawdown_r": -5.61,
+      "sharpe_like": 0.255
+    },
+    "channel_undershoot": {
+      "label": "scale-in \u2014 third push undershot",
+      "n": 576,
+      "expectancy_r": 0.0431,
+      "expectancy_ci95": [
+        -0.0098,
+        0.0953
+      ],
+      "win_rate": 0.6163,
+      "avg_win_r": 0.4865,
+      "avg_loss_r": -0.669,
+      "profit_factor": 1.168,
+      "total_r": 24.85,
+      "max_drawdown_r": -17.36,
+      "sharpe_like": 0.066
+    }
+  },
   "benchmark_random_entry": {
     "label": "random-entry benchmark",
     "n": 790,

@@ -115,14 +115,19 @@ export function WedgesView() {
             <span className="font-mono text-text">
               {data.verdict.profit_factor?.toFixed(2) ?? "—"}
             </span>
-            . <span className="text-text">No tradeable edge</span> for the
-            bare pattern. But segmenting by Brooks&apos; own good/bad-wedge
-            markers, one holds up: wedges whose third push{" "}
-            <span className="text-text">overshot the trend channel line</span>{" "}
-            break even (+0.03R, profit factor 1.06) while the ones that
-            undershot lose decisively (−0.16R). The badge on each card
-            below is that quality tag. This page is a study of what the
-            pattern looks like, not a signal.
+            . <span className="text-text">No edge entered once with a
+            tight stop</span> — that version loses to its own stop. Two
+            things from the book change the verdict. (1) Wedges whose
+            third push <span className="text-text">overshot the trend
+            channel line</span> are the good ones — the badge on each
+            card is that tag. (2) Traded Brooks&apos; way —{" "}
+            <span className="text-text">scaling in with one wide stop</span>{" "}
+            (Fig 31.5) — the same 790 wedges turn{" "}
+            <span className="text-teal">+0.072R, win 63%, 95% CI entirely
+            above zero</span>; overshoot wedges scaled into reach +0.148R.
+            Modest, in-sample, one regime — a candidate, not a proven
+            edge — but no longer a null. The cards below are the
+            single-entry study.
           </p>
         </div>
       )}
