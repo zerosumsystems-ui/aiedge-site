@@ -1,10 +1,11 @@
 """Tests for wedge_detector. Run: python3 scripts/live/wedge_detector_test.py
 
-Fixtures are built from explicit trendline equations by `build_series`,
-so the geometry is exact rather than eyeballed. The suite checks the
-unbiased guarantees as much as the firing logic: pivots are confirmed
-(never hindsight), and a full-history sweep emits the same signals a
-live bar-by-bar scanner would.
+Fixtures are built from explicit turning points by `build_series`, so
+the three-push geometry is exact rather than eyeballed. The suite
+checks the unbiased guarantees as much as the firing logic: pushes are
+confirmed pivots (never hindsight), the reversal is a closed bar, and
+a full-history sweep emits the same signal a live bar-by-bar scanner
+would.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from wedge_detector import (
     WedgeSignal,
     detect_wedges,
     _confirmed_pivot_highs,
-    _fit_line,
+    _is_bear_reversal,
 )
 
 
@@ -33,158 +34,140 @@ def assert_true(cond, label: str):
 
 # ----- fixture builder ------------------------------------------------
 
-def build_series(
-    *,
-    res: tuple[float, float],   # (slope, value-at-x0) of the resistance line
-    sup: tuple[float, float],   # (slope, value-at-x0) of the support line
-    x0: int,
-    turns: list[tuple[int, str]],  # (index, 'hi'|'lo') turning points
-    n: int,
-) -> list[Bar]:
-    """Build `n` bars tracing a triangle wave between two trendlines.
+def build_series(turns: list[tuple[int, float, str]], n: int) -> list[Bar]:
+    """Build `n` bars tracing straight legs between turning points.
 
-    At a 'hi' turn the bar's HIGH touches the resistance line; at a 'lo'
-    turn the bar's LOW touches the support line. Bars between turns are
-    thin and interpolate strictly monotonically, so the only swing
-    pivots are the declared turns.
+    Each turn is (index, price, 'hi'|'lo'). At a 'hi' turn the bar's
+    HIGH touches the price; at a 'lo' turn the LOW touches it. Bars
+    between turns are thin dojis interpolating monotonically, so the
+    only swing pivots are the declared turns.
     """
-    def res_at(x: float) -> float:
-        return res[0] * (x - x0) + res[1]
-
-    def sup_at(x: float) -> float:
-        return sup[0] * (x - x0) + sup[1]
-
-    def turn_level(idx: int, kind: str) -> float:
-        return res_at(idx) if kind == "hi" else sup_at(idx)
-
+    turns = sorted(turns)
     bars: list[Bar] = []
     for i in range(n):
-        # Locate the turns bracketing index i.
-        prev_t = None
-        next_t = None
-        for (idx, kind) in turns:
+        prev_t = turns[0]
+        next_t = turns[-1]
+        for (idx, price, kind) in turns:
             if idx <= i:
-                prev_t = (idx, kind)
-            if idx >= i and next_t is None:
-                next_t = (idx, kind)
-        if prev_t is None:
-            prev_t = turns[0]
-        if next_t is None:
-            next_t = turns[-1]
+                prev_t = (idx, price, kind)
+        for (idx, price, kind) in turns:
+            if idx >= i:
+                next_t = (idx, price, kind)
+                break
 
         if prev_t[0] == i:
-            kind = prev_t[1]
-            lvl = turn_level(i, kind)
+            _, price, kind = prev_t
             if kind == "hi":
-                bars.append(Bar(t=i, o=lvl - 0.1, h=lvl, l=lvl - 0.2, c=lvl - 0.05))
+                bars.append(Bar(i, price - 0.1, price, price - 0.2, price - 0.05))
             else:
-                bars.append(Bar(t=i, o=lvl + 0.1, h=lvl + 0.2, l=lvl, c=lvl + 0.05))
+                bars.append(Bar(i, price + 0.1, price + 0.2, price, price + 0.05))
             continue
 
         if next_t[0] == prev_t[0]:
-            level = turn_level(prev_t[0], prev_t[1])
+            level = prev_t[1]
         else:
-            lo_lvl = turn_level(prev_t[0], prev_t[1])
-            hi_lvl = turn_level(next_t[0], next_t[1])
             frac = (i - prev_t[0]) / (next_t[0] - prev_t[0])
-            level = lo_lvl + (hi_lvl - lo_lvl) * frac
-        bars.append(Bar(t=i, o=level, h=level, l=level, c=level))
+            level = prev_t[1] + (next_t[1] - prev_t[1]) * frac
+        bars.append(Bar(i, level, level, level, level))
     return bars
+
+
+def bear_reversal(i: int, prior_low: float) -> Bar:
+    """A down bar closing well below `prior_low` — a Brooks sell bar."""
+    return Bar(i, prior_low - 0.5, prior_low - 0.3, prior_low - 4.5,
+               prior_low - 4.0)
+
+
+def bull_reversal(i: int, prior_high: float) -> Bar:
+    """An up bar closing well above `prior_high`."""
+    return Bar(i, prior_high + 0.5, prior_high + 4.5, prior_high + 0.3,
+               prior_high + 4.0)
 
 
 # ---------------------------------------------------------------------
 
-def test_fit_line_exact():
-    slope, intercept = _fit_line([0, 1, 2, 3], [1, 3, 5, 7])
-    assert_true(abs(slope - 2.0) < 1e-9, "fit_line slope")
-    assert_true(abs(intercept - 1.0) < 1e-9, "fit_line intercept")
-
-
 def test_pivot_confirmation_is_lagged():
-    """A swing high is reported only once PIVOT_K right-context bars
-    exist — never on hindsight."""
     highs = [10, 11, 12, 13, 14, 20, 14, 13, 12, 11, 10]
-    bars = [Bar(t=i, o=h, h=h, l=h - 1, c=h) for i, h in enumerate(highs)]
+    bars = [Bar(i, h, h, h - 1, h) for i, h in enumerate(highs)]
     assert_eq(_confirmed_pivot_highs(bars, upto=7, k=3), [], "peak not yet confirmed")
     assert_eq(_confirmed_pivot_highs(bars, upto=8, k=3), [5], "peak confirmed at +k")
 
 
-def _falling_wedge() -> list[Bar]:
-    """Resistance slope -0.4, support slope -0.2 -> converging falling
-    wedge. Pivot highs 6/16/26, pivot lows 11/21/31."""
-    return build_series(
-        res=(-0.4, 100.0), sup=(-0.2, 93.0), x0=6,
-        turns=[(0, "lo"), (6, "hi"), (11, "lo"), (16, "hi"),
-               (21, "lo"), (26, "hi"), (31, "lo")],
-        n=40,
-    )
+def test_reversal_bar_classifier():
+    bars = [Bar(0, 100, 101, 99, 100), Bar(1, 100, 100.5, 95, 96)]
+    assert_true(_is_bear_reversal(bars, 1), "bear reversal: down bar below prior low")
+    up = [Bar(0, 100, 101, 99, 100), Bar(1, 100, 106, 100, 105)]
+    assert_eq(_is_bear_reversal(up, 1), False, "up bar is not a bear reversal")
 
 
-def test_falling_wedge_breaks_long():
-    bars = _falling_wedge()
-    # Hold inside the narrow channel after the last pivot, then break up.
-    for i in (32, 33, 34):
-        bars[i] = Bar(t=i, o=88.4, h=88.6, l=88.2, c=88.4)
-    bars[35] = Bar(t=35, o=88.4, h=92.5, l=88.2, c=92.0)  # close >> resistance
-    sigs = detect_wedges(bars)
-    assert_eq(len(sigs), 1, "falling wedge: one signal")
-    assert_eq(sigs[0].direction, "long", "falling wedge -> long")
-    assert_eq(sigs[0].wedge_type, "falling", "classified falling")
-    assert_eq(sigs[0].fired_bar_index, 35, "fires on the breakout bar")
-    assert_true(sigs[0].convergence < 1.0, "channel converged")
-
-
-def test_falling_wedge_no_fire_without_breakout():
-    """The wedge with no breakout bar emits nothing — a wedge alone is
-    not a trade. Price simply rides the descending channel midline."""
-    bars = _falling_wedge()
-    for i in range(32, 40):
-        mid = -0.3 * (i - 6) + 96.5  # midpoint of the two trendlines
-        bars[i] = Bar(t=i, o=mid, h=mid + 0.1, l=mid - 0.1, c=mid)
-    assert_eq(len(detect_wedges(bars)), 0, "no breakout -> no signal")
-
-
-def test_rising_wedge_breaks_short():
-    """Resistance slope +0.2, support slope +0.4 -> converging rising
-    wedge; a close below support is the bearish break."""
+# Wedge TOP: three pushes up (110, 116, 117), the third decelerating
+# hard (push3=5 vs push2=11), then a bear reversal.
+def _wedge_top(reversal: bool = True) -> list[Bar]:
     bars = build_series(
-        res=(0.2, 100.0), sup=(0.4, 93.0), x0=6,
-        turns=[(0, "hi"), (6, "lo"), (11, "hi"), (16, "lo"),
-               (21, "hi"), (26, "lo"), (31, "hi")],
-        n=40,
+        [(2, 100, "lo"), (8, 110, "hi"), (14, 105, "lo"), (20, 116, "hi"),
+         (26, 112, "lo"), (32, 117, "hi"), (44, 100, "lo")],
+        n=48,
     )
-    for i in (32, 33, 34):
-        bars[i] = Bar(t=i, o=99.6, h=99.8, l=99.4, c=99.6)
-    bars[35] = Bar(t=35, o=99.6, h=99.8, l=95.0, c=95.5)  # close << support
-    sigs = detect_wedges(bars)
-    assert_eq(len(sigs), 1, "rising wedge: one signal")
-    assert_eq(sigs[0].direction, "short", "rising wedge -> short")
-    assert_eq(sigs[0].wedge_type, "rising", "classified rising")
+    if reversal:
+        bars[36] = bear_reversal(36, bars[35].l)
+    return bars
 
 
-def test_no_wedge_in_parallel_channel():
-    """Parallel trendlines (constant width) are a channel, not a wedge —
-    must not fire even on a breakout."""
+def test_wedge_top_fires_short():
+    sigs = detect_wedges(_wedge_top())
+    assert_eq(len(sigs), 1, "wedge top: one signal")
+    assert_eq(sigs[0].direction, "short", "wedge top -> short")
+    assert_eq(sigs[0].wedge_type, "top", "classified top")
+    assert_eq(sigs[0].fired_bar_index, 36, "fires on the reversal bar")
+    assert_true(sigs[0].deceleration < 0.85, "third push decelerated")
+    assert_true(abs(sigs[0].push_extreme - 117.0) < 1e-6, "stop ref = 3rd push")
+
+
+def test_wedge_top_no_fire_without_reversal():
+    assert_eq(len(detect_wedges(_wedge_top(reversal=False))), 0,
+              "three pushes but no reversal -> no signal")
+
+
+def test_no_fire_without_deceleration():
+    """Third push as strong as the second -> not a Brooks wedge."""
     bars = build_series(
-        res=(-0.3, 100.0), sup=(-0.3, 93.0), x0=6,
-        turns=[(0, "lo"), (6, "hi"), (11, "lo"), (16, "hi"),
-               (21, "lo"), (26, "hi"), (31, "lo")],
-        n=40,
+        [(2, 100, "lo"), (8, 110, "hi"), (14, 105, "lo"), (20, 116, "hi"),
+         (26, 112, "lo"), (32, 123, "hi"), (44, 100, "lo")],
+        n=48,
     )
-    bars[35] = Bar(t=35, o=90.0, h=95.0, l=89.0, c=94.0)
-    assert_eq(len(detect_wedges(bars)), 0, "parallel channel is not a wedge")
+    bars[36] = bear_reversal(36, bars[35].l)
+    assert_eq(len(detect_wedges(bars)), 0, "no momentum loss -> no wedge")
+
+
+def test_no_fire_with_only_two_pushes():
+    bars = build_series(
+        [(2, 100, "lo"), (8, 110, "hi"), (20, 116, "hi"), (44, 100, "lo")],
+        n=48,
+    )
+    bars[36] = bear_reversal(36, bars[35].l)
+    assert_eq(len(detect_wedges(bars)), 0, "two pushes is not a wedge")
+
+
+def test_wedge_bottom_fires_long():
+    """Three pushes down (110, 104, 103), decelerating, then a bull
+    reversal."""
+    bars = build_series(
+        [(2, 120, "hi"), (8, 110, "lo"), (14, 115, "hi"), (20, 104, "lo"),
+         (26, 108, "hi"), (32, 103, "lo"), (44, 120, "hi")],
+        n=48,
+    )
+    bars[36] = bull_reversal(36, bars[35].h)
+    sigs = detect_wedges(bars)
+    assert_eq(len(sigs), 1, "wedge bottom: one signal")
+    assert_eq(sigs[0].direction, "long", "wedge bottom -> long")
+    assert_eq(sigs[0].wedge_type, "bottom", "classified bottom")
 
 
 def test_backfill_equals_live_replay():
     """The core unbiased guarantee: the signal a full-history sweep
     emits for bar n is identical to what a scanner streaming bars one
-    at a time would emit, because detection at n reads only bars[:n+1].
-    """
-    bars = _falling_wedge()
-    for i in (32, 33, 34):
-        bars[i] = Bar(t=i, o=88.4, h=88.6, l=88.2, c=88.4)
-    bars[35] = Bar(t=35, o=88.4, h=92.5, l=88.2, c=92.0)
-
+    at a time would emit — detection at n reads only bars[:n + 1]."""
+    bars = _wedge_top()
     full = detect_wedges(bars)
     assert_eq(len(full), 1, "full sweep: one signal")
     fire_idx = full[0].fired_bar_index
@@ -207,12 +190,13 @@ def test_empty_and_short_inputs_no_crash():
 
 
 if __name__ == "__main__":
-    test_fit_line_exact()
     test_pivot_confirmation_is_lagged()
-    test_falling_wedge_breaks_long()
-    test_falling_wedge_no_fire_without_breakout()
-    test_rising_wedge_breaks_short()
-    test_no_wedge_in_parallel_channel()
+    test_reversal_bar_classifier()
+    test_wedge_top_fires_short()
+    test_wedge_top_no_fire_without_reversal()
+    test_no_fire_without_deceleration()
+    test_no_fire_with_only_two_pushes()
+    test_wedge_bottom_fires_long()
     test_backfill_equals_live_replay()
     test_empty_and_short_inputs_no_crash()
     print("\nall wedge_detector tests passed")

@@ -1,51 +1,56 @@
-"""Wedge pattern detector — converging-trendline breakouts, no hindsight.
+"""Wedge detector — faithful to Al Brooks' three-push wedge.
 
-A wedge is two converging trendlines drawn through swing pivots:
+Source: Al Brooks, *Trading Price Action: Reversals* (Wiley, 2012),
+the wedge chapters. The generic chart-book "wedge" is any pair of
+converging trendlines. Brooks' wedge — the one the rest of this
+codebase's detectors are built on — is a far more specific thing, and
+it is a REVERSAL pattern, not a breakout pattern:
 
-  - RISING WEDGE  — resistance and support both slope up, support
-    rising faster, so the channel narrows. Conventionally bearish:
-    the trade is the DOWNSIDE break (a close below support).
-    Direction = "short".
+  A wedge is a three-push pattern. Price makes three pushes in the
+  same direction, each push reaching a new extreme, and the moves
+  lose momentum — the third push is weaker than the second. The
+  trend line and the trend channel line converge. After the third
+  push, price reverses, and that reversal is the trade.
 
-  - FALLING WEDGE — resistance and support both slope down, resistance
-    falling faster, so the channel narrows. Conventionally bullish:
-    the trade is the UPSIDE break (a close above resistance).
-    Direction = "long".
+So a Brooks wedge has two halves:
 
-The pattern on its own is not a trade — wedges resolve with a
-breakout. This module emits ONE signal per wedge, at the bar whose
-CLOSE first prints outside the wedge in the conventional direction.
-That breakout bar is the fire bar.
+  1. THREE PUSHES — three swing highs H1 < H2 < H3 (a "wedge top",
+     bearish) or three swing lows L1 > L2 > L3 (a "wedge bottom",
+     bullish), each separated by a pullback, with the final push
+     decelerating (push 3 smaller than push 2 — momentum waning).
+
+  2. THE REVERSAL — after the third push, the first reversal bar
+     against it. A wedge top reverses DOWN (trade short); a wedge
+     bottom reverses UP (trade long). Brooks enters on the reversal,
+     with the protective stop beyond the third push's extreme.
+
+The same three-pushes-then-reverse shape is both Brooks' wedge
+*reversal* and his wedge *bull/bear flag* (a pullback that ends a
+correction); the mechanical signal and entry are identical, so this
+detector does not distinguish them.
 
 Why this detector is unbiased — the property Will asked for:
 
-  1. No hindsight on pivots. A swing pivot at index i needs PIVOT_K
-     bars of confirmation on each side, so it is only *confirmed* at
-     index i + PIVOT_K. When the detector evaluates a breakout at bar
-     n it uses only pivots with i <= n - PIVOT_K — pivots a live
-     observer would already have seen.
+  1. No hindsight on the pushes. Each swing pivot needs PIVOT_K bars
+     of confirmation on each side, so the third push is only
+     *confirmed* PIVOT_K bars after it prints. The signal is emitted
+     at `max(reversal bar, H3 + PIVOT_K)` — the first bar at which a
+     live observer could know both that the third push was a pivot
+     and that price reversed.
 
-  2. No hindsight on the trendlines. Each line is fit by least
-     squares on confirmed pivots only, never on the future.
+  2. No hindsight on the reversal. The reversal test is a CLOSED
+     bar's close. Entry is simulated at the NEXT bar's open.
 
-  3. No hindsight on the breakout. The fire test is a CLOSED bar's
-     close crossing a line. Entry is simulated at the NEXT bar's open
-     (see backtest_wedge.py) — the fire-bar close has already printed
-     by the time the signal is known, so filling there would be a
-     look-ahead.
+  3. Backfill == live. Every check for the signal emitted at bar n
+     reads only bars[:n + 1], so a historical sweep emits exactly the
+     set of signals a streaming bar-by-bar scanner would have emitted
+     in real time. Verified by a backfill-equals-live-replay test.
 
-  4. Backfill == live. Every check at bar n reads only bars[:n+1], so
-     a historical full-history sweep emits exactly the set of signals
-     a streaming bar-by-bar scanner would have emitted in real time.
-     There is no separate "backtest detector".
+  4. No selection of winners. Every three-push-then-reverse wedge is
+     emitted, including the ones whose reversal immediately fails.
 
-  5. No survivorship / selection inside the detector. Every wedge that
-     breaks out is emitted, including the ones that immediately fail.
-     The caller does not get to keep only the winners.
-
-Pure functions only — no Databento, no Supabase, no HTTP. Callers
-fetch + persist + backtest. Designed for DAILY bars (wedges are swing
-patterns), but the math is timeframe-agnostic.
+Pure functions only — no Databento, no Supabase, no HTTP. Timeframe-
+agnostic; callers fetch + persist + backtest.
 """
 
 from __future__ import annotations
@@ -56,36 +61,25 @@ from typing import Sequence
 
 # ----- pre-registered thresholds (fixed before any results seen) ------
 
-PIVOT_K = 3              # a swing pivot needs 3 bars of strictly
-                         # lower-high / higher-low context on each
-                         # side; it is confirmed PIVOT_K bars later.
-WEDGE_WINDOW = 60        # trendlines are fit on pivots inside the most
-                         # recent 60 bars — a swing-scale lookback.
-MIN_PIVOTS = 3           # each trendline needs >= 3 confirmed pivots.
-MIN_WEDGE_SPAN = 12      # the pivots used must span >= 12 bars, so a
-                         # handful of adjacent wiggles cannot form a
-                         # "wedge".
-CONVERGENCE_MAX = 0.80   # channel width at the right edge must be
-                         # <= 80% of the width at the left edge —
-                         # the lines must genuinely be closing.
-MAX_BARS_SINCE_PIVOT = 15  # the most recent pivot must be no older
-                         # than 15 bars at the breakout, or the wedge
-                         # is stale and the break is unrelated to it.
-COOLDOWN_BARS = 10       # after a wedge fires, suppress new fires for
-                         # 10 bars so one structure emits one signal.
-LINE_FIT_TOLERANCE = 0.50  # every pivot must sit within 50% of the
-                         # mean channel width of its fitted line — a
-                         # cheap collinearity guard so a scatter of
-                         # pivots is not fit into a fake trendline.
+PIVOT_K = 3              # a swing pivot needs 3 bars of lower-high /
+                         # higher-low context on each side; it is
+                         # confirmed PIVOT_K bars later.
+WEDGE_LOOKBACK = 80      # the three pushes must fall inside the most
+                         # recent 80 bars.
+MIN_WEDGE_SPAN = 12      # the first and third push must span >= 12
+                         # bars — three adjacent wiggles are not a
+                         # wedge.
+DECELERATION_MAX = 0.85  # Brooks: the third push loses momentum. Its
+                         # height must be <= 85% of the second push's.
+MAX_REVERSAL_GAP = 8     # the reversal must come within 8 bars of the
+                         # third push, or it is unrelated to the wedge.
+COOLDOWN_BARS = 10       # one wedge structure emits one signal.
 
 
 @dataclass(frozen=True)
 class Bar:
-    """Minimal OHLCV bar.
-
-    `t` is the bar-open epoch (seconds, UTC). Callers must hand bars in
-    chronological order with no gaps.
-    """
+    """Minimal OHLCV bar. `t` is the bar-open epoch (seconds, UTC).
+    Callers must hand bars in chronological order with no gaps."""
     t: int
     o: float
     h: float
@@ -96,15 +90,13 @@ class Bar:
 
 @dataclass(frozen=True)
 class WedgeSignal:
-    direction: str            # 'long' (falling wedge) or 'short' (rising)
-    wedge_type: str           # 'falling' or 'rising'
-    fire_ts: int              # epoch seconds of the breakout bar
-    fired_bar_index: int      # bar index of the breakout bar
-    upper_at_fire: float      # resistance trendline value at the fire bar
-    lower_at_fire: float      # support trendline value at the fire bar
-    pivot_high_ts: tuple[int, ...]  # epochs of the pivot highs used
-    pivot_low_ts: tuple[int, ...]   # epochs of the pivot lows used
-    convergence: float        # right-edge width / left-edge width (<1)
+    direction: str            # 'long' (wedge bottom) / 'short' (wedge top)
+    wedge_type: str           # 'top' or 'bottom'
+    fire_ts: int              # epoch seconds of the emission bar
+    fired_bar_index: int      # bar index of the emission bar
+    push_ts: tuple[int, int, int]  # epochs of the 3 push extremes
+    push_extreme: float       # price of the 3rd push — the stop reference
+    deceleration: float       # push3 / push2 (< 1 — smaller = weaker)
     score: float              # stable rank key for the scanner UI
 
 
@@ -113,10 +105,9 @@ class WedgeSignal:
 def _confirmed_pivot_highs(bars: Sequence[Bar], upto: int, k: int) -> list[int]:
     """Indices of swing highs confirmed using only bars[:upto + 1].
 
-    A swing high at i is a bar whose high is strictly greater than the
-    high of every bar within k on each side. It is "confirmed" only
-    once the k right-context bars exist, i.e. i + k <= upto.
-    """
+    A swing high at i is strictly higher than every bar within k on
+    each side, and is confirmed only once the k right-context bars
+    exist (i + k <= upto)."""
     out: list[int] = []
     for i in range(k, upto - k + 1):
         h = bars[i].h
@@ -139,167 +130,171 @@ def _confirmed_pivot_lows(bars: Sequence[Bar], upto: int, k: int) -> list[int]:
     return out
 
 
-# ----- line fitting ---------------------------------------------------
+# ----- reversal bars --------------------------------------------------
 
-def _fit_line(xs: Sequence[float], ys: Sequence[float]) -> tuple[float, float]:
-    """Ordinary least-squares fit. Returns (slope, intercept).
-
-    y = slope * x + intercept. Caller guarantees len >= 2 and that the
-    xs are not all identical.
-    """
-    n = len(xs)
-    mx = sum(xs) / n
-    my = sum(ys) / n
-    sxx = sum((x - mx) ** 2 for x in xs)
-    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
-    slope = sxy / sxx
-    intercept = my - slope * mx
-    return slope, intercept
+def _is_bear_reversal(bars: Sequence[Bar], i: int) -> bool:
+    """A bear reversal bar: a down bar that closes below the prior
+    bar's low — Brooks' sell signal bar after a third push up."""
+    if i < 1:
+        return False
+    b = bars[i]
+    return b.c < b.o and b.c < bars[i - 1].l
 
 
-def _line_at(line: tuple[float, float], x: float) -> float:
-    slope, intercept = line
-    return slope * x + intercept
+def _is_bull_reversal(bars: Sequence[Bar], i: int) -> bool:
+    """Mirror: an up bar that closes above the prior bar's high."""
+    if i < 1:
+        return False
+    b = bars[i]
+    return b.c > b.o and b.c > bars[i - 1].h
 
 
 # ----- wedge geometry -------------------------------------------------
 
-def _evaluate_wedge(
-    bars: Sequence[Bar],
-    n: int,
-    k: int,
-) -> tuple[str, tuple[float, float], tuple[float, float], list[int], list[int], float] | None:
-    """Try to fit a converging wedge ending at bar `n`.
+def _evaluate_top(
+    bars: Sequence[Bar], highs: list[int], lows: list[int],
+) -> tuple[float, float, tuple[int, int, int]] | None:
+    """Try to read a three-push wedge TOP from the confirmed pivots.
 
-    Uses ONLY pivots confirmed within bars[:n + 1] (i + k <= n). Returns
-    (wedge_type, upper_line, lower_line, pivot_high_idx, pivot_low_idx,
-    convergence) or None if no valid wedge is present.
+    Uses the three most recent confirmed pivot highs as the pushes.
+    Returns (push_extreme, deceleration, push_ts) or None.
     """
-    upto = n
-    window_start = max(0, n - WEDGE_WINDOW)
-
-    highs = [
-        i for i in _confirmed_pivot_highs(bars, upto, k)
-        if i >= window_start and i <= n - k
-    ]
-    lows = [
-        i for i in _confirmed_pivot_lows(bars, upto, k)
-        if i >= window_start and i <= n - k
-    ]
-    if len(highs) < MIN_PIVOTS or len(lows) < MIN_PIVOTS:
+    if len(highs) < 3:
+        return None
+    h1, h2, h3 = highs[-3], highs[-2], highs[-1]
+    p1, p2, p3 = bars[h1].h, bars[h2].h, bars[h3].h
+    if not (p1 < p2 < p3):
+        return None  # three pushes must each reach a NEW high
+    if h3 - h1 < MIN_WEDGE_SPAN:
         return None
 
-    # Keep the most recent MIN_PIVOTS of each — the wedge currently in
-    # play, not an older structure earlier in the window.
-    highs = highs[-MIN_PIVOTS:]
-    lows = lows[-MIN_PIVOTS:]
+    # A pullback low must separate each pair of pushes.
+    low_12 = [lo for lo in lows if h1 < lo < h2]
+    low_23 = [lo for lo in lows if h2 < lo < h3]
+    if not low_12 or not low_23:
+        return None
+    l1 = max(bars[lo].l for lo in low_12)  # shallowest pullback
+    l2 = max(bars[lo].l for lo in low_23)
 
-    span_lo = min(highs[0], lows[0])
-    span_hi = max(highs[-1], lows[-1])
-    if span_hi - span_lo < MIN_WEDGE_SPAN:
+    # Brooks: the third push loses momentum.
+    push2 = p2 - l1
+    push3 = p3 - l2
+    if push2 <= 0 or push3 <= 0:
+        return None
+    decel = push3 / push2
+    if decel > DECELERATION_MAX:
         return None
 
-    # The most recent pivot must be reasonably fresh.
-    if n - max(highs[-1], lows[-1]) > MAX_BARS_SINCE_PIVOT:
+    return p3, decel, (bars[h1].t, bars[h2].t, bars[h3].t)
+
+
+def _evaluate_bottom(
+    bars: Sequence[Bar], highs: list[int], lows: list[int],
+) -> tuple[float, float, tuple[int, int, int]] | None:
+    """Mirror of `_evaluate_top` for a three-push wedge BOTTOM."""
+    if len(lows) < 3:
+        return None
+    l1, l2, l3 = lows[-3], lows[-2], lows[-1]
+    p1, p2, p3 = bars[l1].l, bars[l2].l, bars[l3].l
+    if not (p1 > p2 > p3):
+        return None  # three pushes must each reach a NEW low
+    if l3 - l1 < MIN_WEDGE_SPAN:
         return None
 
-    upper = _fit_line(highs, [bars[i].h for i in highs])
-    lower = _fit_line(lows, [bars[i].l for i in lows])
-    up_slope, _ = upper
-    lo_slope, _ = lower
-
-    # Channel width at the left and right edges of the pivot span.
-    width_left = _line_at(upper, span_lo) - _line_at(lower, span_lo)
-    width_right = _line_at(upper, span_hi) - _line_at(lower, span_hi)
-    if width_left <= 0 or width_right <= 0:
-        return None  # lines cross inside the window — not a clean wedge
-
-    convergence = width_right / width_left
-    if convergence > CONVERGENCE_MAX:
-        return None  # not actually narrowing enough
-
-    # Collinearity guard: pivots must hug their own line.
-    mean_width = (width_left + width_right) / 2.0
-    tol = LINE_FIT_TOLERANCE * mean_width
-    if any(abs(bars[i].h - _line_at(upper, i)) > tol for i in highs):
+    high_12 = [hi for hi in highs if l1 < hi < l2]
+    high_23 = [hi for hi in highs if l2 < hi < l3]
+    if not high_12 or not high_23:
         return None
-    if any(abs(bars[i].l - _line_at(lower, i)) > tol for i in lows):
+    h1 = min(bars[hi].h for hi in high_12)  # shallowest pullback
+    h2 = min(bars[hi].h for hi in high_23)
+
+    push2 = h1 - p2
+    push3 = h2 - p3
+    if push2 <= 0 or push3 <= 0:
+        return None
+    decel = push3 / push2
+    if decel > DECELERATION_MAX:
         return None
 
-    # Classify by slope direction. Both lines must point the same way,
-    # and the convergence test above already proved they narrow.
-    if up_slope > 0 and lo_slope > 0 and lo_slope > up_slope:
-        wedge_type = "rising"
-    elif up_slope < 0 and lo_slope < 0 and up_slope < lo_slope:
-        wedge_type = "falling"
-    else:
-        return None
-
-    return wedge_type, upper, lower, highs, lows, convergence
+    return p3, decel, (bars[l1].t, bars[l2].t, bars[l3].t)
 
 
 def detect_wedges(bars: Sequence[Bar], *, k: int = PIVOT_K) -> list[WedgeSignal]:
-    """Return every wedge-breakout signal in `bars`, oldest first.
+    """Return every three-push wedge-reversal signal in `bars`.
 
-    Live-replay semantics: the signal emitted for breakout bar n is
-    derived purely from bars[:n + 1]. Scanning a full history therefore
-    yields exactly the signals a streaming scanner would have emitted
-    bar by bar — backfill and live cannot disagree.
+    Live-replay semantics: the signal emitted at bar n is derived
+    purely from bars[:n + 1]. Scanning a full history yields exactly
+    the signals a streaming scanner would have emitted bar by bar.
     """
     signals: list[WedgeSignal] = []
-    if len(bars) < WEDGE_WINDOW // 2:
+    n_bars = len(bars)
+    if n_bars < MIN_WEDGE_SPAN + 3 * k:
         return signals
 
     cooldown_until = -1
-    # n is the candidate breakout bar. Start once enough left-context
-    # exists for MIN_PIVOTS pivots plus their confirmation.
-    for n in range(MIN_WEDGE_SPAN + 2 * k, len(bars)):
+    for n in range(MIN_WEDGE_SPAN + 3 * k, n_bars):
         if n <= cooldown_until:
             continue
 
-        wedge = _evaluate_wedge(bars, n, k)
-        if wedge is None:
-            continue
-        wedge_type, upper, lower, highs, lows, convergence = wedge
+        # Confirmed pivots at evaluation bar n: index <= n - k.
+        window_start = max(0, n - WEDGE_LOOKBACK)
+        highs = [
+            i for i in _confirmed_pivot_highs(bars, n, k)
+            if i >= window_start and i <= n - k
+        ]
+        lows = [
+            i for i in _confirmed_pivot_lows(bars, n, k)
+            if i >= window_start and i <= n - k
+        ]
 
-        upper_n = _line_at(upper, n)
-        lower_n = _line_at(lower, n)
-        upper_prev = _line_at(upper, n - 1)
-        lower_prev = _line_at(lower, n - 1)
-        close_n = bars[n].c
-        close_prev = bars[n - 1].c
+        for wedge_type in ("top", "bottom"):
+            if wedge_type == "top":
+                wedge = _evaluate_top(bars, highs, lows)
+                pushes = highs
+                reversal = _is_bear_reversal
+                direction = "short"
+            else:
+                wedge = _evaluate_bottom(bars, highs, lows)
+                pushes = lows
+                reversal = _is_bull_reversal
+                direction = "long"
+            if wedge is None:
+                continue
+            push_extreme, decel, push_ts = wedge
 
-        if wedge_type == "rising":
-            # Bearish: fire on the first close below support, where the
-            # prior bar still closed inside the wedge.
-            broke = close_n < lower_n and close_prev >= lower_prev
-            direction = "short"
-        else:
-            # Bullish: fire on the first close above resistance.
-            broke = close_n > upper_n and close_prev <= upper_prev
-            direction = "long"
+            third = pushes[-1]  # index of the third push pivot
+            # First reversal bar after the third push. Capped at n so
+            # the search never reads a bar the emission bar cannot see.
+            rev = None
+            for r in range(third + 1,
+                            min(third + 1 + MAX_REVERSAL_GAP, n + 1)):
+                if reversal(bars, r):
+                    rev = r
+                    break
+            if rev is None:
+                continue
 
-        if not broke:
-            continue
+            # The signal is knowable only once BOTH the third push is
+            # confirmed (third + k) and the reversal has printed (rev).
+            emission = max(rev, third + k)
+            if emission != n:
+                continue  # emit once, at the exact knowable bar
 
-        # Stable score: tighter wedges (lower convergence) and wedges
-        # with more confirming touches rank higher. Deliberately simple
-        # so the scanner sort order does not move under noise.
-        touches = len(highs) + len(lows)
-        score = touches * 1.0 + (1.0 - convergence) * 3.0
+            # Stable score: a wedge whose third push died hardest
+            # (lowest deceleration ratio) ranks highest.
+            score = 3.0 + (1.0 - decel) * 4.0
 
-        signals.append(WedgeSignal(
-            direction=direction,
-            wedge_type=wedge_type,
-            fire_ts=bars[n].t,
-            fired_bar_index=n,
-            upper_at_fire=upper_n,
-            lower_at_fire=lower_n,
-            pivot_high_ts=tuple(bars[i].t for i in highs),
-            pivot_low_ts=tuple(bars[i].t for i in lows),
-            convergence=convergence,
-            score=score,
-        ))
-        cooldown_until = n + COOLDOWN_BARS
+            signals.append(WedgeSignal(
+                direction=direction,
+                wedge_type=wedge_type,
+                fire_ts=bars[n].t,
+                fired_bar_index=n,
+                push_ts=push_ts,
+                push_extreme=push_extreme,
+                deceleration=decel,
+                score=score,
+            ))
+            cooldown_until = n + COOLDOWN_BARS
+            break  # at most one wedge per emission bar
 
     return signals

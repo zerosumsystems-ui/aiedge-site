@@ -193,7 +193,7 @@ export function ScannerCandidatesList() {
                         <HelpLabel
                           label="Pattern"
                           title="Setup type"
-                          body="TFO = Trend From the Open. Low (or high) of day forms in the first 4 RTH 5-min bars, then 3+ consecutive in-direction closes follow, 2+ of them Brooks-strong. Pullback = a Brooks small pullback: a strong impulse leg, a brief shallow pullback, then a with-trend breakout-stop entry. Wedge = two converging trendlines through confirmed swing pivots; the signal fires on the breakout close — a falling wedge breaks up (long), a rising wedge breaks down (short)."
+                          body="TFO = Trend From the Open. Low (or high) of day forms in the first 4 RTH 5-min bars, then 3+ consecutive in-direction closes follow, 2+ of them Brooks-strong. Pullback = a Brooks small pullback: a strong impulse leg, a brief shallow pullback, then a with-trend breakout-stop entry. Wedge = Al Brooks' three-push reversal: three pushes in one direction with the third losing momentum, then a reversal — a wedge top reverses down (short), a wedge bottom reverses up (long)."
                         />
                       </th>
                       <th className="px-3 py-2 text-left">

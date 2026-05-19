@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Backtest + scanner for the wedge breakout strategy.
+"""Backtest + scanner for the Brooks three-push wedge strategy.
 
 Methodology of record: docs/wedge_backtest_methodology.md. Read that
 first. Every parameter below was fixed *before* any result was seen.
@@ -18,7 +18,7 @@ Why this backtest is unbiased — the property Will asked for:
     fire-bar close would be look-ahead.
   * Intrabar fills walk one bar at a time; when a bar straddles both
     stop and target the trade is scored STOPPED (conservative).
-  * Every wedge breakout is taken. Losers are not dropped. A random-
+  * Every wedge reversal is taken. Losers are not dropped. A random-
     entry benchmark of matched frequency and holding period is
     reported alongside, so a reader can see whether the wedge edge is
     real or just market drift.
@@ -33,12 +33,12 @@ Data source (`--source`, default `intraday`):
 Two modes:
 
     python3 scripts/ml/backtest_wedge.py             # full backtest
-    python3 scripts/ml/backtest_wedge.py scan        # fresh wedge breakouts
+    python3 scripts/ml/backtest_wedge.py scan        # fresh wedge reversals
     python3 scripts/ml/backtest_wedge.py --selftest  # simulator unit check
 
 `scan` is the unbiased scanner: it runs the identical detector over the
-most recent bars of each series and lists the wedges that just broke
-out.
+most recent bars of each series and lists the wedges that just
+reversed.
 """
 
 from __future__ import annotations
@@ -274,15 +274,14 @@ def simulate_wedge_trade(
     *,
     cost_mult: float = 1.0,
 ) -> dict | None:
-    """Simulate one wedge trade on daily bars. Pure function — no I/O.
+    """Simulate one wedge-reversal trade. Pure function — no I/O.
 
-    Entry  = open of the bar AFTER the fire bar (the fire-bar close has
-             already printed when the signal is known; filling there
-             would be look-ahead).
-    Stop   = structural — one tick beyond the wedge's most recent
-             pivot. A long (falling wedge) is wrong if price falls back
-             through the support pivot; a short (rising wedge) is wrong
-             above the resistance pivot.
+    Entry  = open of the bar AFTER the fire (reversal) bar — the
+             fire-bar close has already printed when the signal is
+             known, so filling there would be look-ahead.
+    Stop   = structural — one tick beyond the third push's extreme
+             (Brooks' wedge stop). If price runs back past the third
+             push, the reversal thesis is wrong.
     Target = entry +/- target_r * risk.
     Exit   = first of {stop, target}; a bar straddling both is scored
              STOPPED; otherwise a time-stop closes at the horizon.
@@ -292,28 +291,23 @@ def simulate_wedge_trade(
     fire_idx = signal.fired_bar_index
     entry_idx = fire_idx + 1
     if entry_idx >= len(bars):
-        return None  # breakout is the last bar — no entry bar exists yet
+        return None  # reversal is the last bar — no entry bar yet
 
     direction = signal.direction
     ideal_entry = bars[entry_idx].o
     if ideal_entry <= 0:
         return None
 
-    # --- structural stop from the most recent pivot ---
-    by_t = {b.t: b for b in bars}
+    # --- structural stop: one tick beyond the third push's extreme ---
+    # Brooks' wedge stop — if price runs back past the third push, the
+    # reversal thesis is wrong.
     if direction == "long":
-        # falling wedge: stop below the lowest support pivot used.
-        pivot_lows = [by_t[t].l for t in signal.pivot_low_ts if t in by_t]
-        if not pivot_lows:
-            return None
-        stop = min(pivot_lows) - TICK
+        # wedge bottom: stop below the third (lowest) push.
+        stop = signal.push_extreme - TICK
         risk = ideal_entry - stop
     else:
-        # rising wedge: stop above the highest resistance pivot used.
-        pivot_highs = [by_t[t].h for t in signal.pivot_high_ts if t in by_t]
-        if not pivot_highs:
-            return None
-        stop = max(pivot_highs) + TICK
+        # wedge top: stop above the third (highest) push.
+        stop = signal.push_extreme + TICK
         risk = stop - ideal_entry
     if risk <= 0:
         return None  # entry already through the stop — not takeable
@@ -371,7 +365,7 @@ def simulate_wedge_trade(
         "direction": direction,
         "wedge_type": signal.wedge_type,
         "score": round(signal.score, 4),
-        "convergence": round(signal.convergence, 4),
+        "deceleration": round(signal.deceleration, 4),
         "ideal_entry": round(ideal_entry, 4),
         "entry_fill": round(entry_fill, 4),
         "stop": round(stop, 4),
@@ -489,12 +483,12 @@ def run_backtest(
         print("No data — aborting.", file=sys.stderr)
         return 1
 
-    # --- detect every wedge breakout ---
+    # --- detect every wedge reversal ---
     detections: list[tuple[str, list[Bar], WedgeSignal]] = []
     for sym, bars in sorted(bars_by_symbol.items()):
         for sig in detect_wedges(bars):
             detections.append((sym, bars, sig))
-    print(f"  {len(detections)} wedge breakouts detected", flush=True)
+    print(f"  {len(detections)} wedge reversals detected", flush=True)
 
     def run_cell(target_r: float, horizon: int, cost_mult: float = 1.0) -> list[dict]:
         out: list[dict] = []
@@ -551,7 +545,7 @@ def run_backtest(
     # --- segmentation: by wedge type, by direction, by score tertile ---
     report["by_wedge_type"] = [
         summarize([t for t in ledger if t["wedge_type"] == wt], wt)
-        for wt in ("falling", "rising")
+        for wt in ("top", "bottom")
     ]
     if ledger:
         scored = sorted(ledger, key=lambda t: t["score"])
@@ -631,16 +625,16 @@ def run_scan(base_url: str, lookback_bars: int, *, source: str) -> int:
                     "fire_ts": sig.fire_ts,
                     "bars_ago": len(bars) - 1 - sig.fired_bar_index,
                     "score": round(sig.score, 3),
-                    "convergence": round(sig.convergence, 3),
+                    "deceleration": round(sig.deceleration, 3),
                 })
 
     hits.sort(key=lambda h: (-h["score"], h["bars_ago"]))
-    print(f"\n{len(hits)} fresh wedge breakout(s):\n")
+    print(f"\n{len(hits)} fresh wedge reversal(s):\n")
     for h in hits:
         ts = time.strftime("%Y-%m-%d %H:%M", time.gmtime(h["fire_ts"]))
         print(f"  {h['symbol']:<18} {h['wedge_type']:<8} "
               f"{h['direction']:<6} fired {ts} ({h['bars_ago']} bars ago)  "
-              f"score={h['score']:<6} conv={h['convergence']}")
+              f"score={h['score']:<6} decel={h['deceleration']}")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = OUT_DIR / "wedge_scan.json"
     out_path.write_text(json.dumps(hits, indent=2) + "\n")
@@ -650,18 +644,18 @@ def run_scan(base_url: str, lookback_bars: int, *, source: str) -> int:
 
 def run_selftest() -> int:
     """Verify the trade simulator on synthetic bars — no network."""
-    # A long trade that should hit a 2R target. Entry bar opens at 100.
+    # A long wedge-bottom trade that should hit a 2R target.
     bars = [Bar(t=i, o=100, h=101, l=99, c=100) for i in range(5)]
-    # fire bar = index 3; entry bar = index 4 opens at 100.
+    # fire (reversal) bar = index 3; entry bar = index 4 opens at 100.
     bars[4] = Bar(t=4, o=100.0, h=100.0, l=100.0, c=100.0)
-    bars.append(Bar(t=5, o=100, h=100, l=98, c=99))   # pivot-low source
     sig = WedgeSignal(
-        direction="long", wedge_type="falling", fire_ts=3,
-        fired_bar_index=3, upper_at_fire=100.0, lower_at_fire=98.0,
-        pivot_high_ts=(0,), pivot_low_ts=(5,), convergence=0.3, score=8.0,
+        direction="long", wedge_type="bottom", fire_ts=3,
+        fired_bar_index=3, push_ts=(0, 1, 2), push_extreme=98.0,
+        deceleration=0.4, score=8.0,
     )
-    # pivot low = bar 5 low = 98 -> stop = 97.99, risk = 100 - 97.99 = 2.01.
+    # third push low = 98 -> stop = 97.99, risk = 100 - 97.99 = 2.01.
     # 2R target = 100 + 4.02 = 104.02.
+    bars.append(Bar(t=5, o=100, h=101, l=100, c=100))
     bars.append(Bar(t=6, o=100, h=104.5, l=100, c=104))  # hits target
     trade = simulate_wedge_trade(bars, sig, target_r=2.0, horizon_bars=20)
     assert trade is not None, "selftest: trade should simulate"
