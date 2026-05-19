@@ -42,6 +42,27 @@ enough to ship, ask in one sentence rather than sitting on it.
 - `aiedge-chart` — anything under `/chart`, indicators, ƒx menu, watchlist, overlays, chart settings.
 - `aiedge-live-data` — `api/bars/*`, `api/live-bars/*`, the aggregator, the operator diagnostic endpoint.
 
+## Bias checks — mandatory for every backtest, study, or quantitative claim
+
+Before presenting any backtest result, expectancy / edge number, win rate, or
+"this works" conclusion, check for bias and state it up front — unprompted,
+not only when asked. Walk through, at minimum:
+
+- Selection / curation — is the sample random, or hand-picked / balanced /
+  filtered? A curated gallery cannot estimate a population.
+- Sample size — is n big enough? Report bootstrap confidence intervals and
+  flag when one or two trades drive the result.
+- Multiple comparisons — if several variants / parameters were tried, the
+  best one is upward-biased. Prefer a single choice fixed before seeing results.
+- In-sample vs out-of-sample — was there a walk-forward / holdout split?
+  In-sample numbers are not evidence.
+- Survivorship — does the corpus drop delisted / failed / renamed names?
+- Look-ahead & fill realism — detection uses only past bars; model slippage
+  and commission; score straddles conservatively.
+
+If a result is not bias-checked, lead with that ("illustrative study, not a
+verdict") — not the headline number.
+
 ## Guardrails
 
 - The boundary hook (`.claude/hooks/check-boundary.sh`) blocks `git push` to `main` if the diff carries prop-firm / funded-account / firm-rotation / payout-eval / account-rotation content. If it fires, do not work around it — surface to Will and stop.
