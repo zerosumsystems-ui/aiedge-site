@@ -50,6 +50,7 @@ yarn-error.log*
 !/artifacts/backtest/spike_backtest_report.json
 !/artifacts/backtest/tfo_scaled_backtest_report.json
 !/artifacts/backtest/pullback_scaled_backtest_report.json
+!/artifacts/backtest/h2l2_scaled_backtest_report.json
 
 # env files (can opt-in for committing if needed)
 .env*
