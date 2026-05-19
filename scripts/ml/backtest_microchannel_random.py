@@ -50,6 +50,17 @@ PRIMARY_VARIANT = "B"
 OOS_START = "2024-11-19"      # last 18 months of the 5y window — held out
 RANDOM_STATE = 17
 
+# Executable-stop rule. The first pass exposed that a "1 tick beyond the
+# 1-min pullback" stop is routinely 2-5 cents — inside the spread, below
+# the cost model's own slippage — so R-multiples exploded (one trade hit
+# +1192 R). A setup is only a real trade if its stop clears that: risk
+# must be >= a nickel AND >= 20 bps of price (~3x the round-trip
+# slippage already charged). Tighter setups are skipped — a trader
+# passes. This rule was fixed before the re-run; the re-run is an
+# informed second pass, not virgin out-of-sample.
+MIN_STOP_ABS = 0.05
+MIN_STOP_FRAC = 0.0020
+
 VARIANTS = ("A", "B", "C")
 VARIANT_LABEL = {
     "A": "tight stop, 5-min target",
@@ -129,6 +140,7 @@ def summarize(trades, label):
     wins = r[r > 0]
     losses = r[r <= 0]
     ci = bootstrap_ci(r)
+    total = float(r.sum())
     return {
         "label": label,
         "n": len(trades),
@@ -137,9 +149,15 @@ def summarize(trades, label):
         "expectancy_r": round(float(r.mean()), 4),
         "expectancy_ci95": ci,
         "ci_crosses_zero": bool(ci[0] <= 0 <= ci[1]),
+        "median_r": round(float(np.median(r)), 4),
+        "max_r": round(float(r.max()), 2),
+        # Concentration: the largest single trade as a share of total R.
+        # If one trade is most of the result, the mean is not robust.
+        "top_trade_share": (round(float(r.max() / total), 3)
+                            if total > 0 else None),
         "profit_factor": (round(float(wins.sum() / -losses.sum()), 3)
                           if len(losses) and losses.sum() < 0 else None),
-        "total_r": round(float(r.sum()), 2),
+        "total_r": round(total, 2),
     }
 
 
@@ -154,6 +172,7 @@ def main() -> int:
 
     # trades[variant] = list of trade dicts carrying segmentation tags.
     trades = {v: [] for v in VARIANTS}
+    skipped_tight = {v: 0 for v in VARIANTS}
     n_spikes = 0
     n_sessions = 0
 
@@ -187,6 +206,12 @@ def main() -> int:
                 if sig.direction == "long" and target <= mc.entry_price:
                     continue
                 if sig.direction == "short" and target >= mc.entry_price:
+                    continue
+                # Executable-stop rule: skip setups whose stop is too
+                # tight to be a real trade (see MIN_STOP_* above).
+                risk = abs(mc.entry_price - stop)
+                if risk < max(MIN_STOP_ABS, MIN_STOP_FRAC * mc.entry_price):
+                    skipped_tight[v] += 1
                     continue
                 sim = simulate(sig.direction, mc.entry_price, stop, target,
                                bars1, mc.fire_index)
@@ -222,14 +247,27 @@ def main() -> int:
         for v in VARIANTS if v != PRIMARY_VARIANT
     }
 
+    def assess(oos: dict) -> str:
+        """An edge has to clear every bar: enough trades, a 95% CI clear
+        of zero, a positive median (not just an outlier-driven mean), and
+        no single trade carrying the result."""
+        if oos["n"] < 30:
+            return "inconclusive — out-of-sample sample too small (n<30)"
+        if oos["ci_crosses_zero"]:
+            return "no edge — out-of-sample 95% CI crosses zero"
+        if oos["median_r"] <= 0:
+            return ("no edge — out-of-sample median R is not positive "
+                    "(mean is outlier-driven)")
+        tts = oos.get("top_trade_share")
+        if tts is not None and tts > 0.5:
+            return "inconclusive — one trade is over half the out-of-sample R"
+        if oos["expectancy_r"] <= 0:
+            return "negative — out-of-sample expectancy is below zero"
+        return ("positive edge — out-of-sample CI clear of zero, median "
+                "positive, not outlier-driven")
+
     oos = primary["opening_out_of_sample"]
-    verdict = (
-        "no edge — out-of-sample 95% CI crosses zero"
-        if oos["n"] == 0 or oos.get("ci_crosses_zero", True)
-        else ("positive edge — out-of-sample 95% CI is entirely above zero"
-              if oos["expectancy_r"] > 0
-              else "negative — out-of-sample 95% CI is entirely below zero")
-    )
+    verdict = assess(oos)
 
     report = {
         "generated_from": "scripts/ml/backtest_microchannel_random.py",
@@ -244,6 +282,14 @@ def main() -> int:
             "primary_variant_label": VARIANT_LABEL[PRIMARY_VARIANT],
             "pre_registered": "variant B chosen on the pilot before this fetch",
             "out_of_sample_start": OOS_START,
+            "executable_stop_rule": (
+                f"risk >= max(${MIN_STOP_ABS:.2f}, "
+                f"{MIN_STOP_FRAC * 1e4:.0f}bps of price); tighter setups skipped"),
+            "informed_second_pass": (
+                "the executable-stop rule was added after the first pass "
+                "exposed a tiny-stop artifact — this run is not virgin "
+                "out-of-sample"),
+            "skipped_tight_stop": skipped_tight,
             "execution": {
                 "commission_per_share": COMMISSION_PER_SHARE,
                 "entry_slippage_bps": ENTRY_SLIPPAGE_BPS,
@@ -262,14 +308,17 @@ def main() -> int:
             print(f"  {s['label']:28s} n=0")
             return
         ci = s["expectancy_ci95"]
-        flag = "  <- CI crosses 0" if s["ci_crosses_zero"] else "  <- CI clear of 0"
+        flag = "CI crosses 0" if s["ci_crosses_zero"] else "CI clear of 0"
+        tts = s.get("top_trade_share")
         print(f"  {s['label']:28s} n={s['n']:5d}  "
-              f"exp={s['expectancy_r']:+.3f}R  "
+              f"mean={s['expectancy_r']:+.3f}R  "
+              f"med={s['median_r']:+.3f}R  "
               f"CI95[{ci[0]:+.3f},{ci[1]:+.3f}]  "
-              f"tgt={s['target_hit_rate']:.3f}{flag}")
+              f"top={'n/a' if tts is None else f'{tts:.2f}'}  {flag}")
 
     print(f"\n=== BIAS-CHECKED MICROCHANNEL-PULLBACK BACKTEST ===")
     print(f"  primary variant: {PRIMARY_VARIANT} ({VARIANT_LABEL[PRIMARY_VARIANT]})")
+    print(f"  skipped (stop too tight to trade): {skipped_tight}")
     for k in ("all", "opening", "opening_in_sample", "opening_out_of_sample"):
         line(primary[k])
     print("  -- secondary variants (opening, exploratory) --")
