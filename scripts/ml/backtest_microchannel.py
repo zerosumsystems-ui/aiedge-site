@@ -9,21 +9,23 @@ an H1 (bull) / L1 (bear). See microchannel_pullback.py.
 Will asked to compare a couple of stop / target methods, so each trade
 is simulated under three variants:
 
-  A  tight 1-bar stop, keep the 5-min target
+  A  tight stop, keep the 5-min target
        stop   = 1 tick beyond the first-pullback extreme
        target = the original spike measured-move price
-  B  tight 1-bar stop + a fresh measured move
+  B  tight stop + a fresh measured move
        stop   = 1 tick beyond the first-pullback extreme
        target = the microchannel leg height projected from the entry
   C  keep the original 5-min stop and target
        stop   = the original spike's stop (1 tick beyond spike start)
        target = the original spike measured-move price
 
-DATA: runs on the spike examples in public/spikes/examples.json — the
-session bars and detected spikes the /spikes gallery already ships.
-The detector is timeframe-agnostic, so the same engine re-runs over a
-larger bar cache unchanged. With the curated examples this is a study
-gallery refinement, not a full-corpus verdict.
+RESOLUTION: when a 1-minute session is cached under
+artifacts/backtest/bars_1m/<SYMBOL>_<DATE>.json, the refinement runs on
+those 1-min bars — the microchannel pullback is found INSIDE the 5-min
+spike, exactly as intended. Otherwise it falls back to the 5-min spike
+bars in public/spikes/examples.json. Each example records which
+resolution it used. The detector is timeframe-agnostic, so the engine
+is identical either way.
 
 Writes:
   artifacts/backtest/microchannel_backtest_report.json
@@ -45,6 +47,7 @@ from microchannel_pullback import TICK, detect_microchannel_pullback  # noqa: E4
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES_IN = ROOT / "public" / "spikes" / "examples.json"
+CACHE_DIR = ROOT / "artifacts" / "backtest" / "bars_1m"
 REPORT_OUT = ROOT / "artifacts" / "backtest" / "microchannel_backtest_report.json"
 PAGE_OUT = ROOT / "public" / "spikes" / "microchannel.json"
 
@@ -61,10 +64,15 @@ VARIANT_LABEL = {
 }
 
 
+def to_bars(rows):
+    return [Bar(t=r["t"], o=r["o"], h=r["h"], l=r["l"], c=r["c"]) for r in rows]
+
+
 def simulate(direction, entry, stop, target, bars, fire_index):
     """Walk bars from the fill bar forward. First of {stop, target} hit
     wins; a bar that straddles both is scored stopped (conservative);
-    an unresolved trade exits at the last close (time stop)."""
+    an unresolved trade exits at the last close (time stop). Returns the
+    sim dict including the exit bar's index within `bars`."""
     long = direction == "long"
     risk = (entry - stop) if long else (stop - entry)
     if risk <= 0:
@@ -76,8 +84,8 @@ def simulate(direction, entry, stop, target, bars, fire_index):
 
     exit_price = None
     exit_reason = None
-    path = bars[fire_index:]
-    for b in path:
+    exit_index = len(bars) - 1
+    for off, b in enumerate(bars[fire_index:]):
         if long:
             hit_stop, hit_tgt = b.l <= stop, b.h >= target
         else:
@@ -85,17 +93,20 @@ def simulate(direction, entry, stop, target, bars, fire_index):
         if hit_stop and hit_tgt:
             exit_price = stop * (1 - ss) if long else stop * (1 + ss)
             exit_reason = "stop_straddle"
+            exit_index = fire_index + off
             break
         if hit_stop:
             exit_price = stop * (1 - ss) if long else stop * (1 + ss)
             exit_reason = "stop"
+            exit_index = fire_index + off
             break
         if hit_tgt:
             exit_price = target          # resting limit — clean fill
             exit_reason = "target"
+            exit_index = fire_index + off
             break
     if exit_price is None:
-        last_c = path[-1].c
+        last_c = bars[-1].c
         exit_price = last_c * (1 - es) if long else last_c * (1 + es)
         exit_reason = "time"
 
@@ -106,6 +117,7 @@ def simulate(direction, entry, stop, target, bars, fire_index):
         "exit_reason": exit_reason,
         "net_r": round(net_r, 4),
         "risk_per_share": round(risk, 4),
+        "exit_index": exit_index,
     }
 
 
@@ -148,42 +160,73 @@ def summarize(trades, label):
     }
 
 
+def locate(ex):
+    """Resolve an example to its bar series + the microchannel pullback.
+
+    Prefers a cached 1-minute session (the microchannel pullback is then
+    found inside the 5-min spike, at true 1-min resolution); falls back
+    to the 5-min spike bars shipped in examples.json.
+
+    Returns dict(resolution, rows, bars, mc, spike_start) or None.
+    """
+    direction = ex["direction"]
+    cache = CACHE_DIR / f"{ex['symbol']}_{ex['session_date']}.json"
+    if cache.exists():
+        rows = json.loads(cache.read_text())
+        bars = to_bars(rows)
+        spike_open = min(ex["spike_bar_ts"])
+        spike_start = next((i for i, b in enumerate(bars) if b.t >= spike_open), None)
+        if spike_start is None:
+            return None
+        # On 1-min bars the spike is one continuous microchannel run; the
+        # detector extends the lead and finds the first 1-min pullback.
+        mc = detect_microchannel_pullback(bars, spike_start, 1, direction)
+        return {"resolution": "1min", "rows": rows, "bars": bars,
+                "mc": mc, "spike_start": spike_start}
+
+    rows = ex["bars"]
+    bars = to_bars(rows)
+    spike_ts = set(ex["spike_bar_ts"])
+    sidx = [i for i, r in enumerate(rows) if r["t"] in spike_ts]
+    if not sidx:
+        return None
+    mc = detect_microchannel_pullback(bars, sidx[0], sidx[-1] - sidx[0] + 1, direction)
+    return {"resolution": "5min", "rows": rows, "bars": bars,
+            "mc": mc, "spike_start": sidx[0]}
+
+
 def main() -> int:
     if not EXAMPLES_IN.exists():
         print(f"ERROR: {EXAMPLES_IN} not found", file=sys.stderr)
         return 2
-    payload = json.loads(EXAMPLES_IN.read_text())
-    examples = payload.get("examples") or []
+    examples = json.loads(EXAMPLES_IN.read_text()).get("examples") or []
     print(f"Refining {len(examples)} spike examples into microchannel pullbacks...")
 
     per_variant = {v: [] for v in VARIANTS}
+    per_variant_1m = {v: [] for v in VARIANTS}
     page_examples = []
     no_pullback = 0
+    n_1min = 0
 
     for ex in examples:
-        raw_bars = ex["bars"]
-        bars = [Bar(t=b["t"], o=b["o"], h=b["h"], l=b["l"], c=b["c"]) for b in raw_bars]
-        spike_ts = set(ex["spike_bar_ts"])
-        spike_idx = [i for i, b in enumerate(raw_bars) if b["t"] in spike_ts]
-        if not spike_idx:
+        info = locate(ex)
+        if info is None or info["mc"] is None:
             no_pullback += 1
             continue
-        spike_start = spike_idx[0]
-        spike_count = spike_idx[-1] - spike_idx[0] + 1
+        mc = info["mc"]
+        bars = info["bars"]
+        rows = info["rows"]
         direction = ex["direction"]
-
-        mc = detect_microchannel_pullback(bars, spike_start, spike_count, direction)
-        if mc is None:
-            no_pullback += 1
-            continue
+        is_1m = info["resolution"] == "1min"
+        if is_1m:
+            n_1min += 1
 
         variants_out = {}
         for v in VARIANTS:
             stop, target = variant_levels(v, direction, mc, ex)
             # The breakout entry fires AFTER the spike's 3rd bar, so it can
             # land past a target anchored to the spike. When that happens
-            # the variant simply has no trade for this example — recording
-            # one would book a "target" exit that is really a loss.
+            # the variant simply has no trade for this example.
             if direction == "long" and target <= mc.entry_price:
                 continue
             if direction == "short" and target >= mc.entry_price:
@@ -192,6 +235,8 @@ def main() -> int:
             if sim is None:
                 continue
             per_variant[v].append(sim)
+            if is_1m:
+                per_variant_1m[v].append(sim)
             variants_out[v] = {
                 "stop": round(stop, 4),
                 "target": round(target, 4),
@@ -199,15 +244,38 @@ def main() -> int:
                 "net_r": sim["net_r"],
             }
 
+        # Bars for the chart card. 1-min sessions are windowed around the
+        # trade so the card stays readable; 5-min sessions render whole.
+        if is_1m and variants_out:
+            exit_idx = max(
+                simulate(direction, mc.entry_price,
+                         *variant_levels(v, direction, mc, ex),
+                         bars, mc.fire_index)["exit_index"]
+                for v in variants_out
+            )
+            w0 = max(0, info["spike_start"] - 8)
+            w1 = min(len(rows), exit_idx + 5)
+            # Keep the card readable — cap at 120 one-minute bars so the
+            # microchannel and its pullback stay legible.
+            if w1 - w0 > 120:
+                w1 = w0 + 120
+            view_rows = rows[w0:w1]
+        else:
+            view_rows = rows
+
         page_examples.append({
             "symbol": ex["symbol"],
             "session_date": ex["session_date"],
             "direction": direction,
-            "bars": raw_bars,
-            "spike_bar_ts": ex["spike_bar_ts"],
-            "pullback_bar_ts": [raw_bars[i]["t"] for i in mc.pullback_bar_indices],
-            "signal_ts": raw_bars[mc.signal_index]["t"],
-            "fire_ts": raw_bars[mc.fire_index]["t"],
+            "resolution": info["resolution"],
+            "timeframe": "1min" if is_1m else "5min",
+            "bars": view_rows,
+            "microchannel_bar_ts": [
+                rows[i]["t"] for i in range(info["spike_start"], mc.lead_end_index + 1)
+            ],
+            "pullback_bar_ts": [rows[i]["t"] for i in mc.pullback_bar_indices],
+            "signal_ts": rows[mc.signal_index]["t"],
+            "fire_ts": rows[mc.fire_index]["t"],
             "raw_spike_entry": ex["entry_price"],
             "entry_price": mc.entry_price,
             "variants": variants_out,
@@ -217,7 +285,10 @@ def main() -> int:
         v: summarize(per_variant[v], f"variant {v} — {VARIANT_LABEL[v]}")
         for v in VARIANTS
     }
-    # Best variant: highest expectancy, tie-break on target-hit rate.
+    variant_summary_1m = {
+        v: summarize(per_variant_1m[v], f"variant {v} — {VARIANT_LABEL[v]} (1-min)")
+        for v in VARIANTS
+    }
     traded = [v for v in VARIANTS if variant_summary[v]["n"] > 0]
     chosen = max(
         traded,
@@ -227,8 +298,10 @@ def main() -> int:
 
     note = (
         f"Microchannel-pullback refinement applied to {len(page_examples)} "
-        f"curated spike examples. {no_pullback} example(s) produced no "
-        f"qualifying first pullback. A study gallery, not a full-corpus verdict."
+        f"curated spike examples — {n_1min} run on true 1-minute bars (the "
+        f"pullback found inside the 5-min spike), the rest on 5-min bars. "
+        f"{no_pullback} example(s) produced no qualifying first pullback. "
+        f"A study gallery, not a full-corpus verdict."
     )
 
     report = {
@@ -242,9 +315,11 @@ def main() -> int:
         "note": note,
         "examples_in": len(examples),
         "examples_traded": len(page_examples),
+        "examples_1min": n_1min,
         "no_pullback": no_pullback,
         "chosen_variant": chosen,
         "variants": variant_summary,
+        "variants_1min": variant_summary_1m,
     }
     REPORT_OUT.parent.mkdir(parents=True, exist_ok=True)
     REPORT_OUT.write_text(json.dumps(report, indent=2) + "\n")
@@ -254,23 +329,29 @@ def main() -> int:
         "generated_from": "scripts/ml/backtest_microchannel.py",
         "note": note,
         "chosen_variant": chosen,
+        "examples_1min": n_1min,
         "variants": variant_summary,
+        "variants_1min": variant_summary_1m,
         "examples": page_examples,
     }, indent=2) + "\n")
 
     def line(s):
         if s["n"] == 0:
-            print(f"  {s['label']:48s} n=0")
+            print(f"  {s['label']:54s} n=0")
             return
-        print(f"  {s['label']:48s} n={s['n']:3d}  "
+        print(f"  {s['label']:54s} n={s['n']:3d}  "
               f"tgt-hit={s['target_hit_rate']:.3f}  "
               f"win={s['win_rate']:.3f}  "
               f"exp={s['expectancy_r']:+.3f}R  "
               f"total={s['total_r']:+.2f}R  pf={s['profit_factor']}")
 
-    print(f"\n=== MICROCHANNEL-PULLBACK REFINEMENT ({len(page_examples)} traded) ===")
+    print(f"\n=== MICROCHANNEL-PULLBACK REFINEMENT "
+          f"({len(page_examples)} traded, {n_1min} at 1-min) ===")
     for v in VARIANTS:
         line(variant_summary[v])
+    print("  -- 1-minute-resolution subset --")
+    for v in VARIANTS:
+        line(variant_summary_1m[v])
     print(f"\n  chosen variant: {chosen}")
     print(f"  report:  {REPORT_OUT.relative_to(ROOT)}")
     print(f"  page:    {PAGE_OUT.relative_to(ROOT)}")
