@@ -52,6 +52,7 @@ yarn-error.log*
 !/artifacts/backtest/pullback_scaled_backtest_report.json
 !/artifacts/backtest/h2l2_scaled_backtest_report.json
 !/artifacts/backtest/ii_scaled_backtest_report.json
+!/artifacts/backtest/wedge_scaled_backtest_report.json
 
 # env files (can opt-in for committing if needed)
 .env*
