@@ -43,27 +43,30 @@ Pre-registered thresholds (in `wedge_detector.py`):
 
 ## 2. Data
 
-- **Source**: Databento equity data, served through the application's
-  `/api/bars` endpoint. Detection and execution both use **daily RTH
-  bars** — wedges are swing-scale patterns, so daily is the natural
-  resolution.
-- **Universe**: 49 liquid US equities and sector / index ETFs (see
-  `UNIVERSE` in `backtest_wedge.py`). Chosen for tight spreads and
-  clean daily bars.
-- **Window**: 2021-01-01 → 2026-05-15 (~5.4 years of daily bars).
+- **Source**: the analog corpus already committed in the repository
+  under `public/analogs/*/session.json` — Databento-sourced 5-minute
+  RTH sessions. No live fetch; the backtest runs fully offline. The
+  engine also supports `--source daily` (the daily charts under
+  `public/data/`) and `--source remote` (a live `/api/bars`), but the
+  result of record is the **intraday** run.
+- **Resolution**: 5-minute RTH bars. The wedge detector is
+  timeframe-agnostic; on intraday bars it finds *intraday* wedges, one
+  per RTH session.
+- **Universe**: ~11 liquid US equities and index ETFs (AAPL, MSFT,
+  NVDA, AMD, TSLA, META, GOOGL, SPY, QQQ, IWM, …) — whatever the
+  corpus covers.
+- **Sample**: 2,875 sessions; 2,095 wedge breakouts detected; 1,484
+  with an executable structural stop (see §5.2).
 
-### 2.1 Split adjustment
+### 2.1 Price scaling
 
-`/api/bars` data is raw (not split-adjusted). This matters more for a
-daily-bar swing strategy than for an intraday one, because a wedge can
-span a split. The detector and the simulator are nonetheless
-split-robust: a stock split is a clean ratio applied to every price,
-so the *shape* of a wedge (slopes, convergence ratio) and every
-per-trade quantity (R-multiples, percentage moves) are unchanged by
-it. The one exception is a trendline fit across a split date, where
-two differently-scaled price regimes are mixed — those few wedges are
-noise in the aggregate and are catalogued as a known limitation
-(§7).
+A subset of the corpus sessions store raw Databento fixed-point
+prices (integer nano-dollars, ×1e9). The loader detects a non-price
+magnitude (median close > 1e6) and rescales by 1e9. Because every
+quantity the backtest reports is a ratio (R-multiples, percentages),
+rescaling changes nothing in the result — it only keeps printed
+prices and the per-share commission sane. Sessions with a zero or
+negative price are dropped.
 
 ## 3. Detection — no hindsight
 
@@ -126,23 +129,31 @@ This is the setup's actual invalidation level — if price falls back
 through the wedge, the breakout thesis is wrong. The stop is chosen
 by setup structure, not by what optimises the curve.
 
+A trade whose structural stop lands closer than **0.15% of price**
+(`MIN_RISK_FRAC`) to the entry is **skipped** — a stop that tight is
+inside the spread-plus-slippage band and is not a real, executable
+trade. This is an execution-realism filter, pre-registered, not a
+performance filter: it is applied identically to winners and losers.
+It removes 611 of the 2,095 detected breakouts, leaving 1,484.
+
 ### 5.3 Target & time stop
 
 Reported as a declared grid — targets {1R, 1.5R, 2R, 3R} × horizons
-{20 trading days, 40 trading days}. The **primary, pre-registered**
-configuration is **2R / 20d**. All eight cells are reported; the
-primary is headlined. If an edge appears in only one cell, the report
-says so — that is noise, not signal.
+{20 bars, 40 bars} held before the time-stop. The **primary,
+pre-registered** configuration is **2R / 20 bars**. All eight cells
+are reported; the primary is headlined. If an edge appears in only one
+cell, the report says so — that is noise, not signal.
 
 If neither stop nor target is hit by the horizon, the position is
 closed at market on the last bar of the window (time stop).
 
 ### 5.4 Intrabar path
 
-The fill simulation walks **daily bars**. When a single daily bar's
-range contains both the stop and the target, the order of touches is
-unknowable from OHLC, so the trade is scored **stopped
-(conservative)**. This can only understate performance.
+The fill simulation walks bars at the detection resolution (5-minute
+for the intraday run). When a single bar's range contains both the
+stop and the target, the order of touches is unknowable from OHLC, so
+the trade is scored **stopped (conservative)**. This can only
+understate performance.
 
 ### 5.5 Transaction costs
 
@@ -174,29 +185,61 @@ commission_R, where the fills include slippage.
   the same window — if the random benchmark earns as much, the wedge
   signal added nothing.
 
-## 7. Known limitations
+## 7. Result of record
 
-- **Survivorship**: the universe is "today's liquid names." All
-  traded the full window, so there is no dropped-loser bias inside
-  the window — but the selection itself is hindsight and a strict
-  review should note it.
-- **Splits across a trendline** (§2.1): the handful of wedges whose
-  pivots straddle a split date mix two price scales. Immaterial in
-  aggregate; catalogued for auditability.
-- **Daily intrabar resolution**: a daily bar that straddles stop and
-  target is scored as a stop. Conservative, but coarse.
-- **One partial market cycle**: 5.4 years is a single broad regime
-  span. The by-tertile and benchmark views are the guards against a
-  lucky stretch carrying the result.
+The intraday run is **net negative**, and the backtest reports that
+plainly rather than hunting for a flattering cut:
 
-## 8. Reproduce
+| Cut (primary 2R / 20 bars) | n | Expectancy | Win | Profit factor |
+|---|---|---|---|---|
+| All trades | 1,484 | **−0.090R** (CI95 −0.146…−0.034) | 43.4% | 0.83 |
+| Falling wedges | 703 | −0.110R | 43.5% | 0.79 |
+| Rising wedges | 781 | −0.072R | 43.3% | 0.87 |
+| Random-entry benchmark | 1,484 | −0.003R | — | — |
+
+- **Every cell of the 4×2 target/horizon grid is negative.** There is
+  no cell to cherry-pick — consistent with "an edge in one cell only
+  is noise."
+- **The detector's score is mildly anti-predictive**: score tertile 1
+  −0.049R, tertile 2 −0.091R, tertile 3 −0.129R. Tighter, more
+  converged wedges did *worse*, not better.
+- **The edge does not survive costs** — it is already negative at 1×
+  and reaches −0.39R at 3× costs.
+
+Read straight: a naive wedge breakout, entered mechanically on the
+breakout close with a structural stop, has **no positive edge** on
+this 5-minute intraday sample. The benchmark (≈0R) confirms the loss
+is the setup, not market drift. The value of this exercise is the
+honest negative — the detector and harness are unbiased enough to say
+so. Any future wedge strategy would need a genuine filter (context,
+regime, confirmation) that this V1 does not have.
+
+## 8. Known limitations
+
+- **Survivorship**: the universe is "today's liquid names." A strict
+  review should note the selection itself is hindsight.
+- **Intraday-only wedges**: each session is one RTH day, so these are
+  *intraday* wedges. A multi-day swing wedge would need a continuous
+  daily series — run `--source daily` or `--source remote` once a
+  working `/api/bars` is available.
+- **5-minute intrabar resolution**: a 5-min bar that straddles stop
+  and target is scored as a stop. Conservative, but coarse.
+- **Single regime span**: the corpus covers roughly one year. The
+  by-tertile and benchmark views are the guards against a lucky
+  stretch carrying the result.
+
+## 9. Reproduce
 
 ```
-# full backtest (fetches + caches daily bars under artifacts/)
+# full backtest on the committed intraday corpus (no network)
 python3 scripts/ml/backtest_wedge.py
 
-# the unbiased scanner — wedges that broke out in the last 5 sessions
+# the unbiased scanner — wedges that broke out in the last 5 bars
 python3 scripts/ml/backtest_wedge.py scan
+
+# daily-chart variant / live variant
+python3 scripts/ml/backtest_wedge.py --source daily
+python3 scripts/ml/backtest_wedge.py --source remote
 
 # simulator unit check (no network)
 python3 scripts/ml/backtest_wedge.py --selftest

@@ -23,14 +23,22 @@ Why this backtest is unbiased — the property Will asked for:
     reported alongside, so a reader can see whether the wedge edge is
     real or just market drift.
 
+Data source (`--source`, default `intraday`):
+
+  * `intraday` — 5-minute RTH sessions from the analog corpus already
+    committed under public/analogs/*/session.json. No network.
+  * `daily`    — daily charts committed under public/data/. No network.
+  * `remote`   — daily bars fetched from a running `/api/bars`.
+
 Two modes:
 
     python3 scripts/ml/backtest_wedge.py             # full backtest
-    python3 scripts/ml/backtest_wedge.py scan        # today's live wedges
+    python3 scripts/ml/backtest_wedge.py scan        # fresh wedge breakouts
     python3 scripts/ml/backtest_wedge.py --selftest  # simulator unit check
 
 `scan` is the unbiased scanner: it runs the identical detector over the
-most recent daily bars and lists the wedges that have just broken out.
+most recent bars of each series and lists the wedges that just broke
+out.
 """
 
 from __future__ import annotations
@@ -62,11 +70,15 @@ COMMISSION_PER_SHARE = 0.005     # USD, each side
 ENTRY_SLIPPAGE_BPS = 2.0         # market entry crosses the spread
 STOP_SLIPPAGE_BPS = 4.0          # stops are market orders in motion
 TICK = 0.01                      # structural stop offset
+MIN_RISK_FRAC = 0.0015           # a structural stop closer than 0.15%
+                                 # of price is inside the spread +
+                                 # slippage band — not a real,
+                                 # executable trade, so it is skipped.
 
 TARGET_R_GRID = [1.0, 1.5, 2.0, 3.0]
-HORIZON_GRID = {"20d": 20, "40d": 40}   # trading days held before time-stop
+HORIZON_GRID = {"20bar": 20, "40bar": 40}  # bars held before the time-stop
 PRIMARY_TARGET_R = 2.0
-PRIMARY_HORIZON = "20d"
+PRIMARY_HORIZON = "20bar"
 
 RANDOM_STATE = 17
 
@@ -131,6 +143,127 @@ def fetch_daily_bars(
     return bars
 
 
+def _bars_from_chart(chart: dict) -> list[Bar]:
+    """Convert a {timeframe, bars:[{t,o,h,l,c,v}]} chart block to Bars."""
+    out: list[Bar] = []
+    for b in chart.get("bars") or []:
+        try:
+            out.append(Bar(
+                t=int(b["t"]), o=float(b["o"]), h=float(b["h"]),
+                l=float(b["l"]), c=float(b["c"]), v=float(b.get("v") or 0)))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def load_local_daily_bars() -> dict[str, list[Bar]]:
+    """Build per-ticker daily bar series from the daily charts already
+    committed under public/data/ — no network, no Databento.
+
+    Sources, all carrying {timeframe:'daily', bars:[...]} chart blocks:
+      * public/data/cc-history/*.json          (ccLeaders / leaders)
+      * public/data/clean-weekly-breakouts.json (leaders / ccLeaders)
+      * public/data/gap-up-ft-study/setup-chart-history.json
+
+    A ticker that appears in several files has its bars merged and
+    de-duplicated by timestamp, so overlapping windows extend the
+    series rather than colliding.
+    """
+    data_dir = ROOT / "public" / "data"
+    by_ticker: dict[str, dict[int, Bar]] = {}
+
+    def ingest(ticker: str, chart: object) -> None:
+        if not isinstance(chart, dict) or chart.get("timeframe") != "daily":
+            return
+        slot = by_ticker.setdefault(str(ticker).upper(), {})
+        for bar in _bars_from_chart(chart):
+            slot[bar.t] = bar
+
+    def ingest_leaders(blob: dict) -> None:
+        for key in ("leaders", "ccLeaders"):
+            for ld in blob.get(key) or []:
+                if isinstance(ld, dict) and ld.get("ticker"):
+                    ingest(ld["ticker"], ld.get("chart"))
+
+    for path in sorted((data_dir / "cc-history").glob("*.json")):
+        if path.stem == "index":
+            continue
+        try:
+            ingest_leaders(json.loads(path.read_text()))
+        except (json.JSONDecodeError, OSError):
+            continue
+
+    weekly = data_dir / "clean-weekly-breakouts.json"
+    if weekly.exists():
+        try:
+            ingest_leaders(json.loads(weekly.read_text()))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    gap_hist = data_dir / "gap-up-ft-study" / "setup-chart-history.json"
+    if gap_hist.exists():
+        try:
+            for entry in json.loads(gap_hist.read_text()) or []:
+                if isinstance(entry, dict) and entry.get("ticker"):
+                    ingest(entry["ticker"], entry.get("chart"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return {
+        sym: [slot[t] for t in sorted(slot)]
+        for sym, slot in by_ticker.items()
+    }
+
+
+def load_intraday_sessions() -> dict[str, list[Bar]]:
+    """Build per-session intraday 5-minute bar series from the analog
+    corpus already committed under public/analogs/*/session.json.
+
+    Each session.json holds one full RTH day as parallel arrays
+    (open/high/low/close/times). The key is the session slug
+    ('2025-12-08_QQQ'); bar timestamps are synthesised from the slug
+    date plus the HH:MM times so each bar has a unique epoch. No
+    network, no Databento.
+    """
+    import calendar
+
+    analogs_dir = ROOT / "public" / "analogs"
+    out: dict[str, list[Bar]] = {}
+    for session_path in sorted(analogs_dir.glob("*/session.json")):
+        slug = session_path.parent.name           # '2025-12-08_QQQ'
+        date_str = slug.split("_", 1)[0]
+        try:
+            y, m, d = (int(x) for x in date_str.split("-"))
+            day_epoch = calendar.timegm((y, m, d, 0, 0, 0, 0, 0, 0))
+            blob = json.loads(session_path.read_text())
+        except (ValueError, json.JSONDecodeError, OSError):
+            continue
+        o, h = blob.get("open") or [], blob.get("high") or []
+        lo, c = blob.get("low") or [], blob.get("close") or []
+        times = blob.get("times") or []
+        n = min(len(o), len(h), len(lo), len(c), len(times))
+        # Some corpus sessions store raw Databento fixed-point prices
+        # (scaled by 1e9). Detect a clearly non-price magnitude and
+        # rescale; ratios (and therefore every R-multiple) are
+        # unchanged, but commission-per-share and printed prices become
+        # sane.
+        closes = sorted(float(x) for x in c[:n] if x)
+        scale = 1e9 if closes and closes[len(closes) // 2] > 1e6 else 1.0
+        bars: list[Bar] = []
+        for i in range(n):
+            try:
+                hh, mm = (int(x) for x in str(times[i]).split(":"))
+                bars.append(Bar(
+                    t=day_epoch + hh * 3600 + mm * 60,
+                    o=float(o[i]) / scale, h=float(h[i]) / scale,
+                    l=float(lo[i]) / scale, c=float(c[i]) / scale))
+            except (ValueError, TypeError):
+                continue
+        if len(bars) > 40:
+            out[slug] = bars
+    return out
+
+
 # ===== trade simulation (pure function) ===============================
 
 def simulate_wedge_trade(
@@ -184,6 +317,8 @@ def simulate_wedge_trade(
         risk = stop - ideal_entry
     if risk <= 0:
         return None  # entry already through the stop — not takeable
+    if risk < MIN_RISK_FRAC * ideal_entry:
+        return None  # stop tighter than the spread — not executable
 
     target = (ideal_entry + target_r * risk) if direction == "long" \
         else (ideal_entry - target_r * risk)
@@ -315,23 +450,41 @@ def random_entry_benchmark(
 
 # ===== modes ==========================================================
 
-def run_backtest(base_url: str, date_from: str, date_to: str) -> int:
+def run_backtest(
+    base_url: str, date_from: str, date_to: str, *, source: str,
+) -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"Fetching daily bars for {len(UNIVERSE)} symbols "
-          f"({date_from} -> {date_to})...", flush=True)
 
     bars_by_symbol: dict[str, list[Bar]] = {}
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        futures = {
-            pool.submit(fetch_daily_bars, base_url, s, date_from, date_to): s
-            for s in UNIVERSE
+    if source == "intraday":
+        print("Loading intraday 5-min sessions from public/analogs/ "
+              "(no network)...", flush=True)
+        bars_by_symbol = load_intraday_sessions()
+        print(f"  loaded {len(bars_by_symbol)} intraday sessions",
+              flush=True)
+    elif source == "daily":
+        print("Loading daily bars from public/data/ (no network)...",
+              flush=True)
+        bars_by_symbol = {
+            s: b for s, b in load_local_daily_bars().items() if len(b) > 40
         }
-        for fut in as_completed(futures):
-            sym = futures[fut]
-            bars = fut.result()
-            if bars and len(bars) > 60:
-                bars_by_symbol[sym] = bars
-    print(f"  loaded {len(bars_by_symbol)}/{len(UNIVERSE)} symbols", flush=True)
+        print(f"  loaded {len(bars_by_symbol)} symbols from local data",
+              flush=True)
+    else:
+        print(f"Fetching daily bars for {len(UNIVERSE)} symbols "
+              f"({date_from} -> {date_to})...", flush=True)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = {
+                pool.submit(fetch_daily_bars, base_url, s, date_from, date_to): s
+                for s in UNIVERSE
+            }
+            for fut in as_completed(futures):
+                sym = futures[fut]
+                bars = fut.result()
+                if bars and len(bars) > 60:
+                    bars_by_symbol[sym] = bars
+        print(f"  loaded {len(bars_by_symbol)}/{len(UNIVERSE)} symbols",
+              flush=True)
     if not bars_by_symbol:
         print("No data — aborting.", file=sys.stderr)
         return 1
@@ -381,7 +534,8 @@ def run_backtest(base_url: str, date_from: str, date_to: str) -> int:
 
     report: dict = {
         "config": {
-            "window": [date_from, date_to],
+            "data_source": source,
+            "window": [date_from, date_to] if source == "remote" else None,
             "universe_size": len(bars_by_symbol),
             "primary_target_r": PRIMARY_TARGET_R,
             "primary_horizon": PRIMARY_HORIZON,
@@ -434,47 +588,58 @@ def run_backtest(base_url: str, date_from: str, date_to: str) -> int:
     return 0
 
 
-def run_scan(base_url: str, lookback_bars: int) -> int:
+def run_scan(base_url: str, lookback_bars: int, *, source: str) -> int:
     """The unbiased scanner: run the identical detector over recent
-    daily bars and list wedges that broke out in the last
-    `lookback_bars` sessions."""
-    today = time.strftime("%Y-%m-%d")
-    # ~2 trading years of context so trendlines have room to form.
-    date_from = time.strftime(
-        "%Y-%m-%d", time.gmtime(time.time() - 2 * 365 * 86400))
-    print(f"Scanning {len(UNIVERSE)} symbols for fresh wedge breakouts "
-          f"(last {lookback_bars} bars)...", flush=True)
+    bars and list wedges that broke out in the last `lookback_bars`
+    bars of each series."""
+    bars_by_symbol: dict[str, list[Bar]] = {}
+    if source == "intraday":
+        print("Scanning intraday sessions from public/analogs/ for fresh "
+              "wedge breakouts...", flush=True)
+        bars_by_symbol = load_intraday_sessions()
+    elif source == "daily":
+        print("Scanning daily bars from public/data/ for fresh wedge "
+              "breakouts...", flush=True)
+        bars_by_symbol = {
+            s: b for s, b in load_local_daily_bars().items() if len(b) > 40
+        }
+    else:
+        today = time.strftime("%Y-%m-%d")
+        date_from = time.strftime(
+            "%Y-%m-%d", time.gmtime(time.time() - 2 * 365 * 86400))
+        print(f"Scanning {len(UNIVERSE)} symbols for fresh wedge "
+              f"breakouts...", flush=True)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = {
+                pool.submit(fetch_daily_bars, base_url, s, date_from, today): s
+                for s in UNIVERSE
+            }
+            for fut in as_completed(futures):
+                bars = fut.result()
+                if bars and len(bars) >= 60:
+                    bars_by_symbol[futures[fut]] = bars
 
     hits: list[dict] = []
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        futures = {
-            pool.submit(fetch_daily_bars, base_url, s, date_from, today): s
-            for s in UNIVERSE
-        }
-        for fut in as_completed(futures):
-            sym = futures[fut]
-            bars = fut.result()
-            if not bars or len(bars) < 60:
-                continue
-            cutoff = len(bars) - lookback_bars
-            for sig in detect_wedges(bars):
-                if sig.fired_bar_index >= cutoff:
-                    hits.append({
-                        "symbol": sym,
-                        "wedge_type": sig.wedge_type,
-                        "direction": sig.direction,
-                        "fire_ts": sig.fire_ts,
-                        "bars_ago": len(bars) - 1 - sig.fired_bar_index,
-                        "score": round(sig.score, 3),
-                        "convergence": round(sig.convergence, 3),
-                    })
+    for sym, bars in bars_by_symbol.items():
+        cutoff = len(bars) - lookback_bars
+        for sig in detect_wedges(bars):
+            if sig.fired_bar_index >= cutoff:
+                hits.append({
+                    "symbol": sym,
+                    "wedge_type": sig.wedge_type,
+                    "direction": sig.direction,
+                    "fire_ts": sig.fire_ts,
+                    "bars_ago": len(bars) - 1 - sig.fired_bar_index,
+                    "score": round(sig.score, 3),
+                    "convergence": round(sig.convergence, 3),
+                })
 
     hits.sort(key=lambda h: (-h["score"], h["bars_ago"]))
     print(f"\n{len(hits)} fresh wedge breakout(s):\n")
     for h in hits:
-        ts = time.strftime("%Y-%m-%d", time.gmtime(h["fire_ts"]))
-        print(f"  {h['symbol']:<6} {h['wedge_type']:<8} "
-              f"{h['direction']:<6} fired {ts} ({h['bars_ago']}d ago)  "
+        ts = time.strftime("%Y-%m-%d %H:%M", time.gmtime(h["fire_ts"]))
+        print(f"  {h['symbol']:<18} {h['wedge_type']:<8} "
+              f"{h['direction']:<6} fired {ts} ({h['bars_ago']} bars ago)  "
               f"score={h['score']:<6} conv={h['convergence']}")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = OUT_DIR / "wedge_scan.json"
@@ -533,6 +698,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--to", dest="date_to", default=DEFAULT_TO)
     parser.add_argument("--lookback", type=int, default=5,
                         help="scan mode: how many recent bars count as fresh")
+    parser.add_argument("--source", default="intraday",
+                        choices=["intraday", "daily", "remote"],
+                        help="bar data source: intraday 5-min sessions "
+                             "(public/analogs), daily charts (public/data), "
+                             "or remote /api/bars")
     parser.add_argument("--selftest", action="store_true",
                         help="run the simulator unit check and exit")
     args = parser.parse_args(argv)
@@ -540,8 +710,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.selftest:
         return run_selftest()
     if args.mode == "scan":
-        return run_scan(args.base_url, args.lookback)
-    return run_backtest(args.base_url, args.date_from, args.date_to)
+        return run_scan(args.base_url, args.lookback, source=args.source)
+    return run_backtest(args.base_url, args.date_from, args.date_to,
+                        source=args.source)
 
 
 if __name__ == "__main__":
