@@ -14,6 +14,8 @@ interface SpikeExample {
   entry_price: number
   stop_price: number
   target_price: number
+  scale_in_prices: number[]
+  tranches_filled: number
   spike_bar_count: number
   exit_reason: string
   net_r: number
@@ -28,6 +30,7 @@ interface Verdict {
 }
 
 interface ExamplesPayload {
+  sessions_tested?: number
   verdict: Verdict
   opening_verdict: Verdict
   examples: SpikeExample[]
@@ -37,17 +40,19 @@ const EXIT_STYLE: Record<string, { label: string; cls: string }> = {
   target: { label: "hit target", cls: "text-teal" },
   stop: { label: "stopped out", cls: "text-red" },
   stop_straddle: { label: "stopped out", cls: "text-red" },
+  breakeven: { label: "scratched flat", cls: "text-sub" },
+  breakeven_straddle: { label: "scratched flat", cls: "text-sub" },
   time: { label: "timed out", cls: "text-sub" },
 }
 
 /**
  * /spikes — a study gallery of Al Brooks opening-spike trades.
  *
- * Each card is a real detected spike from the 2,266-session backtest:
- * the 3+ spike bars painted gold, with the entry / stop / measured-move
- * target lines the setup specifies. The header states the backtest
- * verdict honestly — the setup is a null — so the gallery reads as a
- * study, not a pitch.
+ * Each card is a real detected spike, traded the way Brooks scales into
+ * a spike: the signal-bar entry plus pullback adds behind one wide
+ * protective stop, that stop trailed to breakeven once the trade works,
+ * and the whole position exited at the measured move. The header states
+ * the backtest verdict from the downloaded historical sessions.
  */
 export function SpikesView() {
   const [data, setData] = useState<ExamplesPayload | null>(null)
@@ -71,11 +76,14 @@ export function SpikesView() {
         <h1 className="text-2xl font-bold tracking-tight">Spikes</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-sub">
           A study gallery of Al Brooks <span className="text-text">opening-spike</span>{" "}
-          trades — 3+ consecutive strong trend bars off the open. Each chart
-          paints the spike bars gold, with the entry (close of the 3rd bar),
-          the stop (1 tick beyond the spike start), and the measured-move
-          target (the spike&apos;s own height projected forward) — exactly as
-          Brooks specifies in <em>Trading Price Action</em>.
+          trades — 3+ consecutive strong trend bars off the open — traded the
+          way Brooks <span className="text-text">scales into a spike</span>:
+          the signal-bar entry (close of the 3rd bar) plus pullback adds, all
+          behind a single <span className="text-text">wide protective stop</span>{" "}
+          that trails to breakeven once the trade works, with the whole
+          position exited at the measured-move target. Each chart paints the
+          spike bars gold and the entry / wide-stop / target lines — the
+          method from <em>Trading Price Action</em>.
         </p>
       </header>
 
@@ -85,21 +93,28 @@ export function SpikesView() {
             Backtest verdict
           </span>
           <p className="mt-1.5">
-            Tested on {data.verdict.n.toLocaleString()} spikes across 2,266
-            sessions with realistic costs. Brooks claims the measured move is
-            reached ≥ 60% of the time; the realized rate is{" "}
-            <span className="font-semibold text-text">
-              {Math.round(data.verdict.target_hit_rate * 100)}%
-            </span>
-            . Opening spikes — the cohort below — came in at expectancy{" "}
+            Tested on {data.verdict.n.toLocaleString()} detected spikes across{" "}
+            {(data.sessions_tested ?? 0).toLocaleString()} downloaded sessions
+            with realistic costs. Traded single-entry on the tight stop the
+            setup loses; scaled in behind the wide stop it turns a profit —
+            opening spikes, the cohort below, show expectancy{" "}
             <span className="font-mono text-text">
               {data.opening_verdict.expectancy_r >= 0 ? "+" : ""}
               {data.opening_verdict.expectancy_r.toFixed(3)}R
             </span>{" "}
-            (95% CI [{data.opening_verdict.expectancy_ci95[0].toFixed(3)},{" "}
-            {data.opening_verdict.expectancy_ci95[1].toFixed(3)}] — crosses
-            zero). <span className="text-text">No tradeable edge.</span> This
-            page is a study of what the pattern looks like, not a signal.
+            at a {(data.opening_verdict.profit_factor ?? 0).toFixed(2)} profit
+            factor (95% CI [{data.opening_verdict.expectancy_ci95[0].toFixed(3)},{" "}
+            {data.opening_verdict.expectancy_ci95[1].toFixed(3)}]
+            {data.opening_verdict.expectancy_ci95[0] < 0
+              ? " — still includes zero, so a positive read, not a certain one"
+              : ""}
+            ). The full measured move is reached only{" "}
+            <span className="font-semibold text-text">
+              {Math.round(data.verdict.target_hit_rate * 100)}%
+            </span>{" "}
+            of the time — by design: the breakeven trail scratches most trades
+            flat before the full move, and the edge comes from the scaled-in
+            winners that do run.
           </p>
         </div>
       )}
@@ -159,7 +174,8 @@ function SpikeCard({ ex }: { ex: SpikeExample }) {
         <LightweightChart chart={chart} height={240} interactive={false} hideScales={false} />
       </div>
       <div className="px-3 py-1.5 font-mono text-[10px] tabular-nums text-sub">
-        {ex.spike_bar_count}-bar spike · entry {ex.entry_price.toFixed(2)} · stop{" "}
+        {ex.spike_bar_count}-bar spike · entry {ex.entry_price.toFixed(2)} · scaled
+        to {ex.tranches_filled}/{ex.scale_in_prices.length} · wide stop{" "}
         {ex.stop_price.toFixed(2)} · target {ex.target_price.toFixed(2)}
       </div>
     </div>
