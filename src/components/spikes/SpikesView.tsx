@@ -25,20 +25,26 @@ interface VariantTrade {
   net_r: number
 }
 
+interface ChartBlock {
+  timeframe: ChartTimeframe
+  label: string
+  bars: { t: number; o: number; h: number; l: number; c: number }[]
+  gold: number[]    // microchannel / spike bars
+  violet: number[]  // first-pullback bars
+  entry: number
+  stop: number
+  target: number
+}
+
 interface McExample {
   symbol: string
   session_date: string
   direction: "long" | "short"
   resolution: "1min" | "5min"
-  timeframe: ChartTimeframe
-  bars: { t: number; o: number; h: number; l: number; c: number }[]
-  microchannel_bar_ts: number[]
-  pullback_bar_ts: number[]
-  signal_ts: number
-  fire_ts: number
   raw_spike_entry: number
   entry_price: number
   variants: Partial<Record<VariantKey, VariantTrade>>
+  charts: ChartBlock[]
 }
 
 interface McPayload {
@@ -251,29 +257,29 @@ function VariantPanel({
   )
 }
 
+function chartDataFor(cb: ChartBlock): ChartData {
+  const gold = new Set(cb.gold)
+  return {
+    bars: cb.bars,
+    timeframe: cb.timeframe,
+    annotations: {
+      highlightBars: [
+        ...cb.gold.map((t) => ({ time: t, color: SPIKE_COLOR })),
+        ...cb.violet
+          .filter((t) => !gold.has(t))
+          .map((t) => ({ time: t, color: PULLBACK_COLOR })),
+      ],
+      entryPrice: cb.entry,
+      stopPrice: cb.stop,
+      targetPrice: cb.target,
+    },
+  }
+}
+
 function SpikeCard({ ex, variant }: { ex: McExample; variant: VariantKey }) {
   const trade = ex.variants[variant] ?? Object.values(ex.variants)[0]
   if (!trade) return null
 
-  const microTs = new Set(ex.microchannel_bar_ts)
-  const highlightBars = [
-    ...ex.microchannel_bar_ts.map((t) => ({ time: t, color: SPIKE_COLOR })),
-    // A pullback bar never coincides with a microchannel bar, but guard anyway.
-    ...ex.pullback_bar_ts
-      .filter((t) => !microTs.has(t))
-      .map((t) => ({ time: t, color: PULLBACK_COLOR })),
-  ]
-
-  const chart: ChartData = {
-    bars: ex.bars,
-    timeframe: ex.timeframe,
-    annotations: {
-      highlightBars,
-      entryPrice: ex.entry_price,
-      stopPrice: trade.stop,
-      targetPrice: trade.target,
-    },
-  }
   const exit = EXIT_STYLE[trade.exit_reason] ?? {
     label: trade.exit_reason,
     cls: "text-sub",
@@ -311,13 +317,22 @@ function SpikeCard({ ex, variant }: { ex: McExample; variant: VariantKey }) {
           </span>
         </div>
       </div>
-      <div className="border-t border-border/60">
-        <LightweightChart chart={chart} height={240} interactive={false} hideScales={false} />
-      </div>
-      <div className="px-3 py-1.5 font-mono text-[10px] tabular-nums text-sub">
+      {ex.charts.map((cb, i) => (
+        <div key={`${cb.timeframe}-${i}`} className="border-t border-border/60">
+          <div className="px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-sub">
+            {cb.label}
+          </div>
+          <LightweightChart
+            chart={chartDataFor(cb)}
+            height={210}
+            interactive={false}
+            hideScales={false}
+          />
+        </div>
+      ))}
+      <div className="border-t border-border/60 px-3 py-1.5 font-mono text-[10px] tabular-nums text-sub">
         spike entry {ex.raw_spike_entry.toFixed(2)} → H1/L1{" "}
-        <span className="text-text">{ex.entry_price.toFixed(2)}</span> · stop{" "}
-        {trade.stop.toFixed(2)} · target {trade.target.toFixed(2)}
+        <span className="text-text">{ex.entry_price.toFixed(2)}</span>
       </div>
     </div>
   )

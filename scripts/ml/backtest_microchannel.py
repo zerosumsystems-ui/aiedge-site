@@ -195,6 +195,74 @@ def locate(ex):
             "mc": mc, "spike_start": sidx[0]}
 
 
+def build_page_example(rec, chosen):
+    """Assemble a per-symbol card payload: the 5-min chart and, when the
+    session was traded at 1-minute resolution, the 1-min chart beside it."""
+    ex = rec["ex"]
+    info = rec["info"]
+    mc = rec["mc"]
+    variants = rec["variants"]
+    rows = info["rows"]
+    is_1m = info["resolution"] == "1min"
+    trade = variants.get(chosen) or next(iter(variants.values()))
+
+    micro_ts = [rows[i]["t"]
+                for i in range(info["spike_start"], mc.lead_end_index + 1)]
+    pullback_ts = [rows[i]["t"] for i in mc.pullback_bar_indices]
+
+    # The microchannel-pullback chart. A 1-min session is windowed around
+    # the trade (capped at 120 bars) so the card stays legible; a 5-min
+    # session renders whole.
+    if is_1m and variants:
+        exit_idx = max(t["exit_index"] for t in variants.values())
+        w0 = max(0, info["spike_start"] - 8)
+        w1 = min(len(rows), exit_idx + 5)
+        if w1 - w0 > 120:
+            w1 = w0 + 120
+        view_rows = rows[w0:w1]
+    else:
+        view_rows = rows
+
+    charts = []
+    if is_1m:
+        # The 5-min chart frames the trade: the opening spike itself.
+        charts.append({
+            "timeframe": "5min",
+            "label": "5-min · opening spike",
+            "bars": ex["bars"],
+            "gold": ex["spike_bar_ts"],
+            "violet": [],
+            "entry": ex["entry_price"],
+            "stop": ex["stop_price"],
+            "target": ex["target_price"],
+        })
+    charts.append({
+        "timeframe": "1min" if is_1m else "5min",
+        "label": ("1-min · microchannel pullback" if is_1m
+                  else "5-min · microchannel pullback"),
+        "bars": view_rows,
+        "gold": micro_ts,
+        "violet": pullback_ts,
+        "entry": mc.entry_price,
+        "stop": trade["stop"],
+        "target": trade["target"],
+    })
+
+    return {
+        "symbol": ex["symbol"],
+        "session_date": ex["session_date"],
+        "direction": ex["direction"],
+        "resolution": info["resolution"],
+        "raw_spike_entry": ex["entry_price"],
+        "entry_price": mc.entry_price,
+        "variants": {
+            k: {kk: vv for kk, vv in v.items() if kk != "exit_index"}
+            for k, v in variants.items()
+        },
+        "charts": charts,
+    }
+
+
 def main() -> int:
     if not EXAMPLES_IN.exists():
         print(f"ERROR: {EXAMPLES_IN} not found", file=sys.stderr)
@@ -204,7 +272,7 @@ def main() -> int:
 
     per_variant = {v: [] for v in VARIANTS}
     per_variant_1m = {v: [] for v in VARIANTS}
-    page_examples = []
+    records = []
     no_pullback = 0
     n_1min = 0
 
@@ -242,44 +310,9 @@ def main() -> int:
                 "target": round(target, 4),
                 "exit_reason": sim["exit_reason"],
                 "net_r": sim["net_r"],
+                "exit_index": sim["exit_index"],
             }
-
-        # Bars for the chart card. 1-min sessions are windowed around the
-        # trade so the card stays readable; 5-min sessions render whole.
-        if is_1m and variants_out:
-            exit_idx = max(
-                simulate(direction, mc.entry_price,
-                         *variant_levels(v, direction, mc, ex),
-                         bars, mc.fire_index)["exit_index"]
-                for v in variants_out
-            )
-            w0 = max(0, info["spike_start"] - 8)
-            w1 = min(len(rows), exit_idx + 5)
-            # Keep the card readable — cap at 120 one-minute bars so the
-            # microchannel and its pullback stay legible.
-            if w1 - w0 > 120:
-                w1 = w0 + 120
-            view_rows = rows[w0:w1]
-        else:
-            view_rows = rows
-
-        page_examples.append({
-            "symbol": ex["symbol"],
-            "session_date": ex["session_date"],
-            "direction": direction,
-            "resolution": info["resolution"],
-            "timeframe": "1min" if is_1m else "5min",
-            "bars": view_rows,
-            "microchannel_bar_ts": [
-                rows[i]["t"] for i in range(info["spike_start"], mc.lead_end_index + 1)
-            ],
-            "pullback_bar_ts": [rows[i]["t"] for i in mc.pullback_bar_indices],
-            "signal_ts": rows[mc.signal_index]["t"],
-            "fire_ts": rows[mc.fire_index]["t"],
-            "raw_spike_entry": ex["entry_price"],
-            "entry_price": mc.entry_price,
-            "variants": variants_out,
-        })
+        records.append({"ex": ex, "info": info, "mc": mc, "variants": variants_out})
 
     variant_summary = {
         v: summarize(per_variant[v], f"variant {v} — {VARIANT_LABEL[v]}")
@@ -296,12 +329,18 @@ def main() -> int:
                        variant_summary[v]["target_hit_rate"]),
     ) if traded else None
 
+    page_examples = [build_page_example(r, chosen) for r in records]
+    # Lead with the dual-timeframe (1-minute) cards — that is the cohort
+    # this refinement is really about.
+    page_examples.sort(key=lambda e: 0 if e["resolution"] == "1min" else 1)
+
     note = (
         f"Microchannel-pullback refinement applied to {len(page_examples)} "
         f"curated spike examples — {n_1min} run on true 1-minute bars (the "
-        f"pullback found inside the 5-min spike), the rest on 5-min bars. "
-        f"{no_pullback} example(s) produced no qualifying first pullback. "
-        f"A study gallery, not a full-corpus verdict."
+        f"pullback found inside the 5-min spike, shown beside its 5-min "
+        f"spike), the rest on 5-min bars. {no_pullback} example(s) produced "
+        f"no qualifying first pullback. A study gallery, not a full-corpus "
+        f"verdict."
     )
 
     report = {
