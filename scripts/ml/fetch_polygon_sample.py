@@ -8,14 +8,18 @@ gallery:
   - Random, not hand-picked. Symbol-days are drawn at random.
   - Survivorship-complete. The per-day grouped snapshot includes names
     that later delisted (they appear on the days they actually traded).
-  - Tradeable universe. Each day is filtered to common stocks with
-    price >= MIN_PRICE and dollar volume >= MIN_DOLLAR_VOL — the names
-    a trader could actually have taken, not illiquid micro-caps.
+  - Extremely-liquid universe. Each day is ranked by dollar volume and
+    only the TOP_N_LIQUID common stocks are eligible. A 1-minute setup
+    can only be evaluated honestly on names whose every 1-min bar is
+    dense — thin names print zero-range single-trade minutes that wreck
+    the ATR. Random WITHIN the liquid universe is unbiased for the only
+    universe a 1-minute trade should run in.
 
 Procedure:
   1. Pick N_DATES random weekdays across the 5-year window.
   2. For each, pull Polygon's grouped daily snapshot (all US stocks),
-     keep the liquid common stocks, pick TICKERS_PER_DATE at random.
+     rank common stocks by dollar volume, keep the top TOP_N_LIQUID,
+     pick TICKERS_PER_DATE at random.
   3. Fetch each (ticker, date) 1-minute session, keep RTH bars only,
      write artifacts/backtest/bars_1m/<TICKER>_<DATE>.json.
   4. Write a manifest (sample + params + seed) for the backtest.
@@ -51,10 +55,10 @@ ET = ZoneInfo("America/New_York")
 # ----- pre-registered sampling config (fixed before any results seen) ----
 WINDOW_START = dt.date(2021, 5, 19)
 WINDOW_END = dt.date(2026, 5, 19)
-N_DATES = 520               # random trading days drawn
-TICKERS_PER_DATE = 6        # random liquid tickers per day -> ~3,000 target
-MIN_PRICE = 5.0             # tradeable: no sub-$5 names
-MIN_DOLLAR_VOL = 10_000_000 # tradeable: >= $10M traded that day
+N_DATES = 700               # random trading days drawn
+TICKERS_PER_DATE = 6        # random liquid tickers per day -> ~4,000 target
+TOP_N_LIQUID = 100          # eligible = the 100 most-traded stocks that day
+MIN_PRICE = 5.0             # sanity floor (no sub-$5 names)
 MIN_RTH_BARS = 180          # a usable session (half-days included)
 RANDOM_SEED = 17
 RTH_OPEN = dt.time(9, 30)
@@ -135,23 +139,24 @@ def load_cs_universe() -> set[str]:
 
 
 def liquid_tickers(date: str, cs: set[str]) -> list[str]:
-    """Common stocks that traded liquidly on `date` — price >= MIN_PRICE,
-    dollar volume >= MIN_DOLLAR_VOL, and in the CS universe (no ETFs,
-    funds, warrants, units, preferreds)."""
+    """The TOP_N_LIQUID most-liquid common stocks on `date`, ranked by
+    dollar volume — an extremely-liquid universe so every 1-minute bar
+    is dense. Restricted to the CS universe (no ETFs, funds, warrants,
+    units, preferreds)."""
     d = get(f"/v2/aggs/grouped/locale/us/market/stocks/{date}"
             f"?adjusted=true&include_otc=false")
     if not d or d.get("status") not in ("OK", "DELAYED") or not d.get("results"):
         return []
-    out = []
+    ranked = []
     for row in d["results"]:
         t = row.get("T")
         c = row.get("c")
         v = row.get("v")
-        if not t or c is None or v is None or t not in cs:
+        if not t or c is None or v is None or t not in cs or c < MIN_PRICE:
             continue
-        if c >= MIN_PRICE and c * v >= MIN_DOLLAR_VOL:
-            out.append(t)
-    return out
+        ranked.append((c * v, t))
+    ranked.sort(reverse=True)
+    return [t for _, t in ranked[:TOP_N_LIQUID]]
 
 
 def fetch_session(ticker: str, date: str) -> list[dict] | None:
@@ -191,8 +196,8 @@ def main() -> int:
     print(f"Common-stock universe: {len(cs)} tickers (active + delisted)")
 
     dates = random_trading_dates(args.dates, rng)
-    print(f"Drawing {args.per_date} liquid common stocks from each of "
-          f"{len(dates)} random trading days...")
+    print(f"Drawing {args.per_date} of the top {TOP_N_LIQUID} most-liquid "
+          f"common stocks from each of {len(dates)} random trading days...")
 
     sample: list[dict] = []
     empty_days = 0
@@ -222,8 +227,8 @@ def main() -> int:
             "window_end": WINDOW_END.isoformat(),
             "n_dates_drawn": len(dates),
             "tickers_per_date": args.per_date,
+            "top_n_liquid": TOP_N_LIQUID,
             "min_price": MIN_PRICE,
-            "min_dollar_volume": MIN_DOLLAR_VOL,
             "min_rth_bars": MIN_RTH_BARS,
             "random_seed": args.seed,
         },
