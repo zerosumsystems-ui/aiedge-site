@@ -172,6 +172,7 @@ def main() -> int:
     n_spikes = 0
     n_sessions = 0
     skipped_atr = 0
+    skipped_lookahead = 0
 
     for entry in sample:
         cache = CACHE_DIR / f"{entry['symbol']}_{entry['session_date']}.json"
@@ -199,6 +200,16 @@ def main() -> int:
             mc = detect_microchannel_pullback(bars1, s1, 1, sig.direction)
             if mc is None:
                 continue
+            # NO LOOK-AHEAD. The 5-min spike is not a usable signal until
+            # its 3rd bar closes — that is when a mechanical observer can
+            # know "this is a spike." A 1-minute entry that fires before
+            # that is trading on a signal that does not yet exist.
+            if sig.spike_start_index + 2 >= len(bars5):
+                continue
+            confirm_t = bars5[sig.spike_start_index + 2].t + 300
+            if bars1[mc.fire_index].t < confirm_t:
+                skipped_lookahead += 1
+                continue
             # ATR as of the signal bar — the bar before entry, fully
             # closed at entry time (no look-ahead).
             atr = atrs[max(0, mc.fire_index - 1)]
@@ -220,8 +231,9 @@ def main() -> int:
             })
             trades.append(sim)
 
-    print(f"  {n_sessions} sessions, {n_spikes} spikes, {len(trades)} trades "
-          f"({skipped_atr} skipped — degenerate ATR)")
+    print(f"  {n_sessions} sessions, {n_spikes} spikes, {len(trades)} trades")
+    print(f"  skipped: {skipped_lookahead} look-ahead (entry before the "
+          f"5-min spike confirmed), {skipped_atr} degenerate ATR")
 
     def cohort(pred, label):
         return summarize([t for t in trades if pred(t)], label)
@@ -244,6 +256,11 @@ def main() -> int:
             "sessions_scanned": n_sessions,
             "spikes_detected": n_spikes,
             "trades": len(trades),
+            "skipped_lookahead": skipped_lookahead,
+            "lookahead_note": (
+                "entries that fired before the 5-min spike's 3rd bar "
+                "closed — i.e. before the spike was a usable signal — are "
+                "discarded; including them is look-ahead bias"),
             "sample_params": manifest.get("params"),
         },
         "trade_design": {
