@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: '/scanner', label: 'Scanner' },
   { href: '/setups', label: 'Setups' },
   { href: '/spikes', label: 'Spikes' },
+  { href: '/setup-catalog', label: 'Setup Catalog' },
   { href: '/ema-touches', label: 'EMA Touches' },
   { href: '/prior-day-extremes', label: 'PD Extremes' },
   { href: '/daily-spikes', label: 'Daily Spikes' },

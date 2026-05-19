@@ -48,6 +48,18 @@ yarn-error.log*
 /artifacts/backtest/*
 !/artifacts/backtest/backtest_report.json
 !/artifacts/backtest/spike_backtest_report.json
+!/artifacts/backtest/tfo_scaled_backtest_report.json
+!/artifacts/backtest/pullback_scaled_backtest_report.json
+!/artifacts/backtest/h2l2_scaled_backtest_report.json
+!/artifacts/backtest/ii_scaled_backtest_report.json
+!/artifacts/backtest/wedge_scaled_backtest_report.json
+!/artifacts/backtest/double_top_scaled_backtest_report.json
+!/artifacts/backtest/breakout_pullback_scaled_backtest_report.json
+!/artifacts/backtest/trading_range_scaled_backtest_report.json
+!/artifacts/backtest/channel_overshoot_scaled_backtest_report.json
+!/artifacts/backtest/mtr_scaled_backtest_report.json
+!/artifacts/backtest/final_flag_scaled_backtest_report.json
+!/artifacts/backtest/climax_scaled_backtest_report.json
 
 # env files (can opt-in for committing if needed)
 .env*
