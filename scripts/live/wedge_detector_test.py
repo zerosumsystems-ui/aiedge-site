@@ -184,6 +184,33 @@ def test_backfill_equals_live_replay():
     assert_eq(replay[0], full[0], "replay signal identical to sweep signal")
 
 
+def test_quality_fields_present_and_sane():
+    """Every signal carries the four Brooks good/bad-wedge fields."""
+    sig = detect_wedges(_wedge_top())[0]
+    assert_true(isinstance(sig.is_flag, bool), "is_flag is a bool")
+    assert_true(isinstance(sig.channel_overshoot, float),
+                "channel_overshoot is a float")
+    assert_true(0.0 <= sig.reversal_strength <= 1.0,
+                "reversal_strength in [0,1]")
+    assert_true(isinstance(sig.deepening_pullbacks, bool),
+                "deepening_pullbacks is a bool")
+    assert_true(sig.score >= 3.0, "score has the base of 3")
+
+
+def test_is_flag_true_when_pushes_run_against_the_trend():
+    """A wedge top whose three pushes are a counter-rally inside a
+    prior downtrend is a Brooks bear flag -> is_flag is True."""
+    bars = build_series(
+        [(2, 130, "hi"), (10, 108, "lo"), (16, 110, "hi"), (22, 105, "lo"),
+         (28, 116, "hi"), (34, 112, "lo"), (40, 117, "hi"), (52, 100, "lo")],
+        n=56,
+    )
+    bars[44] = bear_reversal(44, bars[43].l)
+    sigs = detect_wedges(bars)
+    assert_eq(len(sigs), 1, "with-trend wedge: one signal")
+    assert_true(sigs[0].is_flag, "pushes against prior downtrend -> flag")
+
+
 def test_empty_and_short_inputs_no_crash():
     assert_eq(detect_wedges([]), [], "empty bars: no signals")
     assert_eq(detect_wedges([Bar(0, 1, 2, 1, 1.5)]), [], "one bar: no signals")
@@ -198,5 +225,7 @@ if __name__ == "__main__":
     test_no_fire_with_only_two_pushes()
     test_wedge_bottom_fires_long()
     test_backfill_equals_live_replay()
+    test_quality_fields_present_and_sane()
+    test_is_flag_true_when_pushes_run_against_the_trend()
     test_empty_and_short_inputs_no_crash()
     print("\nall wedge_detector tests passed")

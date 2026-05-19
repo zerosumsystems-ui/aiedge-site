@@ -262,52 +262,182 @@
     {
       "label": "score tertile 1",
       "n": 263,
-      "expectancy_r": -0.0321,
+      "expectancy_r": -0.1013,
       "expectancy_ci95": [
-        -0.1814,
-        0.1219
+        -0.2514,
+        0.0553
       ],
-      "win_rate": 0.4487,
-      "avg_win_r": 1.1975,
-      "avg_loss_r": -1.0327,
-      "profit_factor": 0.944,
-      "total_r": -8.44,
-      "max_drawdown_r": -21.76,
-      "sharpe_like": -0.026
+      "win_rate": 0.4068,
+      "avg_win_r": 1.2797,
+      "avg_loss_r": -1.0486,
+      "profit_factor": 0.837,
+      "total_r": -26.65,
+      "max_drawdown_r": -33.12,
+      "sharpe_like": -0.08
     },
     {
       "label": "score tertile 2",
       "n": 263,
-      "expectancy_r": -0.1171,
+      "expectancy_r": -0.1072,
       "expectancy_ci95": [
-        -0.2652,
-        0.03
+        -0.253,
+        0.0368
       ],
-      "win_rate": 0.403,
-      "avg_win_r": 1.2136,
-      "avg_loss_r": -1.0155,
-      "profit_factor": 0.807,
-      "total_r": -30.79,
-      "max_drawdown_r": -40.38,
-      "sharpe_like": -0.096
+      "win_rate": 0.4106,
+      "avg_win_r": 1.1712,
+      "avg_loss_r": -0.9979,
+      "profit_factor": 0.818,
+      "total_r": -28.18,
+      "max_drawdown_r": -38.58,
+      "sharpe_like": -0.089
     },
     {
       "label": "score tertile 3",
       "n": 264,
-      "expectancy_r": -0.1754,
+      "expectancy_r": -0.1163,
       "expectancy_ci95": [
-        -0.3215,
-        -0.0315
+        -0.2602,
+        0.034
       ],
-      "win_rate": 0.3712,
-      "avg_win_r": 1.2413,
-      "avg_loss_r": -1.0118,
-      "profit_factor": 0.724,
-      "total_r": -46.3,
-      "max_drawdown_r": -52.87,
-      "sharpe_like": -0.145
+      "win_rate": 0.4053,
+      "avg_win_r": 1.1979,
+      "avg_loss_r": -1.012,
+      "profit_factor": 0.807,
+      "total_r": -30.7,
+      "max_drawdown_r": -35.58,
+      "sharpe_like": -0.095
     }
   ],
+  "by_quality": {
+    "flag": {
+      "label": "wedge flag (with-trend)",
+      "n": 177,
+      "expectancy_r": -0.1347,
+      "expectancy_ci95": [
+        -0.3105,
+        0.0499
+      ],
+      "win_rate": 0.3898,
+      "avg_win_r": 1.2295,
+      "avg_loss_r": -1.0063,
+      "profit_factor": 0.781,
+      "total_r": -23.84,
+      "max_drawdown_r": -28.43,
+      "sharpe_like": -0.11
+    },
+    "reversal": {
+      "label": "wedge reversal (countertrend)",
+      "n": 613,
+      "expectancy_r": -0.1006,
+      "expectancy_ci95": [
+        -0.1985,
+        -0.0006
+      ],
+      "win_rate": 0.4127,
+      "avg_win_r": 1.2125,
+      "avg_loss_r": -1.0235,
+      "profit_factor": 0.833,
+      "total_r": -61.69,
+      "max_drawdown_r": -71.34,
+      "sharpe_like": -0.082
+    },
+    "channel_overshoot": {
+      "label": "third push overshot the channel line",
+      "n": 214,
+      "expectancy_r": 0.0333,
+      "expectancy_ci95": [
+        -0.1364,
+        0.2047
+      ],
+      "win_rate": 0.4486,
+      "avg_win_r": 1.3124,
+      "avg_loss_r": -1.0074,
+      "profit_factor": 1.06,
+      "total_r": 7.12,
+      "max_drawdown_r": -14.75,
+      "sharpe_like": 0.026
+    },
+    "channel_undershoot": {
+      "label": "third push undershot the channel line",
+      "n": 576,
+      "expectancy_r": -0.1609,
+      "expectancy_ci95": [
+        -0.2581,
+        -0.0605
+      ],
+      "win_rate": 0.3924,
+      "avg_win_r": 1.1752,
+      "avg_loss_r": -1.0236,
+      "profit_factor": 0.741,
+      "total_r": -92.65,
+      "max_drawdown_r": -96.26,
+      "sharpe_like": -0.133
+    },
+    "strong_reversal_bar": {
+      "label": "strong reversal bar (>=0.5)",
+      "n": 474,
+      "expectancy_r": -0.1,
+      "expectancy_ci95": [
+        -0.2075,
+        0.0113
+      ],
+      "win_rate": 0.4198,
+      "avg_win_r": 1.1636,
+      "avg_loss_r": -1.0144,
+      "profit_factor": 0.83,
+      "total_r": -47.39,
+      "max_drawdown_r": -55.38,
+      "sharpe_like": -0.083
+    },
+    "weak_reversal_bar": {
+      "label": "weak reversal bar (<0.5)",
+      "n": 316,
+      "expectancy_r": -0.1207,
+      "expectancy_ci95": [
+        -0.2587,
+        0.0165
+      ],
+      "win_rate": 0.3892,
+      "avg_win_r": 1.3011,
+      "avg_loss_r": -1.0268,
+      "profit_factor": 0.808,
+      "total_r": -38.15,
+      "max_drawdown_r": -48.38,
+      "sharpe_like": -0.096
+    },
+    "deepening_pullbacks": {
+      "label": "pullbacks deepening",
+      "n": 185,
+      "expectancy_r": -0.1127,
+      "expectancy_ci95": [
+        -0.2847,
+        0.0628
+      ],
+      "win_rate": 0.4108,
+      "avg_win_r": 1.1706,
+      "avg_loss_r": -1.0075,
+      "profit_factor": 0.81,
+      "total_r": -20.85,
+      "max_drawdown_r": -34.84,
+      "sharpe_like": -0.093
+    }
+  },
+  "brooks_clean": {
+    "label": "Brooks-clean (flag + overshoot + strong reversal)",
+    "n": 23,
+    "expectancy_r": 0.2679,
+    "expectancy_ci95": [
+      -0.2485,
+      0.8082
+    ],
+    "win_rate": 0.5217,
+    "avg_win_r": 1.3983,
+    "avg_loss_r": -0.9653,
+    "profit_factor": 1.58,
+    "total_r": 6.16,
+    "max_drawdown_r": -3.16,
+    "sharpe_like": 0.208
+  },
   "benchmark_random_entry": {
     "label": "random-entry benchmark",
     "n": 790,

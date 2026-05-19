@@ -366,6 +366,10 @@ def simulate_wedge_trade(
         "wedge_type": signal.wedge_type,
         "score": round(signal.score, 4),
         "deceleration": round(signal.deceleration, 4),
+        "is_flag": signal.is_flag,
+        "channel_overshoot": round(signal.channel_overshoot, 4),
+        "reversal_strength": round(signal.reversal_strength, 4),
+        "deepening_pullbacks": signal.deepening_pullbacks,
         "ideal_entry": round(ideal_entry, 4),
         "entry_fill": round(entry_fill, 4),
         "stop": round(stop, 4),
@@ -542,7 +546,7 @@ def run_backtest(
         "cost_sensitivity": cost_sens,
     }
 
-    # --- segmentation: by wedge type, by direction, by score tertile ---
+    # --- segmentation: by wedge type, by score tertile ---
     report["by_wedge_type"] = [
         summarize([t for t in ledger if t["wedge_type"] == wt], wt)
         for wt in ("top", "bottom")
@@ -554,6 +558,39 @@ def run_backtest(
             chunk = scored[d * len(scored) // 3:(d + 1) * len(scored) // 3]
             thirds.append(summarize(chunk, f"score tertile {d + 1}"))
         report["by_score_tertile"] = thirds
+
+    # --- segmentation by the Brooks good/bad-wedge quality fields ---
+    # Each cut isolates one of Brooks' "good wedge" markers so a reader
+    # can see whether it actually carries an edge.
+    report["by_quality"] = {
+        "flag": summarize([t for t in ledger if t["is_flag"]],
+                          "wedge flag (with-trend)"),
+        "reversal": summarize([t for t in ledger if not t["is_flag"]],
+                              "wedge reversal (countertrend)"),
+        "channel_overshoot": summarize(
+            [t for t in ledger if t["channel_overshoot"] > 0],
+            "third push overshot the channel line"),
+        "channel_undershoot": summarize(
+            [t for t in ledger if t["channel_overshoot"] <= 0],
+            "third push undershot the channel line"),
+        "strong_reversal_bar": summarize(
+            [t for t in ledger if t["reversal_strength"] >= 0.5],
+            "strong reversal bar (>=0.5)"),
+        "weak_reversal_bar": summarize(
+            [t for t in ledger if t["reversal_strength"] < 0.5],
+            "weak reversal bar (<0.5)"),
+        "deepening_pullbacks": summarize(
+            [t for t in ledger if t["deepening_pullbacks"]],
+            "pullbacks deepening"),
+    }
+    # The headline cut: every Brooks "good wedge" marker at once.
+    brooks_clean = [
+        t for t in ledger
+        if t["is_flag"] and t["channel_overshoot"] > 0
+        and t["reversal_strength"] >= 0.5
+    ]
+    report["brooks_clean"] = summarize(
+        brooks_clean, "Brooks-clean (flag + overshoot + strong reversal)")
 
     # --- benchmark: random entry of matched frequency + horizon ---
     report["benchmark_random_entry"] = random_entry_benchmark(
@@ -577,6 +614,15 @@ def run_backtest(
         bm = report["benchmark_random_entry"]
         print(f"  random-entry benchmark: exp={bm.get('expectancy_r')}R "
               f"(n={bm.get('n')})")
+        print("\n  --- Brooks good/bad-wedge cuts ---")
+        for q in (report["by_quality"]["flag"],
+                  report["by_quality"]["reversal"],
+                  report["by_quality"]["channel_overshoot"],
+                  report["by_quality"]["strong_reversal_bar"],
+                  report["brooks_clean"]):
+            if q["n"]:
+                print(f"  {q['label']:<48} n={q['n']:<4} "
+                      f"exp={q['expectancy_r']:+.3f}R win={q['win_rate']:.3f}")
     print(f"\nReport: {report_path}")
     print(f"Ledger: {ledger_path}")
     return 0
@@ -651,7 +697,8 @@ def run_selftest() -> int:
     sig = WedgeSignal(
         direction="long", wedge_type="bottom", fire_ts=3,
         fired_bar_index=3, push_ts=(0, 1, 2), push_extreme=98.0,
-        deceleration=0.4, score=8.0,
+        deceleration=0.4, is_flag=True, channel_overshoot=0.2,
+        reversal_strength=0.7, deepening_pullbacks=True, score=8.0,
     )
     # third push low = 98 -> stop = 97.99, risk = 100 - 97.99 = 2.01.
     # 2R target = 100 + 4.02 = 104.02.

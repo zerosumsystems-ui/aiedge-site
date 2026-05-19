@@ -1,33 +1,54 @@
 """Wedge detector — faithful to Al Brooks' three-push wedge.
 
-Source: Al Brooks, *Trading Price Action: Reversals* (Wiley, 2012),
-the wedge chapters. The generic chart-book "wedge" is any pair of
-converging trendlines. Brooks' wedge — the one the rest of this
-codebase's detectors are built on — is a far more specific thing, and
-it is a REVERSAL pattern, not a breakout pattern:
+Source: Al Brooks, *Trading Price Action: Reversals* and the bar-by-bar
+wedge narration in *Reading Price Charts Bar by Bar* (the verbatim text
+committed under public/brooks-tour/). The generic chart-book "wedge"
+is any pair of converging trendlines. Brooks' wedge — the one the rest
+of this codebase's detectors are built on — is a three-push pattern,
+and it is a REVERSAL, not a breakout:
 
-  A wedge is a three-push pattern. Price makes three pushes in the
-  same direction, each push reaching a new extreme, and the moves
-  lose momentum — the third push is weaker than the second. The
-  trend line and the trend channel line converge. After the third
-  push, price reverses, and that reversal is the trade.
+  Price makes three pushes in the same direction, each reaching a new
+  extreme; the moves lose momentum (the third push is weaker than the
+  second); then price reverses, and the reversal is the trade.
 
 So a Brooks wedge has two halves:
 
   1. THREE PUSHES — three swing highs H1 < H2 < H3 (a "wedge top",
      bearish) or three swing lows L1 > L2 > L3 (a "wedge bottom",
-     bullish), each separated by a pullback, with the final push
-     decelerating (push 3 smaller than push 2 — momentum waning).
+     bullish), each separated by a pullback, the final push
+     decelerating (push 3 height <= 85% of push 2).
 
-  2. THE REVERSAL — after the third push, the first reversal bar
-     against it. A wedge top reverses DOWN (trade short); a wedge
-     bottom reverses UP (trade long). Brooks enters on the reversal,
-     with the protective stop beyond the third push's extreme.
+  2. THE REVERSAL — the first reversal bar against the third push.
 
-The same three-pushes-then-reverse shape is both Brooks' wedge
-*reversal* and his wedge *bull/bear flag* (a pullback that ends a
-correction); the mechanical signal and entry are identical, so this
-detector does not distinguish them.
+GOOD vs BAD wedges — Brooks' own distinctions, encoded as the four
+quality fields on WedgeSignal (the detector emits *every* wedge; the
+fields, not a filter, separate good from bad — see the backtest):
+
+  * `is_flag` — Brooks splits the wedge in two. A wedge whose three
+    pushes run *against* the larger trend is a wedge *flag* (a
+    pullback); trading its reversal is *with* the larger trend —
+    higher probability. A wedge whose pushes run *with* the trend is a
+    countertrend *reversal* — lower probability. is_flag marks the
+    flag case.
+  * `channel_overshoot` — "a bear micro wedge that overshot the trend
+    channel line that could be drawn across the bottoms of the prior
+    three bars." A real wedge's third push poking *past* the line
+    through the first two pushes, then failing, is the signal. >0 =
+    overshoot.
+  * `reversal_strength` — Brooks: "the market rarely reverses very far
+    on the first attempt, especially when the signal bar has a close
+    in the middle instead of at its low." A strong reversal bar (big
+    body, close at its extreme) scores high.
+  * `deepening_pullbacks` — "As a trend wears on, the bulls typically
+    will want deeper pullbacks." A second pullback deeper than the
+    first is the trend losing strength — a precondition for a real
+    reversal.
+
+  Brooks also warns the bad cases: "micro wedges by themselves don't
+  usually lead to major reversals" (no confluence) and a wedge that
+  reverses into "a relatively tight bear channel" should be skipped.
+  `score` rewards the good signs so the scanner and backtest can sort
+  and segment by wedge quality.
 
 Why this detector is unbiased — the property Will asked for:
 
@@ -35,16 +56,16 @@ Why this detector is unbiased — the property Will asked for:
      of confirmation on each side, so the third push is only
      *confirmed* PIVOT_K bars after it prints. The signal is emitted
      at `max(reversal bar, H3 + PIVOT_K)` — the first bar at which a
-     live observer could know both that the third push was a pivot
-     and that price reversed.
+     live observer could know both facts.
 
   2. No hindsight on the reversal. The reversal test is a CLOSED
      bar's close. Entry is simulated at the NEXT bar's open.
 
   3. Backfill == live. Every check for the signal emitted at bar n
      reads only bars[:n + 1], so a historical sweep emits exactly the
-     set of signals a streaming bar-by-bar scanner would have emitted
-     in real time. Verified by a backfill-equals-live-replay test.
+     set of signals a streaming scanner would have emitted in real
+     time. Verified by a backfill-equals-live-replay test. Every
+     quality field is likewise computed only from bars[:n + 1].
 
   4. No selection of winners. Every three-push-then-reverse wedge is
      emitted, including the ones whose reversal immediately fails.
@@ -64,16 +85,16 @@ from typing import Sequence
 PIVOT_K = 3              # a swing pivot needs 3 bars of lower-high /
                          # higher-low context on each side; it is
                          # confirmed PIVOT_K bars later.
-WEDGE_LOOKBACK = 80      # the three pushes must fall inside the most
-                         # recent 80 bars.
-MIN_WEDGE_SPAN = 12      # the first and third push must span >= 12
-                         # bars — three adjacent wiggles are not a
-                         # wedge.
+WEDGE_LOOKBACK = 80      # the three pushes must fall inside the last
+                         # 80 bars.
+MIN_WEDGE_SPAN = 12      # push 1 -> push 3 must span >= 12 bars.
 DECELERATION_MAX = 0.85  # Brooks: the third push loses momentum. Its
                          # height must be <= 85% of the second push's.
 MAX_REVERSAL_GAP = 8     # the reversal must come within 8 bars of the
-                         # third push, or it is unrelated to the wedge.
+                         # third push.
 COOLDOWN_BARS = 10       # one wedge structure emits one signal.
+TREND_LOOKBACK = 15      # bars before push 1 used to read the larger
+                         # trend the wedge sits in (flag vs reversal).
 
 
 @dataclass(frozen=True)
@@ -97,7 +118,15 @@ class WedgeSignal:
     push_ts: tuple[int, int, int]  # epochs of the 3 push extremes
     push_extreme: float       # price of the 3rd push — the stop reference
     deceleration: float       # push3 / push2 (< 1 — smaller = weaker)
-    score: float              # stable rank key for the scanner UI
+    # ----- Brooks good/bad-wedge quality fields -----
+    is_flag: bool             # pushes run against the larger trend ->
+                              # the reversal is a with-trend flag trade
+    channel_overshoot: float  # push 3 vs the push1-push2 trend channel
+                              # line, normalised by push 2 (>0 = overshoot)
+    reversal_strength: float  # 0..1 — body × close-at-extreme of the
+                              # reversal (signal) bar
+    deepening_pullbacks: bool # 2nd pullback deeper than the 1st
+    score: float              # stable rank key — higher = better wedge
 
 
 # ----- pivots ---------------------------------------------------------
@@ -149,16 +178,38 @@ def _is_bull_reversal(bars: Sequence[Bar], i: int) -> bool:
     return b.c > b.o and b.c > bars[i - 1].h
 
 
+def _reversal_strength(bar: Bar, direction: str) -> float:
+    """0..1 strength of a reversal (signal) bar — Brooks rewards a big
+    body that closes at its extreme, penalises a close in the middle."""
+    rng = bar.h - bar.l
+    if rng <= 0:
+        return 0.0
+    if direction == "short":            # bear signal bar
+        body = max(0.0, bar.o - bar.c)
+        close_at_extreme = 1.0 - (bar.c - bar.l) / rng   # close near low
+    else:                               # bull signal bar
+        body = max(0.0, bar.c - bar.o)
+        close_at_extreme = (bar.c - bar.l) / rng         # close near high
+    return (body / rng) * close_at_extreme
+
+
 # ----- wedge geometry -------------------------------------------------
+
+@dataclass(frozen=True)
+class _Wedge:
+    """Intermediate three-push reading, before the reversal is found."""
+    push_idx: tuple[int, int, int]
+    push_prices: tuple[float, float, float]
+    pullback_prices: tuple[float, float]   # (between p1&p2, between p2&p3)
+    push_extreme: float
+    deceleration: float
+
 
 def _evaluate_top(
     bars: Sequence[Bar], highs: list[int], lows: list[int],
-) -> tuple[float, float, tuple[int, int, int]] | None:
-    """Try to read a three-push wedge TOP from the confirmed pivots.
-
-    Uses the three most recent confirmed pivot highs as the pushes.
-    Returns (push_extreme, deceleration, push_ts) or None.
-    """
+) -> _Wedge | None:
+    """Read a three-push wedge TOP from the most recent confirmed
+    pivot highs. Returns a `_Wedge` or None."""
     if len(highs) < 3:
         return None
     h1, h2, h3 = highs[-3], highs[-2], highs[-1]
@@ -168,7 +219,6 @@ def _evaluate_top(
     if h3 - h1 < MIN_WEDGE_SPAN:
         return None
 
-    # A pullback low must separate each pair of pushes.
     low_12 = [lo for lo in lows if h1 < lo < h2]
     low_23 = [lo for lo in lows if h2 < lo < h3]
     if not low_12 or not low_23:
@@ -176,21 +226,20 @@ def _evaluate_top(
     l1 = max(bars[lo].l for lo in low_12)  # shallowest pullback
     l2 = max(bars[lo].l for lo in low_23)
 
-    # Brooks: the third push loses momentum.
     push2 = p2 - l1
     push3 = p3 - l2
     if push2 <= 0 or push3 <= 0:
         return None
     decel = push3 / push2
     if decel > DECELERATION_MAX:
-        return None
+        return None  # Brooks: the third push must lose momentum
 
-    return p3, decel, (bars[h1].t, bars[h2].t, bars[h3].t)
+    return _Wedge((h1, h2, h3), (p1, p2, p3), (l1, l2), p3, decel)
 
 
 def _evaluate_bottom(
     bars: Sequence[Bar], highs: list[int], lows: list[int],
-) -> tuple[float, float, tuple[int, int, int]] | None:
+) -> _Wedge | None:
     """Mirror of `_evaluate_top` for a three-push wedge BOTTOM."""
     if len(lows) < 3:
         return None
@@ -216,7 +265,60 @@ def _evaluate_bottom(
     if decel > DECELERATION_MAX:
         return None
 
-    return p3, decel, (bars[l1].t, bars[l2].t, bars[l3].t)
+    return _Wedge((l1, l2, l3), (p1, p2, p3), (h1, h2), p3, decel)
+
+
+def _channel_overshoot(wedge: _Wedge, wedge_type: str) -> float:
+    """How far the third push pokes past the trend channel line drawn
+    through pushes 1 and 2, normalised by the second push's height.
+
+    Brooks: a real wedge overshoots that line on the third push. >0 is
+    an overshoot, <0 an undershoot (an even more exhausted third push).
+    """
+    (i1, i2, i3) = wedge.push_idx
+    (p1, p2, p3) = wedge.push_prices
+    if i2 == i1:
+        return 0.0
+    slope = (p2 - p1) / (i2 - i1)
+    line_at_i3 = p1 + slope * (i3 - i1)
+    push2 = abs(p2 - wedge.pullback_prices[0])
+    if push2 <= 0:
+        return 0.0
+    # A top overshoots upward (p3 above the line); a bottom downward.
+    raw = (p3 - line_at_i3) if wedge_type == "top" else (line_at_i3 - p3)
+    return raw / push2
+
+
+def _deepening_pullbacks(wedge: _Wedge, wedge_type: str) -> bool:
+    """True when the second counter-move is deeper than the first —
+    the trend losing strength, a Brooks precondition for a reversal."""
+    (p1, p2, _) = wedge.push_prices
+    (q1, q2) = wedge.pullback_prices
+    if wedge_type == "top":
+        return (p2 - q2) > (p1 - q1)   # pullback depth from each push high
+    return (q2 - p2) > (q1 - p1)       # rally height from each push low
+
+
+def _is_flag(
+    bars: Sequence[Bar], wedge: _Wedge, wedge_type: str,
+) -> bool:
+    """True when the wedge's three pushes run *against* the larger
+    trend — a Brooks wedge flag, whose reversal is a with-trend trade.
+
+    The larger trend is read from the close TREND_LOOKBACK bars before
+    the first push. A wedge top (pushes up) inside a prior downtrend is
+    a bear flag; a wedge bottom (pushes down) inside a prior uptrend is
+    a bull flag.
+    """
+    i1 = wedge.push_idx[0]
+    w = i1 - TREND_LOOKBACK
+    if w < 0:
+        return False  # not enough context — treat as a plain reversal
+    prior = bars[w].c
+    p1 = wedge.push_prices[0]
+    if wedge_type == "top":
+        return prior > p1   # price fell into the wedge -> bear flag
+    return prior < p1       # price rose into the wedge -> bull flag
 
 
 def detect_wedges(bars: Sequence[Bar], *, k: int = PIVOT_K) -> list[WedgeSignal]:
@@ -236,7 +338,6 @@ def detect_wedges(bars: Sequence[Bar], *, k: int = PIVOT_K) -> list[WedgeSignal]
         if n <= cooldown_until:
             continue
 
-        # Confirmed pivots at evaluation bar n: index <= n - k.
         window_start = max(0, n - WEDGE_LOOKBACK)
         highs = [
             i for i in _confirmed_pivot_highs(bars, n, k)
@@ -250,19 +351,16 @@ def detect_wedges(bars: Sequence[Bar], *, k: int = PIVOT_K) -> list[WedgeSignal]
         for wedge_type in ("top", "bottom"):
             if wedge_type == "top":
                 wedge = _evaluate_top(bars, highs, lows)
-                pushes = highs
                 reversal = _is_bear_reversal
                 direction = "short"
             else:
                 wedge = _evaluate_bottom(bars, highs, lows)
-                pushes = lows
                 reversal = _is_bull_reversal
                 direction = "long"
             if wedge is None:
                 continue
-            push_extreme, decel, push_ts = wedge
 
-            third = pushes[-1]  # index of the third push pivot
+            third = wedge.push_idx[-1]
             # First reversal bar after the third push. Capped at n so
             # the search never reads a bar the emission bar cannot see.
             rev = None
@@ -274,24 +372,40 @@ def detect_wedges(bars: Sequence[Bar], *, k: int = PIVOT_K) -> list[WedgeSignal]
             if rev is None:
                 continue
 
-            # The signal is knowable only once BOTH the third push is
-            # confirmed (third + k) and the reversal has printed (rev).
+            # Knowable only once the third push is confirmed
+            # (third + k) AND the reversal has printed (rev).
             emission = max(rev, third + k)
             if emission != n:
-                continue  # emit once, at the exact knowable bar
+                continue
 
-            # Stable score: a wedge whose third push died hardest
-            # (lowest deceleration ratio) ranks highest.
-            score = 3.0 + (1.0 - decel) * 4.0
+            # ----- Brooks good/bad-wedge quality fields -----
+            overshoot = _channel_overshoot(wedge, wedge_type)
+            strength = _reversal_strength(bars[rev], direction)
+            deepening = _deepening_pullbacks(wedge, wedge_type)
+            flag = _is_flag(bars, wedge, wedge_type)
+
+            # Score rewards the Brooks "good wedge" signs. Fixed
+            # weights, never tuned to the equity curve.
+            score = (
+                3.0
+                + 2.0 * strength
+                + (2.0 if flag else 0.0)
+                + 2.0 * max(0.0, min(overshoot, 1.0))
+                + (1.0 if deepening else 0.0)
+            )
 
             signals.append(WedgeSignal(
                 direction=direction,
                 wedge_type=wedge_type,
                 fire_ts=bars[n].t,
                 fired_bar_index=n,
-                push_ts=push_ts,
-                push_extreme=push_extreme,
-                deceleration=decel,
+                push_ts=tuple(bars[i].t for i in wedge.push_idx),
+                push_extreme=wedge.push_extreme,
+                deceleration=wedge.deceleration,
+                is_flag=flag,
+                channel_overshoot=overshoot,
+                reversal_strength=strength,
+                deepening_pullbacks=deepening,
                 score=score,
             ))
             cooldown_until = n + COOLDOWN_BARS

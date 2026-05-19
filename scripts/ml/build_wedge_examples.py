@@ -57,21 +57,29 @@ def main() -> int:
                 "stop_price": round(trade["stop"], 2),
                 "target_price": round(trade["target"], 2),
                 "deceleration": round(sig.deceleration, 3),
+                # Brooks good/bad-wedge quality fields.
+                "is_flag": sig.is_flag,
+                "channel_overshoot": round(sig.channel_overshoot, 3),
+                "reversal_strength": round(sig.reversal_strength, 3),
+                "deepening_pullbacks": sig.deepening_pullbacks,
+                "brooks_clean": bool(
+                    sig.is_flag and sig.channel_overshoot > 0
+                    and sig.reversal_strength >= 0.5),
                 "exit_reason": trade["exit_reason"],
                 "net_r": round(trade["net_r"], 2),
             })
 
-    # Diverse spread: best winners, worst losers, and mid/time-stops —
-    # the gallery is a study, so it must show the full range.
+    # Diverse spread: Brooks-clean wedges, channel-overshoot wedges,
+    # and the worst undershoot losers — the gallery is a study, so it
+    # must show the good/bad contrast Brooks draws.
     by_r = sorted(found, key=lambda f: f["net_r"])
-    winners = [f for f in by_r if f["net_r"] > 0]
-    losers = [f for f in by_r if f["net_r"] <= 0]
     picks: list[dict] = []
-    picks += list(reversed(winners))[:8]                 # 8 best
-    picks += losers[:8]                                  # 8 worst
-    timeouts = [f for f in found
-                if f["exit_reason"] == "time" and f not in picks]
-    picks += timeouts[:N_EXAMPLES - len(picks)]          # fill with time-stops
+    picks += [f for f in by_r if f["brooks_clean"]][::-1][:6]   # good
+    overshoot = [f for f in by_r if f["channel_overshoot"] > 0
+                 and not f["brooks_clean"]]
+    picks += overshoot[::-1][:6]                                # mixed
+    undershoot = [f for f in by_r if f["channel_overshoot"] <= 0]
+    picks += undershoot[:9]                                     # bad
     # De-dup, keep order, cap.
     seen: set[tuple] = set()
     examples: list[dict] = []

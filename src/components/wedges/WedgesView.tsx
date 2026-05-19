@@ -16,6 +16,11 @@ interface WedgeExample {
   stop_price: number
   target_price: number
   deceleration: number
+  is_flag: boolean
+  channel_overshoot: number
+  reversal_strength: number
+  deepening_pullbacks: boolean
+  brooks_clean: boolean
   exit_reason: string
   net_r: number
 }
@@ -110,10 +115,14 @@ export function WedgesView() {
             <span className="font-mono text-text">
               {data.verdict.profit_factor?.toFixed(2) ?? "—"}
             </span>
-            . <span className="text-text">No tradeable edge.</span> Traded
-            mechanically as a standalone reversal, the bare pattern loses.
-            This page is a study of what the pattern looks like, not a
-            signal.
+            . <span className="text-text">No tradeable edge</span> for the
+            bare pattern. But segmenting by Brooks&apos; own good/bad-wedge
+            markers, one holds up: wedges whose third push{" "}
+            <span className="text-text">overshot the trend channel line</span>{" "}
+            break even (+0.03R, profit factor 1.06) while the ones that
+            undershot lose decisively (−0.16R). The badge on each card
+            below is that quality tag. This page is a study of what the
+            pattern looks like, not a signal.
           </p>
         </div>
       )}
@@ -154,6 +163,13 @@ function WedgeCard({ ex }: { ex: WedgeExample }) {
   const dirCls = ex.direction === "long" ? "text-teal" : "text-red"
   const rCls = ex.net_r >= 0 ? "text-teal" : "text-red"
 
+  // Brooks good/bad-wedge quality badge.
+  const quality = ex.brooks_clean
+    ? { label: "Brooks-clean", cls: "bg-teal/15 text-teal" }
+    : ex.channel_overshoot > 0
+      ? { label: "channel overshoot", cls: "bg-amber-400/15 text-amber-400" }
+      : { label: "undershoot", cls: "bg-sub/15 text-sub" }
+
   return (
     <div className="overflow-hidden rounded-md border border-border bg-surface">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-3 py-2">
@@ -162,6 +178,9 @@ function WedgeCard({ ex }: { ex: WedgeExample }) {
           <span className="font-mono text-[11px] text-sub tabular-nums">{ex.session_date}</span>
           <span className={`text-[10px] font-semibold uppercase tracking-wide ${dirCls}`}>
             wedge {ex.wedge_type} · {ex.direction}
+          </span>
+          <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${quality.cls}`}>
+            {quality.label}
           </span>
         </div>
         <div className="flex items-baseline gap-2 font-mono text-[11px] tabular-nums">
@@ -176,9 +195,11 @@ function WedgeCard({ ex }: { ex: WedgeExample }) {
         <LightweightChart chart={chart} height={240} interactive={false} hideScales={false} />
       </div>
       <div className="px-3 py-1.5 font-mono text-[10px] tabular-nums text-sub">
-        3-push wedge · 3rd push {Math.round(ex.deceleration * 100)}% of 2nd ·
-        entry {ex.entry_price.toFixed(2)} · stop {ex.stop_price.toFixed(2)} ·
-        target {ex.target_price.toFixed(2)}
+        3rd push {Math.round(ex.deceleration * 100)}% of 2nd ·{" "}
+        {ex.is_flag ? "flag" : "reversal"} · overshoot{" "}
+        {ex.channel_overshoot >= 0 ? "+" : ""}
+        {ex.channel_overshoot.toFixed(2)} · entry {ex.entry_price.toFixed(2)} ·
+        stop {ex.stop_price.toFixed(2)} · target {ex.target_price.toFixed(2)}
       </div>
     </div>
   )

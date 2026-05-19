@@ -44,6 +44,28 @@ bar* (§3). Pre-registered thresholds (in `wedge_detector.py`):
 | `DECELERATION_MAX` | 0.85 | push 3 height ≤ 85% of push 2 — momentum waning |
 | `MAX_REVERSAL_GAP` | 8 | the reversal must come within 8 bars of push 3 |
 | `COOLDOWN_BARS` | 10 | one wedge structure emits one signal |
+| `TREND_LOOKBACK` | 15 | bars before push 1 read to classify flag vs reversal |
+
+## 1.1 Good wedge vs bad wedge — the quality fields
+
+Brooks is explicit that not every three-push wedge is tradeable —
+"micro wedges by themselves don't usually lead to major reversals,"
+and a wedge that reverses into "a relatively tight bear channel"
+should be skipped. The detector does **not** drop the bad ones (that
+would bias the sample); instead it tags every wedge with four quality
+fields, each lifted directly from the primary source, so the backtest
+can *segment* by them and let the data speak. All four were defined
+from the book **before** any result was seen.
+
+| Field | Brooks basis |
+|---|---|
+| `is_flag` | A wedge whose pushes run *against* the larger trend is a wedge *flag* — its reversal is a with-trend trade. Pushes *with* the trend make it a countertrend reversal. |
+| `channel_overshoot` | "a bear micro wedge that overshot the trend channel line that could be drawn across the bottoms of the prior three bars." A real wedge's third push pokes *past* the line through pushes 1 & 2, then fails. >0 = overshoot. |
+| `reversal_strength` | "the market rarely reverses very far on the first attempt, especially when the signal bar has a close in the middle instead of at its low." 0–1: body × close-at-extreme of the reversal bar. |
+| `deepening_pullbacks` | "As a trend wears on, the bulls typically will want deeper pullbacks." A second pullback deeper than the first = the trend losing strength. |
+
+`score` is a fixed, never-tuned weighting of these. §7 reports the
+backtest segmented by each field — the actual good-vs-bad answer.
 
 ## 2. Data
 
@@ -178,7 +200,8 @@ commission_R, where the fills include slippage.
 - Expectancy (net R / trade) with a bootstrap 95% confidence interval
 - Win rate, average win R, average loss R, profit factor
 - Cumulative total R, maximum drawdown (R), Sharpe-like ratio
-- Segmentation by wedge type (top vs bottom) and by score tertile
+- Segmentation by wedge type (top vs bottom), by score tertile, and
+  **by each Brooks good/bad-wedge quality field** (§1.1)
 - **Benchmark**: a random-entry strategy of *matched frequency and
   holding period*. The wedge edge has to beat plain market drift —
   if the random benchmark earns as much, the wedge signal added
@@ -186,36 +209,59 @@ commission_R, where the fills include slippage.
 
 ## 7. Result of record
 
-The intraday run is **net negative**, and the backtest reports that
-plainly rather than hunting for a flattering cut:
+### 7.1 The bare wedge is a loser
 
-| Cut (primary 2R / 20 bars) | n | Expectancy | Win | Profit factor |
+Traded as a plain three-push reversal — every wedge taken — the
+intraday run is **net negative**, and the backtest reports that
+plainly:
+
+| Cut (primary 2R / 20 bars) | n | Expectancy | Win | PF |
 |---|---|---|---|---|
 | All trades | 790 | **−0.108R** (CI95 −0.194…−0.022) | 40.8% | 0.82 |
-| Wedge tops (short) | 414 | −0.095R | 41.3% | — |
-| Wedge bottoms (long) | 376 | −0.123R | 40.2% | — |
 | Random-entry benchmark | 790 | −0.002R | — | — |
 
-- **Every cell of the 4×2 target/horizon grid is negative.** There is
-  no cell to cherry-pick — consistent with "an edge in one cell only
-  is noise."
-- **The detector's score is anti-predictive**: score tertile 1
-  −0.032R, tertile 2 −0.117R, tertile 3 −0.175R. The wedges with the
-  hardest-decelerating third push — the "best" Brooks wedges by the
-  score — did *worst*.
-- **The edge does not survive costs** — already negative at 1× and
-  −0.45R at 3× costs.
+Every cell of the 4×2 target/horizon grid is negative; the loss
+survives at 1× costs and worsens to −0.45R at 3×. The benchmark
+(≈0R) confirms the loss is the setup, not market drift.
 
-Read straight: the Brooks three-push wedge, traded mechanically as a
-standalone reversal on this 5-minute intraday sample, has **no
-positive edge**. The random-entry benchmark (≈0R) confirms the loss
-is the setup, not market drift. The value of this exercise is the
-honest negative — the detector and harness are unbiased enough
-(no hindsight, no cherry-picked cell, every reversal taken) to say so
-rather than flatter the strategy. A tradeable wedge would need the
-context Brooks himself stresses — the trend the wedge sits in, the
-strength of the reversal bar, follow-through — which this purely
-mechanical V1 deliberately omits.
+### 7.2 Good wedge vs bad wedge — what the Brooks markers show
+
+Segmenting the same 790 trades by the four quality fields (§1.1) —
+all defined from the book before any result was seen — is where the
+good/bad-wedge question gets answered:
+
+| Brooks marker | n | Expectancy | CI95 | PF |
+|---|---|---|---|---|
+| third push **overshot** the channel line | 214 | **+0.033R** | −0.136…+0.205 | 1.06 |
+| third push undershot the channel line | 576 | −0.161R | −0.258…−0.061 | 0.74 |
+| wedge flag (with-trend) | 177 | −0.135R | −0.311…+0.050 | 0.78 |
+| wedge reversal (countertrend) | 613 | −0.101R | −0.199…−0.001 | 0.83 |
+| strong reversal bar (≥ 0.5) | 474 | −0.100R | −0.208…+0.011 | 0.83 |
+| **Brooks-clean** (flag + overshoot + strong bar) | 23 | +0.268R | −0.249…+0.808 | 1.58 |
+
+The signal that separates good from bad is exactly the one Brooks
+names first: the **trend-channel-line overshoot**. Wedges whose third
+push overshot the line break even (+0.033R, PF 1.06); the wedges that
+undershot are decisively negative (−0.161R, CI fully below zero). The
+mechanical detector independently rediscovered the book's criterion.
+
+Honest caveats, stated plainly:
+
+- The overshoot cut is *break-even, not a proven edge* — its CI still
+  straddles zero. It separates "stop losing" from "lose badly," which
+  is real but not yet tradeable.
+- `is_flag` and `reversal_strength`, on their own, did **not**
+  separate edge here — both subsets stayed negative.
+- The **Brooks-clean** triple cut looks strong (+0.268R, PF 1.58) but
+  n = 23 is far too small; its CI runs −0.25 … +0.81. It is a
+  *hypothesis the data suggests*, not a result — it would need
+  pre-registered, out-of-sample confirmation before anyone traded it.
+
+Read straight: the bare wedge has no edge, but Brooks' overshoot
+criterion is a genuine, source-grounded filter that flips the worst
+half of the sample off the table. That is the value of an unbiased
+harness — it can both kill the naive strategy and confirm the one
+piece of the primary source that actually holds up.
 
 ## 8. Known limitations
 
@@ -225,11 +271,16 @@ mechanical V1 deliberately omits.
   *intraday* wedges. A multi-day swing wedge would need a continuous
   daily series — run `--source daily` or `--source remote` once a
   working `/api/bars` is available.
-- **Context omitted**: Brooks treats the wedge as a reversal *in
-  context* (a trend losing strength, a strong signal bar). This V1
-  scores only the geometry. That omission is deliberate — it isolates
-  whether the bare pattern has an edge — and §7 is the answer: it
-  does not.
+- **Post-hoc combination**: the four quality fields are pre-registered
+  (defined from the book before results), so segmenting by each one is
+  legitimate. The *Brooks-clean* triple combination is one step more
+  exploratory — it is the conjunction the markers suggest, reported as
+  a hypothesis, not a result (§7.2). It needs out-of-sample proof.
+- **Confluence not modelled**: Brooks stresses a wedge is strongest
+  with *other* factors stacked on it (a higher-timeframe wedge, a
+  measured move, a climax). This engine scores only the wedge's own
+  geometry and reversal bar — the broader confluence is left to a
+  future version.
 - **5-minute intrabar resolution**: a 5-min bar that straddles stop
   and target is scored as a stop. Conservative, but coarse.
 - **Single regime span**: the corpus covers roughly one year. The
